@@ -1,4 +1,4 @@
-# Entrenador IA
+# KettleIA
 
 App móvil de entrenamiento con kettlebell (Expo + React Native + TypeScript).
 

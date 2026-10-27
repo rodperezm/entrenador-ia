@@ -23,7 +23,7 @@ import { useProfile } from '@/state/profile';
 import { colors, spacing } from '@/theme';
 
 const STEPS = [
-  { title: 'Bienvenido', subtitle: 'Armemos tu perfil de entrenamiento.', Component: WelcomeStep },
+  { title: 'Bienvenido a KettleIA', subtitle: 'Armemos tu perfil de entrenamiento.', Component: WelcomeStep },
   { title: 'Sobre ti', subtitle: 'Para tus índices corporales y para ajustar tu entrenamiento.', Component: AboutStep },
   { title: 'Tu nivel', subtitle: 'Define la complejidad inicial de los ejercicios.', Component: LevelStep },
   { title: 'Tu equipamiento', subtitle: 'Solo te propondremos ejercicios que puedas hacer.', Component: EquipmentStep },
