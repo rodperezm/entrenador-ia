@@ -1,5 +1,5 @@
 import { Link, router, Stack, useLocalSearchParams } from 'expo-router';
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { Chip } from '@/components/Chip';
 import { Button, Stepper } from '@/components/ui';
@@ -33,48 +33,59 @@ import { colors, radius, spacing } from '@/theme';
 
 type Blocks = DayConfig['blocks'];
 
+const STRENGTH_DAY = ['warmup', 'main', 'cooldown'] as const;
+
 export default function DayScreen() {
   const params = useLocalSearchParams<{ day: string }>();
   const parsed = DayOfWeek.safeParse(params.day);
   const { week, plan, updateDay, savePlan } = usePlan();
   const { sessions } = useHistory();
   const { profile } = useProfile();
+  // Ajustes en borrador: solo se guardan al confirmar «Rehacer con estos ajustes».
+  const [draft, setDraft] = useState<DayConfig | null>(null);
   if (!parsed.success) return null;
   const day = parsed.data;
   const cfg = week.days.find((d) => d.day === day)!;
 
-  const set = (patch: Partial<DayConfig>) => updateDay(day, (d) => ({ ...d, ...patch }));
   const hasConditions = (profile?.conditions.length ?? 0) > 0;
-  const parts = dayChoiceOf(cfg);
   const today = isToday(day);
-  const setBlock = <K extends keyof Blocks>(key: K, patch: Partial<Blocks[K]>) =>
-    updateDay(day, (d) => ({ ...d, blocks: { ...d.blocks, [key]: { ...d.blocks[key], ...patch } } }));
-
   const dayPlan = plan?.days.find((p) => p.day === day);
   const stale = !!plan && !!profile && staleDays(plan, week, profile.updatedAt).has(day);
-  const groups = cfg.blocks.main.muscleGroups;
+  // Un día de entrenamiento sin rutina abre los ajustes directamente.
+  const editing = draft ?? (cfg.active && !dayPlan ? cfg : null);
 
-  // Rehace solo este día con las reglas de la app: instantáneo y sin costo de IA.
-  const redoDay = async () => {
-    if (!profile) return;
-    const isActive = (d: DayOfWeek) => week.days.some((w) => w.day === d && w.active);
+  const openAdjust = () => setDraft(cfg.active ? cfg : applyDayChoice(cfg, [...STRENGTH_DAY]));
+  const edit = (patch: (d: DayConfig) => DayConfig) => setDraft(patch(editing ?? cfg));
+  const setBlock = <K extends keyof Blocks>(key: K, patch: Partial<Blocks[K]>) =>
+    edit((d) => ({ ...d, blocks: { ...d.blocks, [key]: { ...d.blocks[key], ...patch } } }));
+
+  // Guarda los ajustes y rehace solo este día con las reglas de la app (instantáneo, sin costo de IA).
+  const confirm = async () => {
+    if (!profile || !editing) return;
+    const next = editing;
+    updateDay(day, () => next);
+    setDraft(null);
+    if (!next.active) return;
+    const nextWeek = { days: week.days.map((d) => (d.day === day ? next : d)) };
+    const isActive = (d: DayOfWeek) => nextWeek.days.some((w) => w.day === d && w.active);
     // Incluye la rutina actual del día para que la nueva prefiera ejercicios distintos.
     const others = (plan?.days ?? []).filter((p) => isActive(p.day));
-    const newDay = generateDayByRules(cfg, others, profile, EXERCISES, sessions);
+    const newDay = generateDayByRules(next, others, profile, EXERCISES, sessions);
     const order = DAYS.map((d) => d.id);
     const days = [...(plan?.days ?? []).filter((p) => p.day !== day), newDay].sort(
       (a, b) => order.indexOf(a.day) - order.indexOf(b.day),
     );
-    const weekHash = configHash(week, profile.updatedAt);
     // Un plan antiguo sin huellas por día, si estaba al día, las hereda de la semana actual.
-    const previousHashes = plan?.dayHashes ?? (plan?.configHash === weekHash ? dayHashes(week, profile.updatedAt) : {});
+    const previousHashes =
+      plan?.dayHashes ??
+      (plan?.configHash === configHash(week, profile.updatedAt) ? dayHashes(week, profile.updatedAt) : {});
     await savePlan({
       days,
       summary: plan?.summary ?? 'Rutina armada día a día con las reglas de la app.',
       generatedAt: plan?.generatedAt ?? new Date().toISOString(),
       generator: plan?.generator ?? 'rules',
-      configHash: plan?.configHash ?? weekHash,
-      dayHashes: { ...previousHashes, [day]: dayConfigHash(cfg, profile.updatedAt) },
+      configHash: plan?.configHash ?? configHash(nextWeek, profile.updatedAt),
+      dayHashes: { ...previousHashes, [day]: dayConfigHash(next, profile.updatedAt) },
     });
   };
 
@@ -86,58 +97,99 @@ export default function DayScreen() {
         {DAY_LONG[day]} {fmtDayDate(dayDate(day))}
       </Text>
 
-      {/* Primero la rutina; la configuración del día va después. */}
-      {cfg.active && (
+      {/* Lo normal es abrir el día para entrenar: primero la rutina. */}
+      {!cfg.active && !editing && (
         <>
-          <Text style={[styles.section, { marginTop: 0 }]}>Rutina de este día</Text>
-          {!dayPlan ? (
-            <>
-              <Text style={styles.muted}>
-                Aún no hay rutina para este día. Ármala aquí o genera toda la semana desde «Mi semana».
-              </Text>
-              <Button label="Armar este día" onPress={redoDay} />
-            </>
-          ) : (
-            <>
-              {stale && (
-                <Text style={styles.stale}>
-                  Esta rutina es anterior a tus últimos cambios. Toca «Rehacer este día» para actualizarla.
-                </Text>
-              )}
-              <Button
-                label="Empezar entrenamiento"
-                onPress={() => router.push({ pathname: '/workout/[day]', params: { day } })}
-              />
-              {dayPlan.blocks.map((b) => (
-                <View key={b.type} style={styles.routineBlock}>
-                  <Text style={styles.routineTitle}>{BLOCK_LABELS[b.type]}</Text>
-                  {b.slots.map((s, i) => {
-                    const ex = EXERCISES_BY_ID.get(s.exerciseId);
-                    if (!ex) return null;
-                    return (
-                      <Link key={i} href={{ pathname: '/exercise/[id]', params: { id: ex.id } }} asChild>
-                        <Pressable style={styles.slot}>
-                          <View style={{ flex: 1, gap: 2 }}>
-                            <Text style={styles.slotName}>{ex.name.es}</Text>
-                            {s.rationale && <Text style={styles.muted}>{s.rationale}</Text>}
-                          </View>
-                          <Text style={styles.slotRx}>{slotLabel(s)}</Text>
-                        </Pressable>
-                      </Link>
-                    );
-                  })}
-                </View>
-              ))}
-              <Button label="Rehacer este día" variant={stale ? 'primary' : 'ghost'} onPress={redoDay} />
-              <Text style={styles.muted}>
-                Cambia los ejercicios de este día al instante, sin tocar el resto de la semana.
-              </Text>
-            </>
-          )}
-          <View style={styles.divider} />
-          <Text style={styles.settingsTitle}>Ajustar este día</Text>
+          <Text style={[styles.section, { marginTop: 0 }]}>Día de descanso</Text>
+          <Text style={styles.muted}>Recuperar también es parte del entrenamiento.</Text>
+          <Button label="Entrenar este día" variant="ghost" onPress={openAdjust} />
         </>
       )}
+
+      {cfg.active && dayPlan && (
+        <>
+          <Text style={[styles.section, { marginTop: 0 }]}>Rutina de este día</Text>
+          {stale && !editing && (
+            <Text style={styles.stale}>
+              Tu perfil cambió desde que se armó esta rutina. Toca «Rehacer o ajustar este día» para actualizarla.
+            </Text>
+          )}
+          <Button
+            label="Empezar entrenamiento"
+            onPress={() => router.push({ pathname: '/workout/[day]', params: { day } })}
+          />
+          {dayPlan.blocks.map((b) => (
+            <View key={b.type} style={styles.routineBlock}>
+              <Text style={styles.routineTitle}>{BLOCK_LABELS[b.type]}</Text>
+              {b.slots.map((s, i) => {
+                const ex = EXERCISES_BY_ID.get(s.exerciseId);
+                if (!ex) return null;
+                return (
+                  <Link key={i} href={{ pathname: '/exercise/[id]', params: { id: ex.id } }} asChild>
+                    <Pressable style={styles.slot}>
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text style={styles.slotName}>{ex.name.es}</Text>
+                        {s.rationale && <Text style={styles.muted}>{s.rationale}</Text>}
+                      </View>
+                      <Text style={styles.slotRx}>{slotLabel(s)}</Text>
+                    </Pressable>
+                  </Link>
+                );
+              })}
+            </View>
+          ))}
+          {!editing && (
+            <Button label="Rehacer o ajustar este día" variant={stale ? 'primary' : 'ghost'} onPress={openAdjust} />
+          )}
+        </>
+      )}
+
+      {editing && (
+        <AdjustPanel
+          cfg={editing}
+          hasConditions={hasConditions}
+          hasRoutine={!!dayPlan}
+          onEdit={edit}
+          setBlock={setBlock}
+          onConfirm={confirm}
+          // Sin rutina aún no hay nada a qué volver: el panel queda abierto.
+          onCancel={cfg.active && !dayPlan ? undefined : () => setDraft(null)}
+        />
+      )}
+    </ScrollView>
+  );
+}
+
+function AdjustPanel({
+  cfg,
+  hasConditions,
+  hasRoutine,
+  onEdit,
+  setBlock,
+  onConfirm,
+  onCancel,
+}: {
+  cfg: DayConfig;
+  hasConditions: boolean;
+  hasRoutine: boolean;
+  onEdit: (patch: (d: DayConfig) => DayConfig) => void;
+  setBlock: <K extends keyof Blocks>(key: K, patch: Partial<Blocks[K]>) => void;
+  onConfirm: () => void;
+  onCancel?: () => void;
+}) {
+  const parts = dayChoiceOf(cfg);
+  const groups = cfg.blocks.main.muscleGroups;
+  const set = (patch: Partial<DayConfig>) => onEdit((d) => ({ ...d, ...patch }));
+  const confirmLabel = !cfg.active
+    ? 'Guardar como descanso'
+    : hasRoutine
+      ? 'Rehacer con estos ajustes'
+      : 'Armar este día';
+
+  return (
+    <>
+      <View style={styles.divider} />
+      <Text style={styles.settingsTitle}>Ajustar este día</Text>
 
       <Text style={styles.section}>¿Qué haces este día?</Text>
       <View style={styles.chips}>
@@ -146,10 +198,10 @@ export default function DayScreen() {
             key={p}
             label={dayPartLabel(p, hasConditions)}
             active={parts.includes(p)}
-            onPress={() => updateDay(day, (d) => applyDayChoice(d, toggleDayPart(dayChoiceOf(d), p)))}
+            onPress={() => onEdit((d) => applyDayChoice(d, toggleDayPart(dayChoiceOf(d), p)))}
           />
         ))}
-        <Chip label="Descanso" active={!parts.length} onPress={() => updateDay(day, (d) => applyDayChoice(d, []))} />
+        <Chip label="Descanso" active={!parts.length} onPress={() => onEdit((d) => applyDayChoice(d, []))} />
       </View>
       <Text style={styles.muted}>{parts.length ? dayChoiceLabel(parts, hasConditions) : 'Sin entrenamiento'}</Text>
 
@@ -194,7 +246,7 @@ export default function DayScreen() {
           <BlockCard
             title="Prehab / condición médica"
             description={
-              profile?.conditions.length
+              hasConditions
                 ? 'Prioriza ejercicios preventivos para tus condiciones.'
                 : 'Ejercicios preventivos de movilidad y estabilidad.'
             }
@@ -257,7 +309,11 @@ export default function DayScreen() {
           </BlockCard>
         </>
       )}
-    </ScrollView>
+
+      <Button label={confirmLabel} onPress={onConfirm} />
+      {onCancel && <Button label="Cancelar" variant="ghost" onPress={onCancel} />}
+      {cfg.active && <Text style={styles.muted}>Arma solo este día al instante, sin tocar el resto de la semana.</Text>}
+    </>
   );
 }
 
