@@ -6,7 +6,7 @@ import { Button } from '@/components/ui';
 import { EXERCISES } from '@/data/exercises.seed';
 import { bodyFat, calcIndices } from '@/domain/body';
 import { generateWeekByRules } from '@/domain/generator';
-import { configHash, DAY_LONG, dayDate, fmtDayDate, isToday } from '@/domain/week';
+import { configHash, DAY_LONG, dayDate, dayHashes, fmtDayDate, isToday, staleDays } from '@/domain/week';
 import { AiPlanError, buildAiRequest, generateWeekWithAi } from '@/features/planner/aiPlan';
 import { countExercises, describeDayConfig } from '@/features/planner/describe';
 import { useBody } from '@/state/body';
@@ -25,13 +25,18 @@ export default function WeekScreen() {
   if (!profile) return null;
 
   const hash = configHash(week, profile.updatedAt);
-  const stale = !!plan && plan.configHash !== hash;
+  const staleSet = plan ? staleDays(plan, week, profile.updatedAt) : new Set<string>();
+  const stale = staleSet.size > 0;
   const activeDays = week.days.filter((d) => d.active).length;
 
   const generate = async () => {
     setGenerating(true);
     setNotice(null);
-    const meta = { generatedAt: new Date().toISOString(), configHash: hash };
+    const meta = {
+      generatedAt: new Date().toISOString(),
+      configHash: hash,
+      dayHashes: dayHashes(week, profile.updatedAt),
+    };
     try {
       const last = records[0];
       const idx = last ? calcIndices(last, profile.heightCm) : null;
@@ -88,8 +93,8 @@ export default function WeekScreen() {
                 </View>
                 <Text style={styles.dayDesc}>{describeDayConfig(d, profile.conditions.length > 0)}</Text>
                 {d.active && dayPlan && (
-                  <Text style={[styles.badge, stale && styles.badgeStale]}>
-                    {countExercises(dayPlan)} ejercicios{stale ? ' · desactualizada' : ''}
+                  <Text style={[styles.badge, staleSet.has(d.day) && styles.badgeStale]}>
+                    {countExercises(dayPlan)} ejercicios{staleSet.has(d.day) ? ' · desactualizada' : ''}
                   </Text>
                 )}
               </View>
@@ -101,7 +106,8 @@ export default function WeekScreen() {
       {stale && (
         <View style={styles.warn}>
           <Text style={styles.warnText}>
-            Cambiaste la semana o tu perfil desde la última rutina. Vuelve a generarla para aplicar los cambios.
+            Algunos días cambiaron desde la última rutina. Rehaz solo esos días desde su pantalla o vuelve a generar la
+            semana.
           </Text>
         </View>
       )}

@@ -3,13 +3,18 @@ import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { Chip } from '@/components/Chip';
 import { Button, Stepper } from '@/components/ui';
-import { EXERCISES_BY_ID } from '@/data/exercises.seed';
+import { EXERCISES, EXERCISES_BY_ID } from '@/data/exercises.seed';
+import { generateDayByRules } from '@/domain/generator';
 import { MUSCLE_GROUP_LABELS, MUSCLE_GROUPS } from '@/domain/catalog';
 import { BLOCK_LABELS } from '@/domain/labels';
 import { type DayConfig, DayOfWeek } from '@/domain/schema';
 import {
   applyDayChoice,
   configHash,
+  dayConfigHash,
+  dayHashes,
+  DAYS,
+  staleDays,
   DAY_LONG,
   DAY_PARTS,
   dayDate,
@@ -21,6 +26,7 @@ import {
   toggleDayPart,
 } from '@/domain/week';
 import { slotLabel } from '@/features/planner/describe';
+import { useHistory } from '@/state/history';
 import { usePlan } from '@/state/plan';
 import { useProfile } from '@/state/profile';
 import { colors, radius, spacing } from '@/theme';
@@ -30,7 +36,8 @@ type Blocks = DayConfig['blocks'];
 export default function DayScreen() {
   const params = useLocalSearchParams<{ day: string }>();
   const parsed = DayOfWeek.safeParse(params.day);
-  const { week, plan, updateDay } = usePlan();
+  const { week, plan, updateDay, savePlan } = usePlan();
+  const { sessions } = useHistory();
   const { profile } = useProfile();
   if (!parsed.success) return null;
   const day = parsed.data;
@@ -44,8 +51,32 @@ export default function DayScreen() {
     updateDay(day, (d) => ({ ...d, blocks: { ...d.blocks, [key]: { ...d.blocks[key], ...patch } } }));
 
   const dayPlan = plan?.days.find((p) => p.day === day);
-  const stale = !!plan && !!profile && plan.configHash !== configHash(week, profile.updatedAt);
+  const stale = !!plan && !!profile && staleDays(plan, week, profile.updatedAt).has(day);
   const groups = cfg.blocks.main.muscleGroups;
+
+  // Rehace solo este día con las reglas de la app: instantáneo y sin costo de IA.
+  const redoDay = async () => {
+    if (!profile) return;
+    const isActive = (d: DayOfWeek) => week.days.some((w) => w.day === d && w.active);
+    // Incluye la rutina actual del día para que la nueva prefiera ejercicios distintos.
+    const others = (plan?.days ?? []).filter((p) => isActive(p.day));
+    const newDay = generateDayByRules(cfg, others, profile, EXERCISES, sessions);
+    const order = DAYS.map((d) => d.id);
+    const days = [...(plan?.days ?? []).filter((p) => p.day !== day), newDay].sort(
+      (a, b) => order.indexOf(a.day) - order.indexOf(b.day),
+    );
+    const weekHash = configHash(week, profile.updatedAt);
+    // Un plan antiguo sin huellas por día, si estaba al día, las hereda de la semana actual.
+    const previousHashes = plan?.dayHashes ?? (plan?.configHash === weekHash ? dayHashes(week, profile.updatedAt) : {});
+    await savePlan({
+      days,
+      summary: plan?.summary ?? 'Rutina armada día a día con las reglas de la app.',
+      generatedAt: plan?.generatedAt ?? new Date().toISOString(),
+      generator: plan?.generator ?? 'rules',
+      configHash: plan?.configHash ?? weekHash,
+      dayHashes: { ...previousHashes, [day]: dayConfigHash(cfg, profile.updatedAt) },
+    });
+  };
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
@@ -60,11 +91,18 @@ export default function DayScreen() {
         <>
           <Text style={[styles.section, { marginTop: 0 }]}>Rutina de este día</Text>
           {!dayPlan ? (
-            <Text style={styles.muted}>Aún no hay rutina. Vuelve a «Mi semana» y toca «Generar mi semana».</Text>
+            <>
+              <Text style={styles.muted}>
+                Aún no hay rutina para este día. Ármala aquí o genera toda la semana desde «Mi semana».
+              </Text>
+              <Button label="Armar este día" onPress={redoDay} />
+            </>
           ) : (
             <>
               {stale && (
-                <Text style={styles.stale}>Esta rutina es anterior a tus últimos cambios. Vuelve a generarla.</Text>
+                <Text style={styles.stale}>
+                  Esta rutina es anterior a tus últimos cambios. Toca «Rehacer este día» para actualizarla.
+                </Text>
               )}
               <Button
                 label="Empezar entrenamiento"
@@ -90,6 +128,10 @@ export default function DayScreen() {
                   })}
                 </View>
               ))}
+              <Button label="Rehacer este día" variant={stale ? 'primary' : 'ghost'} onPress={redoDay} />
+              <Text style={styles.muted}>
+                Cambia los ejercicios de este día al instante, sin tocar el resto de la semana.
+              </Text>
             </>
           )}
           <View style={styles.divider} />

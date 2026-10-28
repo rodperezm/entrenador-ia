@@ -218,6 +218,8 @@ export const StoredWeekPlan = GeneratedWeekPlan.extend({
   generatedAt: z.string(),
   generator: z.enum(['rules', 'llm']),
   configHash: z.string(),
+  // Huella de la configuración de cada día al armar su rutina (permite rehacer un solo día).
+  dayHashes: z.partialRecord(DayOfWeek, z.string()).optional(),
 });
 export type StoredWeekPlan = z.infer<typeof StoredWeekPlan>;
 

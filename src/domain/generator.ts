@@ -212,6 +212,33 @@ export function fitToTime(blocks: PlannedBlock[], budgetSec: number) {
   }
 }
 
+// Ajustar series, reps y peso según lo que el usuario registró.
+function applyProgression(d: DayPlan, profile: LocalProfile, exercises: Exercise[], history: WorkoutSession[]) {
+  const byId = new Map(exercises.map((e) => [e.id, e]));
+  return {
+    ...d,
+    blocks: d.blocks.map((b) => ({
+      ...b,
+      slots: b.slots.map((s) => progressSlot(s, byId.get(s.exerciseId)!, profile, history)),
+    })),
+  };
+}
+
+// Rehace un solo día con reglas; la fuerza de `otherDays` se penaliza para no repetirla.
+export function generateDayByRules(
+  cfg: DayConfig,
+  otherDays: DayPlan[],
+  profile: LocalProfile,
+  exercises: Exercise[],
+  history: WorkoutSession[] = [],
+  seed = Date.now(),
+): DayPlan {
+  const usedThisWeek = new Map<string, number>();
+  for (const s of otherDays.flatMap((d) => d.blocks.filter((b) => b.type === 'main_strength').flatMap((b) => b.slots)))
+    usedThisWeek.set(s.exerciseId, (usedThisWeek.get(s.exerciseId) ?? 0) + 1);
+  return applyProgression(generateDay(cfg, profile, exercises, usedThisWeek, seed), profile, exercises, history);
+}
+
 export function generateWeekByRules(
   week: { days: DayConfig[] },
   profile: LocalProfile,
@@ -220,18 +247,10 @@ export function generateWeekByRules(
   seed = Date.now(),
 ): GeneratedWeekPlan {
   const usedThisWeek = new Map<string, number>();
-  const byId = new Map(exercises.map((e) => [e.id, e]));
   const days = week.days
     .filter((d) => d.active)
     .map((d, i) => generateDay(d, profile, exercises, usedThisWeek, seed + i * 7919))
-    // Ajustar series, reps y peso según lo que el usuario registró.
-    .map((d) => ({
-      ...d,
-      blocks: d.blocks.map((b) => ({
-        ...b,
-        slots: b.slots.map((s) => progressSlot(s, byId.get(s.exerciseId)!, profile, history)),
-      })),
-    }));
+    .map((d) => applyProgression(d, profile, exercises, history));
   const total = days.reduce((n, d) => n + d.blocks.reduce((m, b) => m + b.slots.length, 0), 0);
   const progressed = history.length > 0;
   return {

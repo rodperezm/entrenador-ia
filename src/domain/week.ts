@@ -124,9 +124,35 @@ export function proposeWeek(daysPerWeek: number, hasConditions: boolean): Record
 }
 
 // Huella de lo que influye en la rutina; si cambia, el plan quedó desactualizado.
-export function configHash(week: WeekConfig, profileUpdatedAt: string): string {
-  const s = JSON.stringify({ week, profileUpdatedAt });
+const hashOf = (value: unknown) => {
+  const s = JSON.stringify(value);
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
   return (h >>> 0).toString(36);
+};
+
+export const configHash = (week: WeekConfig, profileUpdatedAt: string) => hashOf({ week, profileUpdatedAt });
+export const dayConfigHash = (cfg: DayConfig, profileUpdatedAt: string) => hashOf({ cfg, profileUpdatedAt });
+
+export const dayHashes = (week: WeekConfig, profileUpdatedAt: string) =>
+  Object.fromEntries(week.days.map((d) => [d.day, dayConfigHash(d, profileUpdatedAt)])) as Record<DayOfWeek, string>;
+
+// Días cuya rutina ya no corresponde a su configuración (o que aún no tienen rutina).
+// Los planes antiguos sin huella por día se comparan con la huella de toda la semana.
+export function staleDays(
+  plan: { configHash: string; dayHashes?: Partial<Record<DayOfWeek, string>>; days: { day: DayOfWeek }[] },
+  week: WeekConfig,
+  profileUpdatedAt: string,
+): Set<DayOfWeek> {
+  const active = week.days.filter((d) => d.active);
+  if (!plan.dayHashes) {
+    return new Set(plan.configHash === configHash(week, profileUpdatedAt) ? [] : active.map((d) => d.day));
+  }
+  return new Set(
+    active
+      .filter(
+        (d) => !plan.days.some((p) => p.day === d.day) || plan.dayHashes![d.day] !== dayConfigHash(d, profileUpdatedAt),
+      )
+      .map((d) => d.day),
+  );
 }
