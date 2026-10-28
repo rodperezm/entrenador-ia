@@ -10,6 +10,7 @@ type HistoryState = {
   sessions: WorkoutSession[]; // la más reciente primero
   loading: boolean;
   addSession: (s: WorkoutSession) => void;
+  clearHistory: () => void;
 };
 
 const HistoryContext = createContext<HistoryState | null>(null);
@@ -35,7 +36,13 @@ export function HistoryProvider({ children }: { children: ReactNode }) {
 
   const addSession = useCallback((s: WorkoutSession) => setSessions((prev) => [s, ...prev]), []);
 
-  return <HistoryContext.Provider value={{ sessions, loading, addSession }}>{children}</HistoryContext.Provider>;
+  const clearHistory = useCallback(() => setSessions([]), []);
+
+  return (
+    <HistoryContext.Provider value={{ sessions, loading, addSession, clearHistory }}>
+      {children}
+    </HistoryContext.Provider>
+  );
 }
 
 export function useHistory() {

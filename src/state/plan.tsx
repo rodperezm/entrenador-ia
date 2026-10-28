@@ -15,6 +15,8 @@ type PlanState = {
   /** Aplica las partes elegidas a cada día; los días que ya las tienen no se tocan. */
   applyDayChoices: (choices: Partial<Record<DayOfWeek, DayChoice>>) => void;
   savePlan: (p: StoredWeekPlan) => Promise<void>;
+  /** Vuelve a la semana inicial y borra la rutina guardada. */
+  resetPlan: () => Promise<void>;
 };
 
 const PlanContext = createContext<PlanState | null>(null);
@@ -79,8 +81,16 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     setPlan(p);
   }, []);
 
+  const resetPlan = useCallback(async () => {
+    await AsyncStorage.multiRemove([WEEK_KEY, PLAN_KEY]);
+    setWeek(defaultWeekConfig());
+    setPlan(null);
+  }, []);
+
   return (
-    <PlanContext.Provider value={{ week, plan, loading, updateDay, updateAllDays, applyDayChoices, savePlan }}>
+    <PlanContext.Provider
+      value={{ week, plan, loading, updateDay, updateAllDays, applyDayChoices, savePlan, resetPlan }}
+    >
       {children}
     </PlanContext.Provider>
   );

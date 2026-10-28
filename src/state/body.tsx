@@ -14,6 +14,7 @@ type BodyState = Stored & {
   saveRecord: (r: WithOptionalId<TapeRecord>) => void;
   saveFold: (f: WithOptionalId<FoldRecord>) => void;
   remove: (kind: 'record' | 'fold', id: string) => void;
+  clearBody: () => void;
 };
 
 type WithOptionalId<T extends { id: string }> = Omit<T, 'id'> & { id?: string };
@@ -60,8 +61,12 @@ export function BodyProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const clearBody = useCallback(() => setData({ records: [], folds: [] }), []);
+
   return (
-    <BodyContext.Provider value={{ ...data, loading, saveRecord, saveFold, remove }}>{children}</BodyContext.Provider>
+    <BodyContext.Provider value={{ ...data, loading, saveRecord, saveFold, remove, clearBody }}>
+      {children}
+    </BodyContext.Provider>
   );
 }
 

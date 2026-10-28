@@ -19,6 +19,7 @@ import {
 } from '@/features/onboarding/steps';
 import { type DayChoice, dayChoiceOf, DAYS, sameChoice } from '@/domain/week';
 import { usePlan } from '@/state/plan';
+import { useResetAllData } from '@/state/useResetAllData';
 import { useProfile } from '@/state/profile';
 import { colors, spacing } from '@/theme';
 
@@ -61,6 +62,7 @@ export default function Onboarding() {
 function OnboardingForm() {
   const { profile, saveProfile } = useProfile();
   const { week, applyDayChoices, updateAllDays } = usePlan();
+  const resetAll = useResetAllData();
   // Partes de cada día al abrir.
   const [initialChoices] = useState(
     () =>
@@ -158,6 +160,9 @@ function OnboardingForm() {
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.subtitle}>{subtitle}</Text>
         <Component draft={draft} update={update} />
+        {profile && step === 0 && (
+          <Button label="Borrar mis datos y empezar de cero" variant="ghost" onPress={resetAll} />
+        )}
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
