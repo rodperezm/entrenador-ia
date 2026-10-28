@@ -145,6 +145,8 @@ export const UserProfile = z.object({
   heightCm: z.number().min(100).max(250).nullable().default(null),
   level: z.enum(['beginner', 'intermediate', 'advanced']),
   equipment: z.array(EquipmentId),
+  // Lo que hay fijo en el parque donde entrena (barra, banca). Lo portátil lo lleva consigo.
+  parkEquipment: z.array(EquipmentId).default([]),
   kettlebellWeightsKg: z.array(z.number().positive()),
   conditions: z.array(UserCondition),
   excludedExerciseIds: z.array(ExerciseId),

@@ -7,6 +7,8 @@ import {
   EQUIPMENT,
   type EquipmentId,
   MEDICAL_CONDITIONS,
+  PARK_EQUIPMENT,
+  PARK_EQUIPMENT_IDS,
   RESTRICTION_FLAG_IDS,
   RESTRICTION_FLAGS,
   type RestrictionFlagId,
@@ -32,6 +34,7 @@ export type Draft = {
   disclaimerAccepted: boolean;
   level: Level | null;
   equipment: EquipmentId[];
+  parkEquipment: EquipmentId[]; // lo que hay fijo en su parque
   kettlebellWeightsKg: number[];
   conditions: LocalProfile['conditions'];
   sex: Sex | null;
@@ -191,6 +194,20 @@ export function EquipmentStep({ draft, update }: StepProps) {
           title={EQUIPMENT[id]}
           selected={draft.equipment.includes(id)}
           onPress={() => update({ equipment: toggle(draft.equipment, id) })}
+        />
+      ))}
+
+      <Text style={[styles.label, { marginTop: spacing.md }]}>Si entrenas en un parque, ¿qué hay ahí?</Text>
+      <Text style={styles.hint}>
+        Al parque llevas tu colchoneta, kettlebell, mancuernas y banda. La silla y la barra de tu casa no: marca si tu
+        parque tiene algo parecido.
+      </Text>
+      {PARK_EQUIPMENT_IDS.map((id) => (
+        <OptionCard
+          key={id}
+          title={PARK_EQUIPMENT[id]!}
+          selected={draft.parkEquipment.includes(id)}
+          onPress={() => update({ parkEquipment: toggle(draft.parkEquipment, id) })}
         />
       ))}
 
@@ -432,6 +449,10 @@ export function SummaryStep({ draft }: StepProps) {
       />
       <SummaryRow label="Nivel" value={LEVELS.find((l) => l.id === draft.level)?.title ?? '—'} />
       <SummaryRow label="Equipamiento" value={draft.equipment.map((e) => EQUIPMENT[e]).join(', ')} />
+      <SummaryRow
+        label="En el parque"
+        value={draft.parkEquipment.map((e) => PARK_EQUIPMENT[e]).join(', ') || 'Solo lo que llevas'}
+      />
       <SummaryRow label="Kettlebells" value={draft.kettlebellWeightsKg.map((k) => `${k} kg`).join(', ')} />
       <SummaryRow
         label="Condiciones"

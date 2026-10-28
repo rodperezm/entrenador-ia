@@ -1,4 +1,4 @@
-import { MEDICAL_CONDITIONS, MUSCLE_GROUP_LABELS, MUSCLES, type MuscleGroupId } from './catalog';
+import { equipmentAt, MEDICAL_CONDITIONS, MUSCLE_GROUP_LABELS, MUSCLES, type MuscleGroupId } from './catalog';
 import { filterExercisesForUser } from './filter';
 import type {
   DayConfig,
@@ -120,8 +120,10 @@ function generateDay(
   seed: number,
 ): DayPlan {
   const rand = seeded(seed);
+  // Solo el equipamiento disponible donde entrena ese día (casa o parque).
+  const dayProfile = { ...profile, equipment: equipmentAt(cfg.location, profile) };
   const pool = (block: Parameters<typeof filterExercisesForUser>[2]) =>
-    filterExercisesForUser(exercises, profile, block).sort(() => rand() - 0.5);
+    filterExercisesForUser(exercises, dayProfile, block).sort(() => rand() - 0.5);
   const blocks: PlannedBlock[] = [];
   const b = cfg.blocks;
 

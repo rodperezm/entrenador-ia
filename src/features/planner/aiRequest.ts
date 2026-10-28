@@ -1,4 +1,4 @@
-import { MEDICAL_CONDITIONS, RESTRICTION_FLAGS } from '@/domain/catalog';
+import { equipmentAt, MEDICAL_CONDITIONS, RESTRICTION_FLAGS } from '@/domain/catalog';
 import { filterExercisesForUser } from '@/domain/filter';
 import type { BlockType, Exercise, LocalProfile, WeekConfig, WorkoutSession } from '@/domain/schema';
 
@@ -29,10 +29,12 @@ export function buildAiRequest(
     profile.conditions.flatMap((c) => MEDICAL_CONDITIONS.find((m) => m.id === c.conditionId)?.prehabExerciseIds ?? []),
   );
 
-  // Candidatos: por cada bloque, lo que el usuario puede hacer en ese bloque.
+  // Candidatos: por cada bloque, lo que el usuario puede hacer en ese bloque, en casa o en el
+  // parque (cada día dice qué equipamiento tiene disponible).
+  const anywhere = { ...profile, equipment: [...new Set([...profile.equipment, ...equipmentAt('park', profile)])] };
   const allowed = new Map<string, Set<BlockType>>();
   for (const block of BLOCKS) {
-    for (const e of filterExercisesForUser(exercises, profile, block)) {
+    for (const e of filterExercisesForUser(exercises, anywhere, block)) {
       if (!allowed.has(e.id)) allowed.set(e.id, new Set());
       allowed.get(e.id)!.add(block);
     }
@@ -48,6 +50,7 @@ export function buildAiRequest(
       pattern: e.movementPattern,
       complexity: e.complexityLevel,
       kettlebell: e.equipment.required.includes('kettlebell'),
+      equipment: e.equipment.required,
       chain: e.progression.chainId,
       defaults: {
         sets: e.prescription.sets,
@@ -94,7 +97,9 @@ export function buildAiRequest(
         avoid: c.activeFlags.map((f) => RESTRICTION_FLAGS[f]),
       })),
     },
-    week: week.days.filter((d) => d.active).map(({ active: _active, ...d }) => d),
+    week: week.days
+      .filter((d) => d.active)
+      .map(({ active: _active, ...d }) => ({ ...d, availableEquipment: equipmentAt(d.location, profile) })),
     candidates,
     history: lastByExercise,
     body,

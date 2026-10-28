@@ -48,9 +48,19 @@ export async function generateWeekWithAi(request: ReturnType<typeof buildAiReque
   if (!parsed.success) throw new AiPlanError('la respuesta de Claude no tiene el formato esperado');
 
   const allowed = new Map(request.candidates.map((c) => [c.id, new Set(c.blocks)]));
+  const needs = new Map(request.candidates.map((c) => [c.id, c.equipment]));
+  // Equipamiento de cada día según dónde entrena (casa o parque).
+  const available = new Map(request.week.map((d) => [d.day, new Set<string>(d.availableEquipment)]));
   const valid = parsed.data.days.every((d) =>
     d.blocks.every((b) => b.slots.every((s) => allowed.get(s.exerciseId)?.has(b.type))),
   );
+  // Un ejercicio que no se puede hacer donde entrena ese día se quita (no se descarta la semana).
+  for (const d of parsed.data.days) {
+    for (const b of d.blocks) {
+      b.slots = b.slots.filter((s) => (needs.get(s.exerciseId) ?? []).every((eq) => available.get(d.day)?.has(eq)));
+    }
+    d.blocks = d.blocks.filter((b) => b.slots.length > 0);
+  }
   const activeDays = request.week.map((d) => d.day);
   const complete = activeDays.every((day) => parsed.data.days.some((d) => d.day === day && d.blocks.length > 0));
   if (!valid || !complete) throw new AiPlanError('la rutina de Claude no cumplía las reglas');

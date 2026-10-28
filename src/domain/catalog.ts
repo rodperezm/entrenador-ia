@@ -50,6 +50,24 @@ export const EQUIPMENT = {
 export type EquipmentId = keyof typeof EQUIPMENT;
 export const EQUIPMENT_IDS = Object.keys(EQUIPMENT) as [EquipmentId, ...EquipmentId[]];
 
+// Lo que el usuario lleva consigo: sirve en casa y en el parque.
+export const PORTABLE_EQUIPMENT: EquipmentId[] = ['mat', 'kettlebell', 'dumbbells', 'resistance_band'];
+// Lo que puede haber fijo en un parque (el usuario marca qué hay en el suyo).
+export const PARK_EQUIPMENT: Partial<Record<EquipmentId, string>> = {
+  pullup_bar: 'Barra de dominadas',
+  chair: 'Banca',
+};
+export const PARK_EQUIPMENT_IDS = Object.keys(PARK_EQUIPMENT) as EquipmentId[];
+
+// Equipamiento disponible según dónde entrena ese día.
+export function equipmentAt(
+  location: 'home' | 'park',
+  profile: { equipment: EquipmentId[]; parkEquipment: EquipmentId[] },
+): EquipmentId[] {
+  if (location === 'home') return profile.equipment;
+  return [...new Set([...profile.equipment.filter((e) => PORTABLE_EQUIPMENT.includes(e)), ...profile.parkEquipment])];
+}
+
 // Banderas que describen la exigencia de un ejercicio. El usuario activa las
 // que quiere evitar; el filtro descarta los ejercicios que tengan alguna.
 export const RESTRICTION_FLAGS = {
