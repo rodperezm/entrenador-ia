@@ -12,6 +12,9 @@ import {
   configHash,
   DAY_LONG,
   DAY_PARTS,
+  dayDate,
+  fmtDayDate,
+  isToday,
   dayChoiceLabel,
   dayChoiceOf,
   dayPartLabel,
@@ -36,6 +39,7 @@ export default function DayScreen() {
   const set = (patch: Partial<DayConfig>) => updateDay(day, (d) => ({ ...d, ...patch }));
   const hasConditions = (profile?.conditions.length ?? 0) > 0;
   const parts = dayChoiceOf(cfg);
+  const today = isToday(day);
   const setBlock = <K extends keyof Blocks>(key: K, patch: Partial<Blocks[K]>) =>
     updateDay(day, (d) => ({ ...d, blocks: { ...d.blocks, [key]: { ...d.blocks[key], ...patch } } }));
 
@@ -46,6 +50,52 @@ export default function DayScreen() {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Stack.Screen options={{ title: DAY_LONG[day] }} />
+      <Text style={[styles.date, today && { color: colors.accent }]}>
+        {today ? 'Hoy · ' : ''}
+        {DAY_LONG[day]} {fmtDayDate(dayDate(day))}
+      </Text>
+
+      {/* Primero la rutina; la configuración del día va después. */}
+      {cfg.active && (
+        <>
+          <Text style={[styles.section, { marginTop: 0 }]}>Rutina de este día</Text>
+          {!dayPlan ? (
+            <Text style={styles.muted}>Aún no hay rutina. Vuelve a «Mi semana» y toca «Generar mi semana».</Text>
+          ) : (
+            <>
+              {stale && (
+                <Text style={styles.stale}>Esta rutina es anterior a tus últimos cambios. Vuelve a generarla.</Text>
+              )}
+              <Button
+                label="Empezar entrenamiento"
+                onPress={() => router.push({ pathname: '/workout/[day]', params: { day } })}
+              />
+              {dayPlan.blocks.map((b) => (
+                <View key={b.type} style={styles.routineBlock}>
+                  <Text style={styles.routineTitle}>{BLOCK_LABELS[b.type]}</Text>
+                  {b.slots.map((s, i) => {
+                    const ex = EXERCISES_BY_ID.get(s.exerciseId);
+                    if (!ex) return null;
+                    return (
+                      <Link key={i} href={{ pathname: '/exercise/[id]', params: { id: ex.id } }} asChild>
+                        <Pressable style={styles.slot}>
+                          <View style={{ flex: 1, gap: 2 }}>
+                            <Text style={styles.slotName}>{ex.name.es}</Text>
+                            {s.rationale && <Text style={styles.muted}>{s.rationale}</Text>}
+                          </View>
+                          <Text style={styles.slotRx}>{slotLabel(s)}</Text>
+                        </Pressable>
+                      </Link>
+                    );
+                  })}
+                </View>
+              ))}
+            </>
+          )}
+          <View style={styles.divider} />
+          <Text style={styles.settingsTitle}>Ajustar este día</Text>
+        </>
+      )}
 
       <Text style={styles.section}>¿Qué haces este día?</Text>
       <View style={styles.chips}>
@@ -163,41 +213,6 @@ export default function DayScreen() {
               />
             </Row>
           </BlockCard>
-
-          <Text style={styles.section}>Rutina de este día</Text>
-          {!dayPlan ? (
-            <Text style={styles.muted}>Aún no hay rutina. Vuelve a «Mi semana» y toca «Generar mi semana».</Text>
-          ) : (
-            <>
-              {stale && (
-                <Text style={styles.stale}>Esta rutina es anterior a tus últimos cambios. Vuelve a generarla.</Text>
-              )}
-              <Button
-                label="Empezar entrenamiento"
-                onPress={() => router.push({ pathname: '/workout/[day]', params: { day } })}
-              />
-              {dayPlan.blocks.map((b) => (
-                <View key={b.type} style={styles.routineBlock}>
-                  <Text style={styles.routineTitle}>{BLOCK_LABELS[b.type]}</Text>
-                  {b.slots.map((s, i) => {
-                    const ex = EXERCISES_BY_ID.get(s.exerciseId);
-                    if (!ex) return null;
-                    return (
-                      <Link key={i} href={{ pathname: '/exercise/[id]', params: { id: ex.id } }} asChild>
-                        <Pressable style={styles.slot}>
-                          <View style={{ flex: 1, gap: 2 }}>
-                            <Text style={styles.slotName}>{ex.name.es}</Text>
-                            {s.rationale && <Text style={styles.muted}>{s.rationale}</Text>}
-                          </View>
-                          <Text style={styles.slotRx}>{slotLabel(s)}</Text>
-                        </Pressable>
-                      </Link>
-                    );
-                  })}
-                </View>
-              ))}
-            </>
-          )}
         </>
       )}
     </ScrollView>
@@ -258,6 +273,15 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
+  date: { color: colors.textMuted, fontSize: 14, fontWeight: '700' },
+  divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border, marginTop: spacing.lg },
+  settingsTitle: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
   content: { padding: spacing.lg, gap: spacing.md, paddingBottom: 48 },
   section: { color: colors.text, fontSize: 18, fontWeight: '800', marginTop: spacing.md },
   segment: { flexDirection: 'row', backgroundColor: colors.surface, borderRadius: radius.pill, padding: 4 },

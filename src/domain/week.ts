@@ -11,6 +11,20 @@ export const DAYS: { id: DayOfWeek; short: string; long: string }[] = [
 ];
 export const DAY_LONG = Object.fromEntries(DAYS.map((d) => [d.id, d.long])) as Record<DayOfWeek, string>;
 
+// Fecha de ese día en la semana actual (lunes a domingo).
+export function dayDate(day: DayOfWeek, today = new Date()): Date {
+  const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - ((today.getDay() + 6) % 7));
+  const i = DAYS.findIndex((d) => d.id === day);
+  return new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
+}
+
+export const isToday = (day: DayOfWeek, today = new Date()) =>
+  dayDate(day, today).toDateString() === today.toDateString();
+
+// dd-mm-aaaa
+export const fmtDayDate = (d: Date) =>
+  `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+
 // Semana inicial: lunes, miércoles y viernes de cuerpo completo.
 const TRAINING_DAYS: DayOfWeek[] = ['mon', 'wed', 'fri'];
 

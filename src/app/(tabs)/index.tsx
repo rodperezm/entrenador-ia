@@ -6,7 +6,7 @@ import { Button } from '@/components/ui';
 import { EXERCISES } from '@/data/exercises.seed';
 import { bodyFat, calcIndices } from '@/domain/body';
 import { generateWeekByRules } from '@/domain/generator';
-import { configHash, DAY_LONG } from '@/domain/week';
+import { configHash, DAY_LONG, dayDate, fmtDayDate, isToday } from '@/domain/week';
 import { AiPlanError, buildAiRequest, generateWeekWithAi } from '@/features/planner/aiPlan';
 import { countExercises, describeDayConfig } from '@/features/planner/describe';
 import { useBody } from '@/state/body';
@@ -70,6 +70,10 @@ export default function WeekScreen() {
               <View style={[styles.day, !d.active && styles.dayRest]}>
                 <View style={styles.dayHead}>
                   <Text style={[styles.dayName, !d.active && { color: colors.textMuted }]}>{DAY_LONG[d.day]}</Text>
+                  <Text style={[styles.dayDate, isToday(d.day) && styles.dayToday]} numberOfLines={1}>
+                    {isToday(d.day) ? 'Hoy · ' : ''}
+                    {fmtDayDate(dayDate(d.day))}
+                  </Text>
                   {d.active && (
                     <View style={styles.loc}>
                       <Ionicons
@@ -82,7 +86,7 @@ export default function WeekScreen() {
                   )}
                   <Ionicons name="chevron-forward" size={18} color={colors.textMuted} style={{ marginLeft: 'auto' }} />
                 </View>
-                <Text style={styles.dayDesc}>{describeDayConfig(d)}</Text>
+                <Text style={styles.dayDesc}>{describeDayConfig(d, profile.conditions.length > 0)}</Text>
                 {d.active && dayPlan && (
                   <Text style={[styles.badge, stale && styles.badgeStale]}>
                     {countExercises(dayPlan)} ejercicios{stale ? ' · desactualizada' : ''}
@@ -126,6 +130,8 @@ export default function WeekScreen() {
 }
 
 const styles = StyleSheet.create({
+  dayDate: { color: colors.textMuted, fontSize: 13, fontWeight: '600' },
+  dayToday: { color: colors.accent },
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing.lg, gap: spacing.md, paddingBottom: 40 },
   hello: { color: colors.text, fontSize: 26, fontWeight: '800' },
