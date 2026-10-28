@@ -47,7 +47,9 @@ Reglas obligatorias:
 - Progresión con "history" (última vez que hizo cada ejercicio):
   * Completó todas las series con las reps objetivo y esfuerzo (RPE) ≤ 8 → sube 1-2 reps; si ya estaba en el máximo del rango, sube a la siguiente kettlebell que tenga y vuelve al mínimo del rango.
   * RPE ≥ 9.5 o no completó → mantén la carga.
-  * Marcó dolor → baja la exigencia (menos reps o kettlebell más liviana) o cambia por un candidato más suave del mismo grupo.
+  * "pain" leve → mantén la misma carga, no subas.
+  * "pain" moderado → baja la exigencia (menos reps o kettlebell más liviana).
+  * "pain" fuerte → NO uses ese ejercicio esta semana: cámbialo por un candidato más suave del mismo grupo muscular y explícalo en "rationale".
 - "rationale": una frase corta en español de Chile, tuteando (tú, no vos), explicando la elección o el cambio de carga (ej: "Subimos a 16 kg: completaste 20 reps con esfuerzo 7."). Puede ser null en calentamiento y elongación.
 - "summary": 1 o 2 frases en español resumiendo el enfoque de la semana.`;
 

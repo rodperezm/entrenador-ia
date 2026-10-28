@@ -235,9 +235,16 @@ export const SetLog = z.object({
   durationSec: z.number().int().nonnegative().nullable(),
   weightKg: z.number().nonnegative().nullable(),
   rpe: z.number().min(1).max(10).nullable(), // esfuerzo percibido (10 = no podía más)
-  painFlag: z.boolean(),
+  painFlag: z.boolean(), // hubo dolor moderado o fuerte (se mantiene por compatibilidad)
+  // 0 nada · 1 leve · 2 moderado · 3 fuerte. Registros antiguos no lo tienen.
+  painLevel: z.number().int().min(0).max(3).nullable().default(null),
 });
 export type SetLog = z.infer<typeof SetLog>;
+
+export type PainLevel = 0 | 1 | 2 | 3;
+// Registros antiguos solo tenían "Dolor" sí/no: cuenta como moderado.
+export const painOf = (l: Pick<SetLog, 'painFlag' | 'painLevel'>): PainLevel =>
+  (l.painLevel ?? (l.painFlag ? 2 : 0)) as PainLevel;
 
 export const WorkoutSession = z.object({
   id: z.string(),

@@ -10,6 +10,7 @@ import type {
   PlannedBlock,
   WorkoutSession,
 } from './schema';
+import { painOf } from './schema';
 import { progressSlot } from './progression';
 
 // Generador por reglas. Produce la misma estructura que devolverá el LLM
@@ -214,6 +215,28 @@ export function fitToTime(blocks: PlannedBlock[], budgetSec: number) {
   }
 }
 
+// Ejercicios en los que la última vez (en las 2 últimas semanas) hubo dolor fuerte:
+// se cambian por otros. Pasado ese plazo vuelven, más suaves (ver progressSlot).
+export function strongPainIds(history: WorkoutSession[], now = Date.now()): string[] {
+  const seen = new Set<string>();
+  const painful: string[] = [];
+  const since = now - 14 * 24 * 3600 * 1000;
+  for (const s of history) {
+    if (Date.parse(s.finishedAt) < since) continue;
+    for (const id of new Set(s.sets.map((l) => l.exerciseId))) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      if (s.sets.some((l) => l.exerciseId === id && painOf(l) === 3)) painful.push(id);
+    }
+  }
+  return painful;
+}
+
+const withoutPainful = (profile: LocalProfile, history: WorkoutSession[]): LocalProfile => ({
+  ...profile,
+  excludedExerciseIds: [...profile.excludedExerciseIds, ...strongPainIds(history)],
+});
+
 // Ajustar series, reps y peso según lo que el usuario registró.
 function applyProgression(d: DayPlan, profile: LocalProfile, exercises: Exercise[], history: WorkoutSession[]) {
   const byId = new Map(exercises.map((e) => [e.id, e]));
@@ -238,7 +261,8 @@ export function generateDayByRules(
   const usedThisWeek = new Map<string, number>();
   for (const s of otherDays.flatMap((d) => d.blocks.filter((b) => b.type === 'main_strength').flatMap((b) => b.slots)))
     usedThisWeek.set(s.exerciseId, (usedThisWeek.get(s.exerciseId) ?? 0) + 1);
-  return applyProgression(generateDay(cfg, profile, exercises, usedThisWeek, seed), profile, exercises, history);
+  const p = withoutPainful(profile, history);
+  return applyProgression(generateDay(cfg, p, exercises, usedThisWeek, seed), profile, exercises, history);
 }
 
 export function generateWeekByRules(
@@ -251,7 +275,7 @@ export function generateWeekByRules(
   const usedThisWeek = new Map<string, number>();
   const days = week.days
     .filter((d) => d.active)
-    .map((d, i) => generateDay(d, profile, exercises, usedThisWeek, seed + i * 7919))
+    .map((d, i) => generateDay(d, withoutPainful(profile, history), exercises, usedThisWeek, seed + i * 7919))
     .map((d) => applyProgression(d, profile, exercises, history));
   const total = days.reduce((n, d) => n + d.blocks.reduce((m, b) => m + b.slots.length, 0), 0);
   const progressed = history.length > 0;

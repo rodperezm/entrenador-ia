@@ -1,7 +1,15 @@
-import type { Exercise, ExerciseSlot, LocalProfile, SetLog, WorkoutSession } from './schema';
+import {
+  type Exercise,
+  type ExerciseSlot,
+  type LocalProfile,
+  painOf,
+  type SetLog,
+  type WorkoutSession,
+} from './schema';
 
 // Progresión a partir del historial: doble progresión (primero repeticiones,
-// luego la siguiente kettlebell que el usuario tenga) y retroceso si hubo dolor.
+// luego la siguiente kettlebell que el usuario tenga). Con molestia leve se mantiene
+// la carga; con dolor moderado o fuerte se baja.
 
 const EASY_RPE = 8; // esfuerzo máximo para considerar que se puede progresar
 const TIME_STEP_SEC = 5;
@@ -32,14 +40,31 @@ export function progressSlot(
   const avgRpe = rpes.length ? rpes.reduce((a, b) => a + b, 0) / rpes.length : null;
   const range = e.prescription.repRange;
 
-  // Dolor: bajar la exigencia y avisarlo.
-  if (logs.some((l) => l.painFlag)) {
+  const pain = Math.max(...logs.map(painOf));
+
+  // Dolor moderado o fuerte: bajar la exigencia y avisarlo. (Con dolor fuerte el
+  // generador además prefiere cambiar el ejercicio; si vuelve, llega aquí más suave.)
+  if (pain >= 2) {
     const lighter = lastWeight != null ? nextDown(owned, lastWeight) : null;
     return {
       ...slot,
       reps: range ? range.min : slot.reps,
+      durationSec: slot.durationSec,
       weightKg: lighter ?? (lastWeight != null ? Math.min(lastWeight, slot.weightKg ?? lastWeight) : slot.weightKg),
-      rationale: 'Bajamos la exigencia: la última vez marcaste dolor.',
+      rationale:
+        pain === 3
+          ? 'Más suave: la última vez marcaste dolor fuerte. Si se repite, consulta a un profesional.'
+          : 'Bajamos la exigencia: la última vez marcaste dolor moderado.',
+    };
+  }
+
+  // Molestia leve: no subir, repetir la misma carga y vigilar.
+  if (pain === 1) {
+    return {
+      ...slot,
+      reps: slot.durationSec != null ? slot.reps : (logs[0].targetReps ?? slot.reps),
+      weightKg: lastWeight,
+      rationale: 'Mantenemos la carga: la última vez marcaste una molestia leve.',
     };
   }
 

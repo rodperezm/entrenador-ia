@@ -1,6 +1,14 @@
 import { equipmentAt, MEDICAL_CONDITIONS, RESTRICTION_FLAGS } from '@/domain/catalog';
 import { filterExercisesForUser } from '@/domain/filter';
-import type { BlockType, Exercise, LocalProfile, WeekConfig, WorkoutSession } from '@/domain/schema';
+import { strongPainIds } from '@/domain/generator';
+import {
+  type BlockType,
+  type Exercise,
+  type LocalProfile,
+  painOf,
+  type WeekConfig,
+  type WorkoutSession,
+} from '@/domain/schema';
 
 // Arma el pedido para la Edge Function generate-plan: solo ejercicios ya
 // filtrados por restricciones/equipamiento, más perfil, semana e historial.
@@ -31,7 +39,12 @@ export function buildAiRequest(
 
   // Candidatos: por cada bloque, lo que el usuario puede hacer en ese bloque, en casa o en el
   // parque (cada día dice qué equipamiento tiene disponible).
-  const anywhere = { ...profile, equipment: [...new Set([...profile.equipment, ...equipmentAt('park', profile)])] };
+  // Con dolor fuerte reciente el ejercicio ni siquiera se le ofrece a la IA.
+  const anywhere = {
+    ...profile,
+    equipment: [...new Set([...profile.equipment, ...equipmentAt('park', profile)])],
+    excludedExerciseIds: [...profile.excludedExerciseIds, ...strongPainIds(history)],
+  };
   const allowed = new Map<string, Set<BlockType>>();
   for (const block of BLOCKS) {
     for (const e of filterExercisesForUser(exercises, anywhere, block)) {
@@ -79,7 +92,8 @@ export function buildAiRequest(
           durationSec: l.durationSec,
           weightKg: l.weightKg,
           rpe: l.rpe,
-          pain: l.painFlag,
+          repsInReserve: l.rpe != null ? 10 - l.rpe : null,
+          pain: ['nada', 'leve', 'moderado', 'fuerte'][painOf(l)],
         })),
     }));
   });

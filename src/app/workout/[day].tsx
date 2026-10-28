@@ -8,7 +8,7 @@ import { BodyMap } from '@/components/BodyMap';
 import { Button, Stepper } from '@/components/ui';
 import { EXERCISES_BY_ID } from '@/data/exercises.seed';
 import { BLOCK_LABELS } from '@/domain/labels';
-import { DayOfWeek, type ExerciseSlot, type SetLog } from '@/domain/schema';
+import { DayOfWeek, type ExerciseSlot, type PainLevel, painOf, type SetLog } from '@/domain/schema';
 import { fmtClock } from '@/domain/session';
 import { DAY_LONG } from '@/domain/week';
 import { slotLabel } from '@/features/planner/describe';
@@ -18,14 +18,22 @@ import { usePlan } from '@/state/plan';
 import { useProfile } from '@/state/profile';
 import { colors, radius, spacing } from '@/theme';
 
-const RPE_OPTIONS = [6, 7, 8, 9, 10];
-const RPE_HINT: Record<number, string> = {
-  6: 'Fácil',
-  7: 'Cómodo',
-  8: 'Me quedaban 2',
-  9: 'Me quedaba 1',
-  10: 'Al límite',
-};
+// Esfuerzo: cuántas repeticiones más podía hacer. Se guarda como RPE (10 = no podía más).
+const EFFORT_OPTIONS = [
+  { label: '4 o más', rpe: 6 },
+  { label: '3', rpe: 7 },
+  { label: '2', rpe: 8 },
+  { label: '1', rpe: 9 },
+  { label: 'Ninguna', rpe: 10 },
+];
+const reserveLabel = (rpe: number) => EFFORT_OPTIONS.find((o) => o.rpe === rpe)?.label ?? String(10 - rpe);
+const PAIN_OPTIONS: { label: string; level: PainLevel }[] = [
+  { label: 'Nada', level: 0 },
+  { label: 'Leve', level: 1 },
+  { label: 'Moderado', level: 2 },
+  { label: 'Fuerte', level: 3 },
+];
+const PAIN_NAME = ['', 'molestia leve', 'dolor moderado', 'dolor fuerte'];
 const exName = (id: string) => EXERCISES_BY_ID.get(id)?.name.es ?? id;
 
 // Vista de entrenamiento libre: el usuario hace los ejercicios en el orden y
@@ -205,7 +213,7 @@ function ExerciseCard({
   const [seconds, setSeconds] = useState(slot.durationSec ?? 30);
   const [weight, setWeight] = useState<number | null>(slot.weightKg);
   const [rpe, setRpe] = useState<number | null>(null);
-  const [pain, setPain] = useState(false);
+  const [pain, setPain] = useState<PainLevel | null>(null);
   if (!ex) return null;
 
   const complete = done.length >= slot.sets;
@@ -255,8 +263,8 @@ function ExerciseCard({
                 <Text key={l.setNo} style={styles.logged}>
                   Serie {l.setNo}: {l.repsDone != null ? `${l.repsDone} reps` : `${l.durationSec}s`}
                   {l.weightKg ? ` · ${l.weightKg} kg` : ''}
-                  {l.rpe ? ` · esfuerzo ${l.rpe}` : ''}
-                  {l.painFlag ? ' · dolor' : ''}
+                  {l.rpe ? ` · podía ${reserveLabel(l.rpe).toLowerCase()} más` : ''}
+                  {painOf(l) ? ` · ${PAIN_NAME[painOf(l)]}` : ''}
                 </Text>
               ))}
             </View>
@@ -286,21 +294,38 @@ function ExerciseCard({
               </View>
             </View>
           )}
-          <Text style={styles.label}>¿Cuánto te costó? {rpe ? `· ${RPE_HINT[rpe]}` : '(opcional)'}</Text>
+          <Text style={styles.label}>¿Cuántas repeticiones más podías hacer? (opcional)</Text>
           <View style={styles.chips}>
-            {RPE_OPTIONS.map((v) => (
+            {EFFORT_OPTIONS.map((o) => (
               <Pressable
-                key={v}
-                onPress={() => setRpe(rpe === v ? null : v)}
-                style={[styles.chip, rpe === v && styles.chipOn]}
+                key={o.rpe}
+                onPress={() => setRpe(rpe === o.rpe ? null : o.rpe)}
+                style={[styles.chip, rpe === o.rpe && styles.chipOn]}
               >
-                <Text style={[styles.chipText, rpe === v && { color: '#fff' }]}>{v}</Text>
+                <Text style={[styles.chipText, rpe === o.rpe && { color: '#fff' }]}>{o.label}</Text>
               </Pressable>
             ))}
-            <Pressable onPress={() => setPain(!pain)} style={[styles.chip, pain && styles.painOn]}>
-              <Text style={[styles.chipText, pain && { color: colors.bg }]}>Dolor</Text>
-            </Pressable>
           </View>
+          <Text style={styles.label}>¿Sentiste molestia o dolor? (opcional)</Text>
+          <View style={styles.chips}>
+            {PAIN_OPTIONS.map((o) => {
+              const on = pain === o.level;
+              return (
+                <Pressable
+                  key={o.level}
+                  onPress={() => setPain(on ? null : o.level)}
+                  style={[styles.chip, on && (o.level === 0 ? styles.chipOn : styles.painOn)]}
+                >
+                  <Text style={[styles.chipText, on && { color: o.level === 0 ? '#fff' : colors.bg }]}>{o.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          {pain === 3 && (
+            <Text style={styles.painWarn}>
+              Si el dolor es fuerte, detén este ejercicio. La próxima rutina lo cambiará por uno más suave.
+            </Text>
+          )}
           <Button
             label={complete ? 'Registrar serie extra' : `Registrar serie ${done.length + 1} de ${slot.sets}`}
             onPress={() => {
@@ -309,10 +334,11 @@ function ExerciseCard({
                 durationSec: timed ? seconds : null,
                 weightKg: usesKb ? weight : null,
                 rpe,
-                painFlag: pain,
+                painFlag: (pain ?? 0) >= 2,
+                painLevel: pain,
               });
               setRpe(null);
-              setPain(false);
+              setPain(null);
             }}
           />
         </View>
@@ -333,7 +359,10 @@ function Summary({
   const totalReps = logs.reduce((n, l) => n + (l.repsDone ?? 0), 0);
   const volume = logs.reduce((n, l) => n + (l.repsDone ?? 0) * (l.weightKg ?? 0), 0);
   const rpes = logs.map((l) => l.rpe).filter((v): v is number => v != null);
-  const pains = [...new Set(logs.filter((l) => l.painFlag).map((l) => exName(l.exerciseId)))];
+  const painIn = (level: PainLevel) => [
+    ...new Set(logs.filter((l) => painOf(l) === level).map((l) => exName(l.exerciseId))),
+  ];
+  const [mild, moderate, strong] = [painIn(1), painIn(2), painIn(3)];
 
   return (
     <ScrollView
@@ -349,17 +378,30 @@ function Summary({
           <Stat label="Repeticiones" value={String(totalReps)} />
           <Stat label="Kg movidos" value={volume ? volume.toLocaleString('es-CL') : '—'} />
           <Stat
-            label="Esfuerzo medio"
-            value={rpes.length ? (rpes.reduce((a, b) => a + b, 0) / rpes.length).toFixed(1) : '—'}
+            label="Reps de reserva"
+            value={rpes.length ? (rpes.reduce((a, b) => a + (10 - b), 0) / rpes.length).toFixed(1) : '—'}
           />
         </View>
       )}
-      {pains.length > 0 && (
+      {strong.length > 0 && (
         <View style={styles.painBox}>
-          <Text style={styles.painTitle}>Marcaste dolor en: {pains.join(', ')}</Text>
+          <Text style={styles.painTitle}>Dolor fuerte en: {strong.join(', ')}</Text>
           <Text style={styles.text}>
-            La próxima rutina bajará la exigencia de estos ejercicios. Si el dolor sigue, consulta a un profesional.
+            La próxima rutina cambiará estos ejercicios por otros más suaves. Si el dolor sigue o se repite, consulta a
+            un profesional.
           </Text>
+        </View>
+      )}
+      {moderate.length > 0 && (
+        <View style={styles.painBox}>
+          <Text style={styles.painTitle}>Dolor moderado en: {moderate.join(', ')}</Text>
+          <Text style={styles.text}>La próxima rutina bajará la exigencia de estos ejercicios.</Text>
+        </View>
+      )}
+      {mild.length > 0 && (
+        <View style={styles.painBox}>
+          <Text style={styles.painTitle}>Molestia leve en: {mild.join(', ')}</Text>
+          <Text style={styles.text}>La próxima rutina mantendrá la carga de estos ejercicios, sin subirla.</Text>
         </View>
       )}
       <Text style={styles.text}>
@@ -425,6 +467,7 @@ const styles = StyleSheet.create({
   },
   chipOn: { backgroundColor: colors.accent },
   painOn: { backgroundColor: colors.warning },
+  painWarn: { color: colors.warning, fontSize: 13, lineHeight: 18 },
   chipText: { color: colors.text, fontWeight: '700' },
   bottomBar: {
     position: 'absolute',
