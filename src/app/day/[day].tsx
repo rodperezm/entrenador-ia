@@ -26,6 +26,7 @@ import {
   toggleDayPart,
 } from '@/domain/week';
 import { slotLabel } from '@/features/planner/describe';
+import { useGenerateWeek } from '@/features/planner/useGenerateWeek';
 import { useHistory } from '@/state/history';
 import { usePlan } from '@/state/plan';
 import { useProfile } from '@/state/profile';
@@ -41,6 +42,7 @@ export default function DayScreen() {
   const { week, plan, updateDay, savePlan } = usePlan();
   const { sessions } = useHistory();
   const { profile } = useProfile();
+  const { generate, generating, notice } = useGenerateWeek();
   // Ajustes en borrador: solo se guardan al confirmar «Rehacer con estos ajustes».
   const [draft, setDraft] = useState<DayConfig | null>(null);
   if (!parsed.success) return null;
@@ -51,8 +53,11 @@ export default function DayScreen() {
   const today = isToday(day);
   const dayPlan = plan?.days.find((p) => p.day === day);
   const stale = !!plan && !!profile && staleDays(plan, week, profile.updatedAt).has(day);
-  // Un día de entrenamiento sin rutina abre los ajustes directamente.
-  const editing = draft ?? (cfg.active && !dayPlan ? cfg : null);
+  // Semana vacía (perfil nuevo o recién borrado): conviene partir por la semana completa con IA.
+  const weekEmpty = !plan?.days.some((p) => week.days.some((w) => w.day === p.day && w.active));
+  const offerWeek = cfg.active && !dayPlan && weekEmpty && !draft;
+  // Con la semana ya armada, un día de entrenamiento sin rutina abre los ajustes directamente.
+  const editing = draft ?? (cfg.active && !dayPlan && !weekEmpty ? cfg : null);
 
   const openAdjust = () => setDraft(cfg.active ? cfg : applyDayChoice(cfg, [...STRENGTH_DAY]));
   const edit = (patch: (d: DayConfig) => DayConfig) => setDraft(patch(editing ?? cfg));
@@ -98,6 +103,23 @@ export default function DayScreen() {
       </Text>
 
       {/* Lo normal es abrir el día para entrenar: primero la rutina. */}
+      {offerWeek && (
+        <>
+          <Text style={[styles.section, { marginTop: 0 }]}>Rutina de este día</Text>
+          <Text style={styles.muted}>
+            Tu semana aún no tiene rutina. Lo mejor es armarla completa con IA: reparte los grupos musculares y varía
+            los ejercicios entre días.
+          </Text>
+          <Button
+            label={generating ? 'Armando tu semana… (hasta 1 minuto)' : 'Generar mi semana con IA'}
+            onPress={generate}
+            disabled={generating}
+          />
+          {notice && <Text style={styles.stale}>{notice}</Text>}
+          {!generating && <Button label="Armar solo este día" variant="ghost" onPress={() => setDraft(cfg)} />}
+        </>
+      )}
+
       {!cfg.active && !editing && (
         <>
           <Text style={[styles.section, { marginTop: 0 }]}>Día de descanso</Text>
@@ -153,7 +175,7 @@ export default function DayScreen() {
           setBlock={setBlock}
           onConfirm={confirm}
           // Sin rutina aún no hay nada a qué volver: el panel queda abierto.
-          onCancel={cfg.active && !dayPlan ? undefined : () => setDraft(null)}
+          onCancel={cfg.active && !dayPlan && !weekEmpty ? undefined : () => setDraft(null)}
         />
       )}
     </ScrollView>
