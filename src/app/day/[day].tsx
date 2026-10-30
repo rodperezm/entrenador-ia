@@ -4,10 +4,12 @@ import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-nat
 import { Chip } from '@/components/Chip';
 import { Button, Stepper } from '@/components/ui';
 import { EXERCISES, EXERCISES_BY_ID } from '@/data/exercises.seed';
+import { averageMet, kcalRangeLabel, latestWeight } from '@/domain/calories';
 import { generateDayByRules } from '@/domain/generator';
 import { MUSCLE_GROUP_LABELS, MUSCLE_GROUPS } from '@/domain/catalog';
 import { BLOCK_LABELS } from '@/domain/labels';
-import { type DayConfig, DayOfWeek } from '@/domain/schema';
+import { type DayConfig, DayOfWeek, type DayPlan } from '@/domain/schema';
+import { dayMinutes, leadPart, timeStatus } from '@/domain/timeBudget';
 import {
   applyDayChoice,
   configHash,
@@ -24,9 +26,12 @@ import {
   dayChoiceOf,
   dayPartLabel,
   toggleDayPart,
+  withAutoCounts,
+  withGentleStrength,
 } from '@/domain/week';
 import { slotLabel } from '@/features/planner/describe';
 import { useGenerateWeek } from '@/features/planner/useGenerateWeek';
+import { useBody } from '@/state/body';
 import { useHistory } from '@/state/history';
 import { usePlan } from '@/state/plan';
 import { useProfile } from '@/state/profile';
@@ -42,6 +47,7 @@ export default function DayScreen() {
   const { week, plan, updateDay, savePlan } = usePlan();
   const { sessions } = useHistory();
   const { profile } = useProfile();
+  const { records } = useBody();
   const { generate, generating, notice } = useGenerateWeek();
   // Ajustes en borrador: solo se guardan al confirmar «Rehacer con estos ajustes».
   const [draft, setDraft] = useState<DayConfig | null>(null);
@@ -64,10 +70,15 @@ export default function DayScreen() {
   const setBlock = <K extends keyof Blocks>(key: K, patch: Partial<Blocks[K]>) =>
     edit((d) => ({ ...d, blocks: { ...d.blocks, [key]: { ...d.blocks[key], ...patch } } }));
 
+  // Vista previa de la duración mientras se ajusta; la semilla fija evita que salte al mover otros ajustes.
+  const estimate =
+    editing?.active && profile
+      ? dayMinutes(generateDayByRules(editing, [], profile, EXERCISES, sessions, 1).blocks)
+      : null;
+
   // Guarda los ajustes y rehace solo este día con las reglas de la app (instantáneo, sin costo de IA).
-  const confirm = async () => {
-    if (!profile || !editing) return;
-    const next = editing;
+  const rebuild = async (next: DayConfig) => {
+    if (!profile) return;
     updateDay(day, () => next);
     setDraft(null);
     if (!next.active) return;
@@ -92,6 +103,11 @@ export default function DayScreen() {
       configHash: plan?.configHash ?? configHash(nextWeek, profile.updatedAt),
       dayHashes: { ...previousHashes, [day]: dayConfigHash(next, profile.updatedAt) },
     });
+  };
+
+  const dismissTimeNotice = () => {
+    if (!plan) return;
+    savePlan({ ...plan, days: plan.days.map((p) => (p.day === day ? { ...p, timeNoticeDismissed: true } : p)) });
   };
 
   return (
@@ -136,6 +152,14 @@ export default function DayScreen() {
               Tu perfil cambió desde que se armó esta rutina. Toca «Rehacer o ajustar este día» para actualizarla.
             </Text>
           )}
+          <TimeNotice
+            dayPlan={dayPlan}
+            cfg={cfg}
+            weightKg={latestWeight(records)}
+            onFit={() => rebuild(withAutoCounts(cfg))}
+            onAddGentle={() => rebuild(withGentleStrength(cfg))}
+            onDismiss={dismissTimeNotice}
+          />
           <Button
             label="Empezar entrenamiento"
             onPress={() => router.push({ pathname: '/workout/[day]', params: { day } })}
@@ -171,9 +195,10 @@ export default function DayScreen() {
           cfg={editing}
           hasConditions={hasConditions}
           hasRoutine={!!dayPlan}
+          estimate={estimate}
           onEdit={edit}
           setBlock={setBlock}
-          onConfirm={confirm}
+          onConfirm={() => rebuild(editing)}
           // Sin rutina aún no hay nada a qué volver: el panel queda abierto.
           onCancel={cfg.active && !dayPlan && !weekEmpty ? undefined : () => setDraft(null)}
         />
@@ -182,10 +207,70 @@ export default function DayScreen() {
   );
 }
 
+// Duración de la rutina en minutos; solo se habla más si hay algo que decidir.
+function TimeNotice({
+  dayPlan,
+  cfg,
+  weightKg,
+  onFit,
+  onAddGentle,
+  onDismiss,
+}: {
+  dayPlan: DayPlan;
+  cfg: DayConfig;
+  weightKg: number | null;
+  onFit: () => void;
+  onAddGentle: () => void;
+  onDismiss: () => void;
+}) {
+  const { minutes, available, state } = timeStatus(dayPlan.blocks, cfg);
+  const free = available - minutes;
+  const over = state === 'over' || state === 'far_over';
+  const dismissed = !!dayPlan.timeNoticeDismissed;
+  const offerGentle = state === 'short' && !cfg.blocks.main.enabled && free >= 15 && !dismissed;
+  const kcal = weightKg ? kcalRangeLabel(averageMet(dayPlan.blocks, EXERCISES_BY_ID), weightKg, minutes) : null;
+
+  return (
+    <>
+      <Text style={styles.muted}>
+        ≈ {minutes} min de {available}
+        {kcal && ` · ${kcal}`}
+      </Text>
+      {!weightKg && <Text style={styles.muted}>Anota tu peso en Cuerpo para estimar tus calorías.</Text>}
+      {state === 'short' && (
+        <Text style={styles.muted}>
+          {leadPart(cfg) === 'prehab'
+            ? `Tu sesión dura ${minutes} min. Para esta zona es suficiente.`
+            : `Tu sesión quedó en ${minutes} min; con eso es suficiente. Te quedan ${free} libres.`}
+        </Text>
+      )}
+      {offerGentle && (
+        <>
+          <Text style={styles.muted}>Te sobran {free} min. ¿Sumamos fuerza suave?</Text>
+          <Button label="Sumar fuerza suave" variant="ghost" onPress={onAddGentle} />
+          <Button label="No, gracias" variant="ghost" onPress={onDismiss} />
+        </>
+      )}
+      {over && !dismissed && (
+        <>
+          <Text style={styles.stale}>
+            {state === 'over'
+              ? `Esta sesión dura ≈ ${minutes} min, ${minutes - available} más de los que tienes.`
+              : `Con esta cantidad de ejercicios serían ≈ ${minutes} min. Te recomendamos ajustarla.`}
+          </Text>
+          <Button label={`Ajustar a ${available} min`} onPress={onFit} />
+          <Button label="Dejarla así" variant="ghost" onPress={onDismiss} />
+        </>
+      )}
+    </>
+  );
+}
+
 function AdjustPanel({
   cfg,
   hasConditions,
   hasRoutine,
+  estimate,
   onEdit,
   setBlock,
   onConfirm,
@@ -194,6 +279,7 @@ function AdjustPanel({
   cfg: DayConfig;
   hasConditions: boolean;
   hasRoutine: boolean;
+  estimate: number | null;
   onEdit: (patch: (d: DayConfig) => DayConfig) => void;
   setBlock: <K extends keyof Blocks>(key: K, patch: Partial<Blocks[K]>) => void;
   onConfirm: () => void;
@@ -207,6 +293,7 @@ function AdjustPanel({
     : hasRoutine
       ? 'Rehacer con estos ajustes'
       : 'Armar este día';
+  const estimateLabel = estimate != null ? `Con esto: ≈ ${estimate} min de ${cfg.availableMinutes}` : null;
 
   return (
     <>
@@ -246,7 +333,7 @@ function AdjustPanel({
               onChange={(availableMinutes) => set({ availableMinutes })}
             />
           </Row>
-          <Text style={styles.muted}>Si la rutina no cabe en este tiempo, usamos menos ejercicios.</Text>
+          <Text style={styles.muted}>{estimateLabel}</Text>
 
           <Text style={styles.section}>Bloques</Text>
 
@@ -255,14 +342,12 @@ function AdjustPanel({
             enabled={cfg.blocks.warmup.enabled}
             onToggle={(enabled) => setBlock('warmup', { enabled })}
           >
-            <Row label="Ejercicios">
-              <Stepper
-                value={cfg.blocks.warmup.exerciseCount}
-                min={1}
-                max={8}
-                onChange={(exerciseCount) => setBlock('warmup', { exerciseCount })}
-              />
-            </Row>
+            <CountRow
+              count={cfg.blocks.warmup.exerciseCount}
+              max={8}
+              fixed={!!cfg.blocks.warmup.fixedCount}
+              onChange={(patch) => setBlock('warmup', patch)}
+            />
           </BlockCard>
 
           <BlockCard
@@ -275,14 +360,12 @@ function AdjustPanel({
             enabled={cfg.blocks.prehab.enabled}
             onToggle={(enabled) => setBlock('prehab', { enabled })}
           >
-            <Row label="Ejercicios">
-              <Stepper
-                value={cfg.blocks.prehab.exerciseCount}
-                min={1}
-                max={6}
-                onChange={(exerciseCount) => setBlock('prehab', { exerciseCount })}
-              />
-            </Row>
+            <CountRow
+              count={cfg.blocks.prehab.exerciseCount}
+              max={6}
+              fixed={!!cfg.blocks.prehab.fixedCount}
+              onChange={(patch) => setBlock('prehab', patch)}
+            />
           </BlockCard>
 
           <BlockCard
@@ -290,14 +373,12 @@ function AdjustPanel({
             enabled={cfg.blocks.main.enabled}
             onToggle={(enabled) => setBlock('main', { enabled })}
           >
-            <Row label="Ejercicios">
-              <Stepper
-                value={cfg.blocks.main.exerciseCount}
-                min={1}
-                max={10}
-                onChange={(exerciseCount) => setBlock('main', { exerciseCount })}
-              />
-            </Row>
+            <CountRow
+              count={cfg.blocks.main.exerciseCount}
+              max={10}
+              fixed={!!cfg.blocks.main.fixedCount}
+              onChange={(patch) => setBlock('main', patch)}
+            />
             {hasConditions && cfg.blocks.prehab.enabled && (
               <Row label="Suave (día de lesión)">
                 <Switch
@@ -335,21 +416,54 @@ function AdjustPanel({
             enabled={cfg.blocks.cooldown.enabled}
             onToggle={(enabled) => setBlock('cooldown', { enabled })}
           >
-            <Row label="Ejercicios">
-              <Stepper
-                value={cfg.blocks.cooldown.exerciseCount}
-                min={1}
-                max={8}
-                onChange={(exerciseCount) => setBlock('cooldown', { exerciseCount })}
-              />
-            </Row>
+            <CountRow
+              count={cfg.blocks.cooldown.exerciseCount}
+              max={8}
+              fixed={!!cfg.blocks.cooldown.fixedCount}
+              onChange={(patch) => setBlock('cooldown', patch)}
+            />
           </BlockCard>
         </>
       )}
 
+      {estimateLabel && <Text style={styles.estimate}>{estimateLabel}</Text>}
       <Button label={confirmLabel} onPress={onConfirm} />
       {onCancel && <Button label="Cancelar" variant="ghost" onPress={onCancel} />}
       {cfg.active && <Text style={styles.muted}>Arma solo este día al instante, sin tocar el resto de la semana.</Text>}
+    </>
+  );
+}
+
+// Auto: la app ajusta la cantidad a los minutos. Al mover el número, queda fija.
+function CountRow({
+  count,
+  max,
+  fixed,
+  onChange,
+}: {
+  count: number;
+  max: number;
+  fixed: boolean;
+  onChange: (patch: { exerciseCount?: number; fixedCount?: boolean }) => void;
+}) {
+  return (
+    <>
+      <Row label="Ejercicios">
+        <View style={styles.countControls}>
+          <Chip label="Auto" active={!fixed} onPress={() => onChange({ fixedCount: undefined })} />
+          <Stepper
+            value={count}
+            min={1}
+            max={max}
+            onChange={(exerciseCount) => onChange({ exerciseCount, fixedCount: true })}
+          />
+        </View>
+      </Row>
+      <Text style={styles.muted}>
+        {fixed
+          ? `Respetamos estos ${count}; ajustamos vueltas y duración.`
+          : 'La cantidad se ajusta a tus minutos.'}
+      </Text>
     </>
   );
 }
@@ -435,7 +549,9 @@ const styles = StyleSheet.create({
   blockTitle: { color: colors.text, fontSize: 16, fontWeight: '700' },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   rowLabel: { color: colors.textMuted, fontSize: 14, fontWeight: '600' },
+  countControls: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  estimate: { color: colors.text, fontSize: 15, fontWeight: '700', textAlign: 'center' },
   muted: { color: colors.textMuted, fontSize: 13, lineHeight: 18 },
   stale: { color: colors.warning, fontSize: 13 },
   routineBlock: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.md, gap: 2 },

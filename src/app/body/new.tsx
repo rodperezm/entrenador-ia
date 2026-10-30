@@ -2,6 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Link, router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardDoneBar } from '@/components/KeyboardDoneBar';
 import { Button } from '@/components/ui';
 import {
   bodyFat,
@@ -96,108 +97,117 @@ export default function NewBodyRecord() {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <Stack.Screen options={{ title: folds ? 'Registrar pliegues' : 'Registrar medidas' }} />
-      <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View style={styles.field}>
-          <Text style={styles.fieldLabel} numberOfLines={1}>
-            Fecha
-          </Text>
-          <View style={styles.fieldInputRow}>
-            <View style={{ flex: 1 }}>
-              <DateField value={date} onChange={setDate} maximumDate={new Date()} invalid={!recordDate} />
-            </View>
-            <Text style={styles.unit} />
-          </View>
-        </View>
-
-        <Link href={{ pathname: '/guide', params: { tab: folds ? 'folds' : 'tape' } }} asChild>
-          <Pressable style={styles.guideLink}>
-            <Ionicons name="book-outline" size={20} color={colors.accent} />
-            <Text style={styles.guideText}>
-              {folds ? '¿Cómo medir los pliegues? Ver la guía' : '¿Dónde va la cinta? Ver la guía'}
+    <>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <Stack.Screen options={{ title: folds ? 'Registrar pliegues' : 'Registrar medidas' }} />
+        <ScrollView
+          style={styles.screen}
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
+          <View style={styles.field}>
+            <Text style={styles.fieldLabel} numberOfLines={1}>
+              Fecha
             </Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-          </Pressable>
-        </Link>
-
-        {!folds ? (
-          <>
-            {TAPE_FIELDS.map((f) => (
-              <Field
-                key={f.key}
-                label={f.label}
-                unit={f.unit}
-                value={tape[f.key]}
-                onChange={(v) => setTape((t) => ({ ...t, [f.key]: v }))}
-                placeholder={f.placeholder}
-                error={!inRange(values[f.key], f.min, f.max)}
-                decimal
-              />
-            ))}
-            <Text style={styles.hint}>
-              Todo es opcional: registra solo lo que mediste. Cintura: el punto más estrecho, entre costillas y cadera.
-            </Text>
-            <View style={styles.preview}>
-              <Text style={styles.previewLabel}>IMC calculado</Text>
-              <Text style={styles.previewValue}>
-                {fmtNum(preview.imc)} {preview.imc != null ? `· ${LIGHT_LABEL[clsIMC(preview.imc)]}` : ''}
-              </Text>
-            </View>
-          </>
-        ) : (
-          <>
-            <Text style={styles.hint}>
-              Jackson-Pollock 3 pliegues. Mide del lado derecho y anota lo que marca el caliper en milímetros (mm), de 1
-              a 80. Repite cada pliegue 2 o 3 veces: se promedian para reducir el error de pinza.
-            </Text>
-            {sites.map((s) => (
-              <View key={s.id} style={styles.site}>
-                <Text style={styles.siteTitle}>{s.label}</Text>
-                <Text style={styles.hint}>{s.how}</Text>
-                <View style={styles.takes}>
-                  {[0, 1, 2].map((i) => {
-                    const v = takes[s.id]?.[i] ?? '';
-                    return (
-                      <TextInput
-                        key={i}
-                        value={v}
-                        onChangeText={(t) =>
-                          setTakes((all) => {
-                            const arr = [...(all[s.id] ?? ['', '', ''])];
-                            arr[i] = t;
-                            return { ...all, [s.id]: arr };
-                          })
-                        }
-                        placeholder={`Toma ${i + 1}`}
-                        placeholderTextColor={colors.textMuted}
-                        keyboardType="decimal-pad"
-                        style={[styles.input, styles.takeInput, !inRange(num(v), 1, 80) && styles.inputError]}
-                      />
-                    );
-                  })}
-                  <Text style={styles.takeUnit} numberOfLines={1}>
-                    mm
-                  </Text>
-                </View>
+            <View style={styles.fieldInputRow}>
+              <View style={{ flex: 1 }}>
+                <DateField value={date} onChange={setDate} maximumDate={new Date()} invalid={!recordDate} />
               </View>
-            ))}
-            <View style={styles.preview}>
-              <Text style={styles.previewLabel}>% de grasa (Siri)</Text>
-              <Text style={styles.previewValue}>
-                {fat?.pct != null && sex
-                  ? `${fmtNum(fat.pct)} % · ${FAT_LABEL[clsFat(fat.pct, sex, fat.age)]}`
-                  : profile?.birthDate
-                    ? 'Completa los 3 pliegues'
-                    : 'Falta tu fecha de nacimiento en el perfil'}
-              </Text>
+              <Text style={styles.unit} />
             </View>
-          </>
-        )}
+          </View>
 
-        <Button label="Guardar" onPress={save} disabled={!canSave} />
-      </ScrollView>
-    </KeyboardAvoidingView>
+          <Link href={{ pathname: '/guide', params: { tab: folds ? 'folds' : 'tape' } }} asChild>
+            <Pressable style={styles.guideLink}>
+              <Ionicons name="book-outline" size={20} color={colors.accent} />
+              <Text style={styles.guideText}>
+                {folds ? '¿Cómo medir los pliegues? Ver la guía' : '¿Dónde va la cinta? Ver la guía'}
+              </Text>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </Pressable>
+          </Link>
+
+          {!folds ? (
+            <>
+              {TAPE_FIELDS.map((f) => (
+                <Field
+                  key={f.key}
+                  label={f.label}
+                  unit={f.unit}
+                  value={tape[f.key]}
+                  onChange={(v) => setTape((t) => ({ ...t, [f.key]: v }))}
+                  placeholder={f.placeholder}
+                  error={!inRange(values[f.key], f.min, f.max)}
+                  decimal
+                />
+              ))}
+              <Text style={styles.hint}>
+                Todo es opcional: registra solo lo que mediste. Cintura: el punto más estrecho, entre costillas y
+                cadera.
+              </Text>
+              <View style={styles.preview}>
+                <Text style={styles.previewLabel}>IMC calculado</Text>
+                <Text style={styles.previewValue}>
+                  {fmtNum(preview.imc)} {preview.imc != null ? `· ${LIGHT_LABEL[clsIMC(preview.imc)]}` : ''}
+                </Text>
+              </View>
+            </>
+          ) : (
+            <>
+              <Text style={styles.hint}>
+                Jackson-Pollock 3 pliegues. Mide del lado derecho y anota lo que marca el caliper en milímetros (mm), de
+                1 a 80. Repite cada pliegue 2 o 3 veces: se promedian para reducir el error de pinza.
+              </Text>
+              {sites.map((s) => (
+                <View key={s.id} style={styles.site}>
+                  <Text style={styles.siteTitle}>{s.label}</Text>
+                  <Text style={styles.hint}>{s.how}</Text>
+                  <View style={styles.takes}>
+                    {[0, 1, 2].map((i) => {
+                      const v = takes[s.id]?.[i] ?? '';
+                      return (
+                        <TextInput
+                          key={i}
+                          value={v}
+                          onChangeText={(t) =>
+                            setTakes((all) => {
+                              const arr = [...(all[s.id] ?? ['', '', ''])];
+                              arr[i] = t;
+                              return { ...all, [s.id]: arr };
+                            })
+                          }
+                          placeholder={`Toma ${i + 1}`}
+                          placeholderTextColor={colors.textMuted}
+                          keyboardType="decimal-pad"
+                          style={[styles.input, styles.takeInput, !inRange(num(v), 1, 80) && styles.inputError]}
+                        />
+                      );
+                    })}
+                    <Text style={styles.takeUnit} numberOfLines={1}>
+                      mm
+                    </Text>
+                  </View>
+                </View>
+              ))}
+              <View style={styles.preview}>
+                <Text style={styles.previewLabel}>% de grasa (Siri)</Text>
+                <Text style={styles.previewValue}>
+                  {fat?.pct != null && sex
+                    ? `${fmtNum(fat.pct)} % · ${FAT_LABEL[clsFat(fat.pct, sex, fat.age)]}`
+                    : profile?.birthDate
+                      ? 'Completa los 3 pliegues'
+                      : 'Falta tu fecha de nacimiento en el perfil'}
+                </Text>
+              </View>
+            </>
+          )}
+
+          <Button label="Guardar" onPress={save} disabled={!canSave} />
+        </ScrollView>
+      </KeyboardAvoidingView>
+      <KeyboardDoneBar />
+    </>
   );
 }
 

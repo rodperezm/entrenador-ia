@@ -1,8 +1,10 @@
+import { BebasNeue_400Regular, useFonts } from '@expo-google-fonts/bebas-neue';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DateField } from '@/components/DateField';
-import { CheckRow, OptionCard, Stepper } from '@/components/ui';
+import { Button, CheckRow, OptionCard, Stepper } from '@/components/ui';
 import { EXERCISES } from '@/data/exercises.seed';
 import {
   EQUIPMENT,
@@ -56,6 +58,29 @@ const KB_WEIGHTS = [4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 28, 32];
 export const PART_MAX: Record<DayPart, number> = { warmup: 8, prehab: 6, main: 10, cooldown: 8 };
 
 const toggle = <T,>(list: T[], item: T) => (list.includes(item) ? list.filter((x) => x !== item) : [...list, item]);
+
+// ---------- Portada (antes del paso 1, solo la primera vez) ----------
+
+export function IntroScreen({ onStart }: { onStart: () => void }) {
+  const insets = useSafeAreaInsets();
+  const [fontsLoaded] = useFonts({ BebasNeue_400Regular });
+  const display = fontsLoaded ? { fontFamily: 'BebasNeue_400Regular' } : styles.displayFallback;
+
+  return (
+    <View style={[styles.intro, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
+      <ScrollView contentContainerStyle={styles.introContent}>
+        <Image source={require('../../../assets/icon.png')} style={styles.introLogo} accessibilityLabel="Logo de KettleIA" />
+        <Text style={[styles.introBrand, display]}>KettleIA</Text>
+        <Text style={[styles.introHeadline, display]}>Entrena fuerte.{'\n'}Cuida lo que duele.</Text>
+        <Text style={styles.introBody}>
+          La fuerza es la madre de todas las batallas. Solo necesitas una kettlebell, tu cuerpo y un plan que respeta tus
+          lesiones.
+        </Text>
+      </ScrollView>
+      <Button label="Empezar" onPress={onStart} />
+    </View>
+  );
+}
 
 // ---------- 1. Bienvenida ----------
 
@@ -433,7 +458,7 @@ export function WeekStep({ draft, update }: StepProps) {
             />
           </View>
         ))}
-        <Text style={styles.hint}>Si no cabe en el tiempo del día, la rutina usa menos ejercicios.</Text>
+        <Text style={styles.hint}>Es una base: la rutina la ajusta a los minutos de cada día.</Text>
       </View>
 
       <Text style={styles.hint}>
@@ -517,6 +542,20 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
+  intro: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: spacing.lg, gap: spacing.md },
+  introContent: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
+  introLogo: { width: 260, height: 260 },
+  introBrand: { color: colors.accent, fontSize: 24, letterSpacing: 1.5 },
+  introHeadline: { color: colors.text, fontSize: 46, lineHeight: 50, textAlign: 'center' },
+  introBody: {
+    color: colors.textMuted,
+    fontSize: 16,
+    lineHeight: 23,
+    maxWidth: 340,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+  },
+  displayFallback: { fontWeight: '800' },
   segment: { flexDirection: 'row', backgroundColor: colors.surface, borderRadius: radius.pill, padding: 4 },
   segBtn: { flex: 1, paddingVertical: 12, borderRadius: radius.pill, alignItems: 'center' },
   segOn: { backgroundColor: colors.accent },

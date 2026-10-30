@@ -2,6 +2,7 @@ import { equipmentAt, MEDICAL_CONDITIONS, RESTRICTION_FLAGS } from '@/domain/cat
 import { effortKind, effortNote } from '@/domain/effort';
 import { filterExercisesForUser } from '@/domain/filter';
 import { strongPainIds } from '@/domain/generator';
+import { leadPart, partBudgets } from '@/domain/timeBudget';
 import {
   type BlockType,
   type Exercise,
@@ -121,7 +122,17 @@ export function buildAiRequest(
     },
     week: week.days
       .filter((d) => d.active)
-      .map(({ active: _active, ...d }) => ({ ...d, availableEquipment: equipmentAt(d.location, profile) })),
+      .map(({ active: _active, ...d }) => ({
+        ...d,
+        availableEquipment: equipmentAt(d.location, profile),
+        leadPart: leadPart({ ...d, active: true }),
+        minutesByPart: Object.fromEntries(
+          Object.entries(partBudgets({ ...d, active: true }, profile.level)).map(([part, sec]) => [
+            part,
+            Math.round(sec / 60),
+          ]),
+        ),
+      })),
     candidates,
     history: lastByExercise,
     body,

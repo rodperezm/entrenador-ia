@@ -12,7 +12,7 @@ import type {
 } from './schema';
 import { painOf } from './schema';
 import { progressSlot } from './progression';
-import { GENTLE_MAX } from './week';
+import { fitPart, maxCount } from './timeBudget';
 
 // Generador por reglas. Produce la misma estructura que devolverá el LLM
 // (GeneratedWeekPlan), así la app no cambia cuando se conecte la IA, y sirve
@@ -22,13 +22,6 @@ type Level = LocalProfile['level'];
 
 const MAX_COMPLEXITY: Record<Level, number> = { beginner: 2, intermediate: 3, advanced: 5 };
 const TARGET_COMPLEXITY: Record<Level, number> = { beginner: 1, intermediate: 2, advanced: 3 };
-
-// Duración aproximada de un ejercicio prescrito (unos 4 s por repetición y
-// 30 s para cambiar de ejercicio), para ajustar la rutina al tiempo del día.
-export const slotSeconds = (s: ExerciseSlot) => {
-  const perSet = s.durationSec ?? (s.reps ? s.reps * 4 : 45);
-  return s.sets * perSet + (s.sets - 1) * s.restSec + 30;
-};
 
 // Barajado determinista (mismo resultado para la misma semana y día).
 function seeded(seed: number) {
@@ -132,10 +125,18 @@ function generateDay(
   // Fuerza primero: el calentamiento y la elongación dependen de lo elegido.
   // Día de fuerza suave (lesión): pocos ejercicios, sencillos y sin balísticos ni saltos.
   const mainPool = cfg.gentleStrength ? pool('main_strength').filter(isGentle) : pool('main_strength');
-  const mainCount = cfg.gentleStrength ? Math.min(b.main.exerciseCount, GENTLE_MAX) : b.main.exerciseCount;
-  const main = b.main.enabled
-    ? pickMain(mainPool, b.main.muscleGroups, mainCount, profile, usedThisWeek, rand)
+  const mainOptions = b.main.enabled
+    ? pickMain(mainPool, b.main.muscleGroups, maxCount('main', cfg), profile, usedThisWeek, rand)
     : [];
+  // Cada parte recibe opciones de sobra y se queda con las que caben en sus minutos.
+  const fit = (part: Parameters<typeof fitPart>[0], slots: ExerciseSlot[]) => fitPart(part, slots, cfg, profile.level);
+  const mainSlots = fit(
+    'main',
+    mainOptions.map(({ exercise, group }) =>
+      prescribe(exercise, profile, `Trabaja ${MUSCLE_GROUP_LABELS[group].toLowerCase()}.`),
+    ),
+  );
+  const main = mainOptions.filter((m) => mainSlots.some((s) => s.exerciseId === m.exercise.id));
   const mainGroups = new Set(main.flatMap((m) => m.exercise.muscleGroups));
 
   if (b.warmup.enabled) {
@@ -146,7 +147,10 @@ function generateDay(
     );
     blocks.push({
       type: 'warmup',
-      slots: options.slice(0, b.warmup.exerciseCount).map((e) => prescribe(e, profile, null)),
+      slots: fit(
+        'warmup',
+        options.map((e) => prescribe(e, profile, null)),
+      ),
     });
   }
 
@@ -158,22 +162,16 @@ function generateDay(
       ),
     );
     const options = pool('prehab').sort((x, y) => Number(fromConditions.has(y.id)) - Number(fromConditions.has(x.id)));
-    prehabChosen = options.slice(0, b.prehab.exerciseCount);
-    blocks.push({
-      type: 'prehab',
-      slots: prehabChosen.map((e) =>
-        prescribe(e, profile, fromConditions.has(e.id) ? 'Preventivo para tu condición.' : null),
-      ),
-    });
+    const prehabSlots = fit(
+      'prehab',
+      options.map((e) => prescribe(e, profile, fromConditions.has(e.id) ? 'Preventivo para tu condición.' : null)),
+    );
+    prehabChosen = options.filter((e) => prehabSlots.some((s) => s.exerciseId === e.id));
+    blocks.push({ type: 'prehab', slots: prehabSlots });
   }
 
   if (b.main.enabled) {
-    blocks.push({
-      type: 'main_strength',
-      slots: main.map(({ exercise, group }) =>
-        prescribe(exercise, profile, `Trabaja ${MUSCLE_GROUP_LABELS[group].toLowerCase()}.`),
-      ),
-    });
+    blocks.push({ type: 'main_strength', slots: mainSlots });
     main.forEach(({ exercise }) => usedThisWeek.set(exercise.id, (usedThisWeek.get(exercise.id) ?? 0) + 1));
   }
 
@@ -190,33 +188,23 @@ function generateDay(
     const general = pool('cooldown')
       .map((e) => e.id)
       .filter((id) => !linked.includes(id) && !byGroup.includes(id));
-    const ids = [...linked, ...byGroup, ...general].slice(0, b.cooldown.exerciseCount);
+    const ids = [...linked, ...byGroup, ...general];
     blocks.push({
       type: 'cooldown',
-      slots: ids.map((id) =>
-        prescribe(
-          exercises.find((e) => e.id === id)!,
-          profile,
-          null,
+      slots: fit(
+        'cooldown',
+        ids.map((id) =>
+          prescribe(
+            exercises.find((e) => e.id === id)!,
+            profile,
+            null,
+          ),
         ),
       ),
     });
   }
 
-  fitToTime(blocks, cfg.availableMinutes * 60);
   return { day: cfg.day, location: cfg.location, blocks: blocks.filter((bl) => bl.slots.length > 0) };
-}
-
-// Si la rutina no cabe en el tiempo del día, quita ejercicios del bloque más
-// largo (empezando por el final), dejando al menos uno por bloque.
-export function fitToTime(blocks: PlannedBlock[], budgetSec: number) {
-  const total = () => blocks.reduce((s, bl) => s + bl.slots.reduce((t, sl) => t + slotSeconds(sl), 0), 0);
-  while (total() > budgetSec) {
-    const candidates = blocks.filter((bl) => bl.slots.length > 1);
-    if (!candidates.length) return;
-    const longest = candidates.reduce((a, c) => (c.slots.length > a.slots.length ? c : a));
-    longest.slots.pop();
-  }
 }
 
 const GENTLE_FLAGS = ['ballistic', 'jumping', 'high_impact'] as const;

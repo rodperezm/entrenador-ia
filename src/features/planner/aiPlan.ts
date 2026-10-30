@@ -1,6 +1,7 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { EXERCISES_BY_ID } from '@/data/exercises.seed';
-import { fitToTime, isGentle } from '@/domain/generator';
+import { isGentle } from '@/domain/generator';
+import { fitPart } from '@/domain/timeBudget';
 import { GENTLE_MAX } from '@/domain/week';
 import { GeneratedWeekPlan, type WeekConfig } from '@/domain/schema';
 import type { buildAiRequest } from './aiRequest';
@@ -67,13 +68,12 @@ export async function generateWeekWithAi(request: ReturnType<typeof buildAiReque
   const complete = activeDays.every((day) => parsed.data.days.some((d) => d.day === day && d.blocks.length > 0));
   if (!valid || !complete) throw new AiPlanError('la rutina de Claude no cumplía las reglas');
 
-  // Respetar lo pedido aunque Claude se pase: cantidad por bloque y tiempo del día.
+  // Respetar lo pedido aunque Claude se pase o se quede corto: minutos de cada parte del día.
   const cfgByDay = new Map(week.days.map((d) => [d.day, d]));
   const BLOCK_KEY = { warmup: 'warmup', prehab: 'prehab', main_strength: 'main', cooldown: 'cooldown' } as const;
   for (const d of parsed.data.days) {
     const cfg = cfgByDay.get(d.day);
     if (!cfg) continue;
-    for (const b of d.blocks) b.slots = b.slots.slice(0, cfg.blocks[BLOCK_KEY[b.type]].exerciseCount);
     // Día de fuerza suave: solo ejercicios suaves y como máximo GENTLE_MAX.
     if (cfg.gentleStrength) {
       for (const b of d.blocks.filter((x) => x.type === 'main_strength')) {
@@ -86,7 +86,7 @@ export async function generateWeekWithAi(request: ReturnType<typeof buildAiReque
       }
       d.blocks = d.blocks.filter((b) => b.slots.length > 0);
     }
-    fitToTime(d.blocks, cfg.availableMinutes * 60);
+    for (const b of d.blocks) b.slots = fitPart(BLOCK_KEY[b.type], b.slots, cfg, request.profile.level);
   }
 
   return { plan: parsed.data, model: (data.model as string) ?? null };

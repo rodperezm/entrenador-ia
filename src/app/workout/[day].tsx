@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BodyMap } from '@/components/BodyMap';
 import { Button, Stepper } from '@/components/ui';
 import { EXERCISES, EXERCISES_BY_ID } from '@/data/exercises.seed';
+import { averageMet, kcalRangeLabel, latestWeight } from '@/domain/calories';
 import { equipmentAt } from '@/domain/catalog';
 import { filterExercisesForUser } from '@/domain/filter';
 import { isGentle } from '@/domain/generator';
@@ -17,6 +18,7 @@ import { fmtClock } from '@/domain/session';
 import { DAY_LONG } from '@/domain/week';
 import { slotLabel } from '@/features/planner/describe';
 import { useCues } from '@/features/workout/useCues';
+import { useBody } from '@/state/body';
 import { useHistory } from '@/state/history';
 import { usePlan } from '@/state/plan';
 import { useProfile } from '@/state/profile';
@@ -44,6 +46,7 @@ export default function WorkoutScreen() {
   const { plan } = usePlan();
   const { addSession } = useHistory();
   const { profile } = useProfile();
+  const { records } = useBody();
   const dayPlan = plan?.days.find((d) => d.day === day);
   const cues = useCues(true);
 
@@ -157,8 +160,16 @@ export default function WorkoutScreen() {
     });
   };
 
-  if (finishedAt != null)
-    return <Summary logs={logs} minutes={Math.round((finishedAt - startedAt) / 60000)} insets={insets} />;
+  if (finishedAt != null) {
+    const minutes = Math.round((finishedAt - startedAt) / 60000);
+    const weightKg = latestWeight(records);
+    // Con el tiempo real de la sesión y la intensidad promedio de la rutina.
+    const kcal =
+      weightKg && dayPlan && minutes > 0
+        ? kcalRangeLabel(averageMet(dayPlan.blocks, EXERCISES_BY_ID), weightKg, minutes)
+        : null;
+    return <Summary logs={logs} minutes={minutes} kcal={kcal} insets={insets} />;
+  }
 
   const item = items[idx];
   const ex = EXERCISES_BY_ID.get(item.slot.exerciseId);
@@ -717,10 +728,12 @@ function PainPicker({
 function Summary({
   logs,
   minutes,
+  kcal,
   insets,
 }: {
   logs: SetLog[];
   minutes: number;
+  kcal: string | null;
   insets: { top: number; bottom: number };
 }) {
   const totalReps = logs.reduce((n, l) => n + (l.repsDone ?? 0), 0);
@@ -760,6 +773,7 @@ function Summary({
           />
         </View>
       )}
+      {logs.length > 0 && kcal && <Text style={styles.text}>Gasto estimado: {kcal}</Text>}
       {strong.length > 0 && (
         <View style={styles.painBox}>
           <Text style={styles.painTitle}>Dolor fuerte en: {strong.join(', ')}</Text>

@@ -2,6 +2,7 @@ import { router, Stack } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardDoneBar } from '@/components/KeyboardDoneBar';
 import { Button } from '@/components/ui';
 import {
   AboutStep,
@@ -10,6 +11,7 @@ import {
   type Draft,
   EquipmentStep,
   formatBirth,
+  IntroScreen,
   LevelStep,
   parseBirth,
   parseHeight,
@@ -24,7 +26,7 @@ import { useProfile } from '@/state/profile';
 import { colors, spacing } from '@/theme';
 
 const STEPS = [
-  { title: 'Bienvenido a KettleIA', subtitle: 'Armemos tu perfil de entrenamiento.', Component: WelcomeStep },
+  { title: 'Empecemos', subtitle: 'Armemos tu perfil de entrenamiento.', Component: WelcomeStep },
   { title: 'Sobre ti', subtitle: 'Para tus índices corporales y para ajustar tu entrenamiento.', Component: AboutStep },
   { title: 'Tu nivel', subtitle: 'Define la complejidad inicial de los ejercicios.', Component: LevelStep },
   { title: 'Tu equipamiento', subtitle: 'Solo te propondremos ejercicios que puedas hacer.', Component: EquipmentStep },
@@ -99,6 +101,8 @@ function OnboardingForm() {
     })(),
   }));
   const [saving, setSaving] = useState(false);
+  // La portada solo aparece la primera vez, no al editar el perfil.
+  const [showIntro, setShowIntro] = useState(!profile);
 
   const update = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }));
   const { title, subtitle, Component } = STEPS[step];
@@ -150,37 +154,51 @@ function OnboardingForm() {
     }
   };
 
+  if (showIntro) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <IntroScreen onStart={() => setShowIntro(false)} />
+      </>
+    );
+  }
+
   return (
-    <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <Stack.Screen options={{ title: profile ? 'Editar perfil' : '', headerBackVisible: !!profile }} />
-
-      <View style={styles.progress}>
-        {STEPS.map((_, i) => (
-          <View key={i} style={[styles.progressBar, i <= step && styles.progressOn]} />
-        ))}
-      </View>
-
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Text style={styles.stepCount}>
-          Paso {step + 1} de {STEPS.length}
-        </Text>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.subtitle}>{subtitle}</Text>
-        <Component draft={draft} update={update} />
-        {profile && step === 0 && (
-          <Button label="Borrar mis datos y empezar de cero" variant="ghost" onPress={resetAll} />
-        )}
-      </ScrollView>
-
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
-        <Button
-          label={isLast ? (saving ? 'Guardando…' : 'Guardar y empezar') : 'Continuar'}
-          disabled={!canContinue(step, draft) || saving}
-          onPress={isLast ? finish : () => setStep(step + 1)}
+    <>
+      <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <Stack.Screen
+          options={{ headerShown: true, title: profile ? 'Editar perfil' : '', headerBackVisible: !!profile }}
         />
-        {step > 0 && <Button label="Atrás" variant="ghost" onPress={() => setStep(step - 1)} />}
-      </View>
-    </KeyboardAvoidingView>
+
+        <View style={styles.progress}>
+          {STEPS.map((_, i) => (
+            <View key={i} style={[styles.progressBar, i <= step && styles.progressOn]} />
+          ))}
+        </View>
+
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <Text style={styles.stepCount}>
+            Paso {step + 1} de {STEPS.length}
+          </Text>
+          <Text style={styles.title}>{title}</Text>
+          <Text style={styles.subtitle}>{subtitle}</Text>
+          <Component draft={draft} update={update} />
+          {profile && step === 0 && (
+            <Button label="Borrar mis datos y empezar de cero" variant="ghost" onPress={resetAll} />
+          )}
+        </ScrollView>
+
+        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
+          <Button
+            label={isLast ? (saving ? 'Guardando…' : 'Guardar y empezar') : 'Continuar'}
+            disabled={!canContinue(step, draft) || saving}
+            onPress={isLast ? finish : () => setStep(step + 1)}
+          />
+          {step > 0 && <Button label="Atrás" variant="ghost" onPress={() => setStep(step - 1)} />}
+        </View>
+      </KeyboardAvoidingView>
+      <KeyboardDoneBar />
+    </>
   );
 }
 

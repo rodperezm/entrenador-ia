@@ -171,6 +171,9 @@ export type LocalProfile = z.infer<typeof LocalProfile>;
 export const DayOfWeek = z.enum(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
 export type DayOfWeek = z.infer<typeof DayOfWeek>;
 
+// true = la persona fijó la cantidad de ejercicios; sin valor, la ajusta la app según los minutos.
+const fixedCount = z.boolean().optional();
+
 // Lo que el usuario configura para un día en el planner.
 export const DayConfig = z.object({
   day: DayOfWeek,
@@ -184,14 +187,16 @@ export const DayConfig = z.object({
       enabled: z.boolean(),
       minutes: z.number().int().min(5).max(15),
       exerciseCount: z.number().int().min(1).max(8).default(4),
+      fixedCount,
     }),
-    prehab: z.object({ enabled: z.boolean(), exerciseCount: z.number().int().min(1).max(6) }),
+    prehab: z.object({ enabled: z.boolean(), exerciseCount: z.number().int().min(1).max(6), fixedCount }),
     main: z.object({
       enabled: z.boolean(),
       exerciseCount: z.number().int().min(1).max(10),
       muscleGroups: z.array(MuscleGroupId),
+      fixedCount,
     }),
-    cooldown: z.object({ enabled: z.boolean(), exerciseCount: z.number().int().min(1).max(8).default(4) }),
+    cooldown: z.object({ enabled: z.boolean(), exerciseCount: z.number().int().min(1).max(8).default(4), fixedCount }),
   }),
 });
 export type DayConfig = z.infer<typeof DayConfig>;
@@ -214,7 +219,13 @@ export type ExerciseSlot = z.infer<typeof ExerciseSlot>;
 export const PlannedBlock = z.object({ type: BlockType, slots: z.array(ExerciseSlot) });
 export type PlannedBlock = z.infer<typeof PlannedBlock>;
 
-export const DayPlan = z.object({ day: DayOfWeek, location: z.enum(['home', 'park']), blocks: z.array(PlannedBlock) });
+export const DayPlan = z.object({
+  day: DayOfWeek,
+  location: z.enum(['home', 'park']),
+  blocks: z.array(PlannedBlock),
+  // La persona ya respondió el aviso de tiempo de esta rutina: no se vuelve a insistir.
+  timeNoticeDismissed: z.boolean().optional(),
+});
 export type DayPlan = z.infer<typeof DayPlan>;
 
 // Salida estructurada que debe devolver el LLM (validada antes de guardar).

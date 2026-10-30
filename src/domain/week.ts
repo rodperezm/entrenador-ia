@@ -83,15 +83,35 @@ export function applyDayChoice(cfg: DayConfig, parts: DayChoice): DayConfig {
     blocks: {
       warmup: { ...b.warmup, enabled: has('warmup') },
       prehab: {
+        ...b.prehab,
         enabled: has('prehab'),
-        // Día dedicado a la lesión (sin fuerza): más ejercicios para ella.
-        exerciseCount: has('prehab') && !has('main') ? Math.max(b.prehab.exerciseCount, 4) : b.prehab.exerciseCount,
+        // Día dedicado a la lesión (sin fuerza): más ejercicios para ella, salvo que fijara la cantidad.
+        exerciseCount:
+          has('prehab') && !has('main') && !b.prehab.fixedCount
+            ? Math.max(b.prehab.exerciseCount, 4)
+            : b.prehab.exerciseCount,
       },
       main: { ...b.main, enabled: has('main') },
       cooldown: { ...b.cooldown, enabled: has('cooldown') },
     },
   };
 }
+
+// Vuelve a dejar que la app decida la cantidad de ejercicios según los minutos.
+export const withAutoCounts = (cfg: DayConfig): DayConfig => ({
+  ...cfg,
+  blocks: {
+    warmup: { ...cfg.blocks.warmup, fixedCount: undefined },
+    prehab: { ...cfg.blocks.prehab, fixedCount: undefined },
+    main: { ...cfg.blocks.main, fixedCount: undefined },
+    cooldown: { ...cfg.blocks.cooldown, fixedCount: undefined },
+  },
+});
+
+export const withGentleStrength = (cfg: DayConfig): DayConfig => ({
+  ...applyDayChoice(cfg, [...dayChoiceOf(cfg), 'main']),
+  gentleStrength: true,
+});
 
 export function dayChoiceOf(cfg: DayConfig): DayChoice {
   if (!cfg.active) return [];
