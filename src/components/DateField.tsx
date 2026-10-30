@@ -1,11 +1,11 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
-import { useState } from 'react';
-import { Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { type ChangeEvent, createElement, type MouseEvent, useState } from 'react';
+import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing } from '@/theme';
 
 // Campo de fecha con calendario nativo (iOS: calendario en un recuadro;
-// Android: diálogo del sistema; web: se escribe DD-MM-AAAA).
+// Android: diálogo del sistema; web: calendario del navegador).
 // Trabaja con fechas ISO "AAAA-MM-DD".
 
 const toDate = (iso: string) =>
@@ -14,13 +14,17 @@ const toIso = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const display = (iso: string) => iso.split('-').reverse().join('-');
 
-function parseTyped(text: string): string | null {
-  const m = text.trim().match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
-  if (!m) return null;
-  const iso = `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
-  const d = toDate(iso);
-  return toIso(d) === iso ? iso : null;
-}
+// Calendario del navegador, invisible sobre el campo: se ve igual que en la app nativa.
+const WEB_DATE_INPUT = {
+  position: 'absolute',
+  inset: 0,
+  width: '100%',
+  height: '100%',
+  opacity: 0,
+  border: 0,
+  cursor: 'pointer',
+  fontSize: 16,
+} as const;
 
 type Props = {
   value: string | null;
@@ -44,22 +48,28 @@ export function DateField({
 }: Props) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<Date>(() => (value ? toDate(value) : (initialDate ?? new Date())));
-  const [typed, setTyped] = useState(value ? display(value) : '');
 
   if (Platform.OS === 'web') {
     return (
-      <TextInput
-        value={typed}
-        onChangeText={(t) => {
-          setTyped(t);
-          const iso = parseTyped(t);
-          if (iso) onChange(iso);
-        }}
-        placeholder="DD-MM-AAAA"
-        placeholderTextColor={colors.textMuted}
-        maxLength={10}
-        style={[styles.field, styles.fieldText, invalid && styles.invalid]}
-      />
+      <View style={[styles.field, styles.row, invalid && styles.invalid]}>
+        <Text style={[styles.fieldText, !value && { color: colors.textMuted }]}>
+          {value ? display(value) : placeholder}
+        </Text>
+        <Ionicons name="calendar-outline" size={20} color={colors.textMuted} />
+        {createElement('input', {
+          type: 'date',
+          'aria-label': placeholder,
+          value: value ?? '',
+          min: minimumDate && toIso(minimumDate),
+          max: maximumDate && toIso(maximumDate),
+          onChange: (e: ChangeEvent<HTMLInputElement>) => {
+            if (e.target.value) onChange(e.target.value);
+          },
+          // En computador hay que pedirlo: al tocar el campo solo se abre en teléfonos.
+          onClick: (e: MouseEvent<HTMLInputElement>) => e.currentTarget.showPicker?.(),
+          style: WEB_DATE_INPUT,
+        })}
+      </View>
     );
   }
 
