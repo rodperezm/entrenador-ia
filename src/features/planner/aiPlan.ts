@@ -1,5 +1,7 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
-import { fitToTime } from '@/domain/generator';
+import { EXERCISES_BY_ID } from '@/data/exercises.seed';
+import { fitToTime, isGentle } from '@/domain/generator';
+import { GENTLE_MAX } from '@/domain/week';
 import { GeneratedWeekPlan, type WeekConfig } from '@/domain/schema';
 import type { buildAiRequest } from './aiRequest';
 import { ensureSession, supabase } from '@/lib/supabase';
@@ -72,6 +74,18 @@ export async function generateWeekWithAi(request: ReturnType<typeof buildAiReque
     const cfg = cfgByDay.get(d.day);
     if (!cfg) continue;
     for (const b of d.blocks) b.slots = b.slots.slice(0, cfg.blocks[BLOCK_KEY[b.type]].exerciseCount);
+    // Día de fuerza suave: solo ejercicios suaves y como máximo GENTLE_MAX.
+    if (cfg.gentleStrength) {
+      for (const b of d.blocks.filter((x) => x.type === 'main_strength')) {
+        b.slots = b.slots
+          .filter((s) => {
+            const e = EXERCISES_BY_ID.get(s.exerciseId);
+            return e != null && isGentle(e);
+          })
+          .slice(0, GENTLE_MAX);
+      }
+      d.blocks = d.blocks.filter((b) => b.slots.length > 0);
+    }
     fitToTime(d.blocks, cfg.availableMinutes * 60);
   }
 

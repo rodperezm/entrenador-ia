@@ -34,6 +34,7 @@ export function defaultDayConfig(day: DayOfWeek): DayConfig {
     active: TRAINING_DAYS.includes(day),
     location: 'home',
     availableMinutes: 45,
+    gentleStrength: false,
     blocks: {
       warmup: { enabled: true, minutes: 5, exerciseCount: 4 },
       prehab: { enabled: false, exerciseCount: 2 },
@@ -72,12 +73,13 @@ export const toggleDayPart = (parts: DayChoice, p: DayPart): DayChoice =>
 
 // Activa las partes elegidas conservando lo personal del día (lugar, grupos, cantidades).
 export function applyDayChoice(cfg: DayConfig, parts: DayChoice): DayConfig {
-  if (!parts.length) return { ...cfg, active: false };
+  if (!parts.length) return { ...cfg, active: false, gentleStrength: false };
   const b = cfg.blocks;
   const has = (p: DayPart) => parts.includes(p);
   return {
     ...cfg,
     active: true,
+    gentleStrength: cfg.gentleStrength && canBeGentle(parts),
     blocks: {
       warmup: { ...b.warmup, enabled: has('warmup') },
       prehab: {
@@ -108,20 +110,33 @@ const SPREAD: Record<number, DayOfWeek[]> = {
 };
 
 const STRENGTH_DAY: DayChoice = ['warmup', 'main', 'cooldown'];
-const INJURY_DAY: DayChoice = ['warmup', 'prehab', 'cooldown'];
+// La fuerza es la prioridad: los días de lesión también llevan fuerza, pero suave.
+const INJURY_DAY: DayChoice = ['warmup', 'prehab', 'main', 'cooldown'];
+export const GENTLE_MAX = 2; // ejercicios de fuerza en un día de fuerza suave
 
 // Propuesta de semana: con una lesión y 4+ días, alterna fuerza con días de
-// lesión y elongación (fuerza primero); con pocos días, todas las partes.
-export function proposeWeek(daysPerWeek: number, hasConditions: boolean): Record<DayOfWeek, DayChoice> {
+// lesión (que llevan fuerza suave); con pocos días, todas las partes con fuerza completa.
+export function proposeWeek(
+  daysPerWeek: number,
+  hasConditions: boolean,
+): { choices: Record<DayOfWeek, DayChoice>; gentle: DayOfWeek[] } {
   const training = SPREAD[Math.min(7, Math.max(1, daysPerWeek))];
-  const result = Object.fromEntries(DAYS.map((d) => [d.id, [] as DayChoice])) as Record<DayOfWeek, DayChoice>;
+  const choices = Object.fromEntries(DAYS.map((d) => [d.id, [] as DayChoice])) as Record<DayOfWeek, DayChoice>;
+  const gentle: DayOfWeek[] = [];
   training.forEach((day, i) => {
-    if (!hasConditions) result[day] = STRENGTH_DAY;
-    else if (training.length < 4) result[day] = DAY_PARTS;
-    else result[day] = i % 2 === 0 ? STRENGTH_DAY : INJURY_DAY;
+    if (!hasConditions) choices[day] = STRENGTH_DAY;
+    else if (training.length < 4) choices[day] = DAY_PARTS;
+    else if (i % 2 === 0) choices[day] = STRENGTH_DAY;
+    else {
+      choices[day] = INJURY_DAY;
+      gentle.push(day);
+    }
   });
-  return result;
+  return { choices, gentle };
 }
+
+// La fuerza suave solo tiene sentido en un día con Lesión y Fuerza.
+export const canBeGentle = (parts: DayChoice) => parts.includes('prehab') && parts.includes('main');
 
 // Huella de lo que influye en la rutina; si cambia, el plan quedó desactualizado.
 const hashOf = (value: unknown) => {

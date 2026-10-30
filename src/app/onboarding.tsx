@@ -17,7 +17,7 @@ import {
   WeekStep,
   WelcomeStep,
 } from '@/features/onboarding/steps';
-import { type DayChoice, dayChoiceOf, DAYS, sameChoice } from '@/domain/week';
+import { type DayChoice, dayChoiceOf, DAYS, GENTLE_MAX, sameChoice } from '@/domain/week';
 import { usePlan } from '@/state/plan';
 import { useResetAllData } from '@/state/useResetAllData';
 import { useProfile } from '@/state/profile';
@@ -85,6 +85,7 @@ function OnboardingForm() {
     birthText: formatBirth(profile?.birthDate ?? null),
     heightText: profile?.heightCm ? String(profile.heightCm) : '',
     weekChoices: initialChoices,
+    gentleDays: week.days.filter((d) => d.gentleStrength).map((d) => d.day),
     weekMinutes: Object.fromEntries(week.days.map((d) => [d.day, d.availableMinutes])) as Draft['weekMinutes'],
     // Las cantidades se eligen para toda la semana; se parte de las del primer día de entrenamiento.
     partCounts: (() => {
@@ -132,10 +133,14 @@ function OnboardingForm() {
       updateAllDays((d) => ({
         ...d,
         availableMinutes: draft.weekMinutes[d.day],
+        gentleStrength: draft.gentleDays.includes(d.day),
         blocks: {
           warmup: { ...d.blocks.warmup, exerciseCount: c.warmup },
           prehab: { ...d.blocks.prehab, exerciseCount: c.prehab },
-          main: { ...d.blocks.main, exerciseCount: c.main },
+          main: {
+            ...d.blocks.main,
+            exerciseCount: draft.gentleDays.includes(d.day) ? Math.min(c.main, GENTLE_MAX) : c.main,
+          },
           cooldown: { ...d.blocks.cooldown, exerciseCount: c.cooldown },
         },
       }));

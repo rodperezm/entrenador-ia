@@ -1,4 +1,5 @@
 import { equipmentAt, MEDICAL_CONDITIONS, RESTRICTION_FLAGS } from '@/domain/catalog';
+import { effortKind, effortNote } from '@/domain/effort';
 import { filterExercisesForUser } from '@/domain/filter';
 import { strongPainIds } from '@/domain/generator';
 import {
@@ -76,6 +77,12 @@ export function buildAiRequest(
       forConditions: forConditions.has(e.id),
     }));
 
+  const byId = new Map(exercises.map((e) => [e.id, e]));
+  const kindOf = (id: string) => {
+    const e = byId.get(id);
+    return e ? effortKind(e) : 'reps';
+  };
+
   // Historial: la última vez que hizo cada ejercicio (de las sesiones recientes).
   const seen = new Set<string>();
   const lastByExercise = history.slice(0, HISTORY_SESSIONS).flatMap((s) => {
@@ -92,7 +99,8 @@ export function buildAiRequest(
           durationSec: l.durationSec,
           weightKg: l.weightKg,
           rpe: l.rpe,
-          repsInReserve: l.rpe != null ? 10 - l.rpe : null,
+          // Cómo respondió el usuario (según el tipo de ejercicio), además del RPE.
+          effort: effortNote(kindOf(id), l.rpe).replace(' · ', '') || null,
           pain: ['nada', 'leve', 'moderado', 'fuerte'][painOf(l)],
         })),
     }));

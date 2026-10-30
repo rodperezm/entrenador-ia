@@ -50,6 +50,11 @@ export const MediaSchema = z.object({
   thumbnail: z.string(),
   animation: z.object({ type: z.enum(['lottie', 'mp4']), src: z.string(), loop: z.boolean() }),
   stepFrames: z.array(z.string()),
+  // Video del proveedor (Gymvisual) asignado al ejercicio; null si aún no hay uno.
+  provider: z
+    .object({ name: z.literal('gymvisual'), id: z.string(), style: z.enum(['basic_grey', 'full_color']) })
+    .nullable()
+    .default(null),
 });
 
 export const KettlebellGuide = z.object({
@@ -172,6 +177,8 @@ export const DayConfig = z.object({
   active: z.boolean(), // false = día de descanso
   location: z.enum(['home', 'park']),
   availableMinutes: z.number().int().min(10).max(120).default(45), // tiempo que tiene ese día
+  // Día de lesión con fuerza suave: pocos ejercicios, sin balísticos ni saltos.
+  gentleStrength: z.boolean().default(false),
   blocks: z.object({
     warmup: z.object({
       enabled: z.boolean(),

@@ -298,6 +298,21 @@ function AdjustPanel({
                 onChange={(exerciseCount) => setBlock('main', { exerciseCount })}
               />
             </Row>
+            {hasConditions && cfg.blocks.prehab.enabled && (
+              <Row label="Suave (día de lesión)">
+                <Switch
+                  value={cfg.gentleStrength}
+                  onValueChange={(gentleStrength) => set({ gentleStrength })}
+                  trackColor={{ false: colors.surfaceAlt, true: colors.accent }}
+                  thumbColor="#fff"
+                  ios_backgroundColor={colors.surfaceAlt}
+                  {...({ activeThumbColor: '#fff' } as object)}
+                />
+              </Row>
+            )}
+            {cfg.gentleStrength && (
+              <Text style={styles.muted}>Máximo 2 ejercicios sencillos, sin balísticos ni saltos.</Text>
+            )}
             <Text style={styles.rowLabel}>Grupos musculares</Text>
             <View style={styles.chips}>
               {MUSCLE_GROUPS.map((g) => (

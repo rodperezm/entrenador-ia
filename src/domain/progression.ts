@@ -1,3 +1,4 @@
+import { effortKind } from './effort';
 import {
   type Exercise,
   type ExerciseSlot,
@@ -49,7 +50,7 @@ export function progressSlot(
     return {
       ...slot,
       reps: range ? range.min : slot.reps,
-      durationSec: slot.durationSec,
+      durationSec: slot.durationSec != null ? Math.max(10, slot.durationSec - TIME_STEP_SEC) : null,
       weightKg: lighter ?? (lastWeight != null ? Math.min(lastWeight, slot.weightKg ?? lastWeight) : slot.weightKg),
       rationale:
         pain === 3
@@ -68,6 +69,9 @@ export function progressSlot(
     };
   }
 
+  // Calentamiento, movilidad, equilibrio y elongación no progresan en carga: se mantienen.
+  if (effortKind(e) === 'none') return slot;
+
   const completed = logs.length >= slot.sets;
   const easy = avgRpe == null || avgRpe <= EASY_RPE;
 
@@ -81,7 +85,11 @@ export function progressSlot(
         rationale: `Subimos a ${lastSec + TIME_STEP_SEC} s: completaste ${lastSec} s.`,
       };
     }
-    return { ...slot, durationSec: Math.max(slot.durationSec, lastSec || slot.durationSec) };
+    return {
+      ...slot,
+      durationSec: Math.max(slot.durationSec, lastSec || slot.durationSec),
+      rationale: avgRpe != null && avgRpe >= 9 ? 'Mantenemos el tiempo: la última vez fue exigente.' : slot.rationale,
+    };
   }
 
   const lastTarget = logs[0].targetReps ?? slot.reps ?? 0;

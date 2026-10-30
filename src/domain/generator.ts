@@ -12,6 +12,7 @@ import type {
 } from './schema';
 import { painOf } from './schema';
 import { progressSlot } from './progression';
+import { GENTLE_MAX } from './week';
 
 // Generador por reglas. Produce la misma estructura que devolverá el LLM
 // (GeneratedWeekPlan), así la app no cambia cuando se conecte la IA, y sirve
@@ -129,8 +130,11 @@ function generateDay(
   const b = cfg.blocks;
 
   // Fuerza primero: el calentamiento y la elongación dependen de lo elegido.
+  // Día de fuerza suave (lesión): pocos ejercicios, sencillos y sin balísticos ni saltos.
+  const mainPool = cfg.gentleStrength ? pool('main_strength').filter(isGentle) : pool('main_strength');
+  const mainCount = cfg.gentleStrength ? Math.min(b.main.exerciseCount, GENTLE_MAX) : b.main.exerciseCount;
   const main = b.main.enabled
-    ? pickMain(pool('main_strength'), b.main.muscleGroups, b.main.exerciseCount, profile, usedThisWeek, rand)
+    ? pickMain(mainPool, b.main.muscleGroups, mainCount, profile, usedThisWeek, rand)
     : [];
   const mainGroups = new Set(main.flatMap((m) => m.exercise.muscleGroups));
 
@@ -214,6 +218,10 @@ export function fitToTime(blocks: PlannedBlock[], budgetSec: number) {
     longest.slots.pop();
   }
 }
+
+const GENTLE_FLAGS = ['ballistic', 'jumping', 'high_impact'] as const;
+export const isGentle = (e: Exercise) =>
+  e.complexityLevel <= 2 && !e.restrictionFlags.some((f) => (GENTLE_FLAGS as readonly string[]).includes(f));
 
 // Ejercicios en los que la última vez (en las 2 últimas semanas) hubo dolor fuerte:
 // se cambian por otros. Pasado ese plazo vuelven, más suaves (ver progressSlot).

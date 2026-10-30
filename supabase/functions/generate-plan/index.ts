@@ -40,11 +40,14 @@ Reglas obligatorias:
 - Cantidad de ejercicios: cada bloque trae "exerciseCount"; úsala como máximo. warmup: la cantidad pedida, activando los grupos del día. prehab: la cantidad pedida, priorizando los marcados "forConditions". main_strength: la cantidad pedida, repartida entre los grupos musculares del día. cooldown: la cantidad pedida de estiramientos de los músculos trabajados ese día (usa "cooldownStretchIds" de los ejercicios de fuerza y de prehab cuando estén disponibles). Los días sin fuerza (solo prehab) son de recuperación de la lesión: elige prehab y estiramientos suaves que la complementen.
 - Tiempo: cada día trae "availableMinutes", el tiempo que el usuario tiene ese día. La sesión completa (series, repeticiones a ~4 s cada una, descansos y unos 30 s para cambiar de ejercicio) debe caber en ese tiempo. Si no cabe, usa menos ejercicios (empezando por el bloque más largo, nunca menos de 1 por bloque), menos series o descansos más cortos; menciona el ajuste en "summary".
 - Lugar y equipamiento: cada día trae "location" (home = casa, park = parque) y "availableEquipment". Ese día usa SOLO candidatos cuyo "equipment" esté completo en "availableEquipment" (por ejemplo, sin barra de dominadas en el parque si no aparece "pullup_bar"). En el parque, si cabe, prefiere acarreos y caminatas con kettlebell; en casa evita saltos si hay otras opciones.
+- Fuerza suave: si un día trae "gentleStrength": true es un día de lesión. En main_strength usa como máximo 2 ejercicios sencillos (complejidad ≤ 2), sin balísticos ni saltos, que no carguen la zona lesionada; la prioridad del día es el prehab.
 - Varía los ejercicios entre días de la semana; no repitas en un mismo día dos variantes de la misma cadena de progresión ("chain").
 - Ajusta la complejidad al nivel del usuario.
 - Series, repeticiones y descansos: parte de "defaults" de cada ejercicio. Si es por tiempo, usa durationSec y deja reps en null; si es por repeticiones, al revés.
 - weightKg: solo en ejercicios con kettlebell, y SOLO con pesos de "profile.kettlebellWeightsKg". En los demás, null.
 - Progresión con "history" (última vez que hizo cada ejercicio):
+  * Calentamiento, movilidad, equilibrio y elongación no progresan en carga: mantén series, reps o tiempo.
+  * Ejercicios por tiempo (planchas, acarreos, isometrías): con RPE ≤ 8 sube 5 s; con RPE ≥ 9 mantén.
   * Completó todas las series con las reps objetivo y esfuerzo (RPE) ≤ 8 → sube 1-2 reps; si ya estaba en el máximo del rango, sube a la siguiente kettlebell que tenga y vuelve al mínimo del rango.
   * RPE ≥ 9.5 o no completó → mantén la carga.
   * "pain" leve → mantén la misma carga, no subas.

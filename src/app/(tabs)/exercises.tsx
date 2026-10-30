@@ -9,10 +9,13 @@ import { BLOCK_LABELS } from '@/domain/labels';
 import type { BlockType, Exercise } from '@/domain/schema';
 import { colors, radius, spacing } from '@/theme';
 
-type Filter = { kind: 'all' } | { kind: 'group'; id: MuscleGroupId } | { kind: 'block'; id: BlockType };
+type Filter =
+  { kind: 'all' } | { kind: 'kettlebell' } | { kind: 'group'; id: MuscleGroupId } | { kind: 'block'; id: BlockType };
 
 const FILTERS: { label: string; filter: Filter }[] = [
   { label: 'Todos', filter: { kind: 'all' } },
+  // Todo lo que se hace con kettlebell, de cualquier bloque.
+  { label: 'Kettlebell', filter: { kind: 'kettlebell' } },
   ...MUSCLE_GROUPS.map((id) => ({
     label: MUSCLE_GROUP_LABELS[id],
     filter: { kind: 'group', id } as Filter,
@@ -23,7 +26,8 @@ const FILTERS: { label: string; filter: Filter }[] = [
   })),
 ];
 
-const sameFilter = (a: Filter, b: Filter) => a.kind === b.kind && (a.kind === 'all' || a.id === (b as typeof a).id);
+const sameFilter = (a: Filter, b: Filter) =>
+  a.kind === b.kind && (a.kind === 'all' || a.kind === 'kettlebell' || a.id === (b as typeof a).id);
 
 export default function ExerciseLibrary() {
   const [filter, setFilter] = useState<Filter>({ kind: 'all' });
@@ -33,9 +37,11 @@ export default function ExerciseLibrary() {
       EXERCISES.filter((e) =>
         filter.kind === 'all'
           ? true
-          : filter.kind === 'group'
-            ? e.muscleGroups.includes(filter.id) && e.blockTypes.includes('main_strength')
-            : e.blockTypes.includes(filter.id),
+          : filter.kind === 'kettlebell'
+            ? e.equipment.required.includes('kettlebell')
+            : filter.kind === 'group'
+              ? e.muscleGroups.includes(filter.id) && e.blockTypes.includes('main_strength')
+              : e.blockTypes.includes(filter.id),
       ),
     [filter],
   );

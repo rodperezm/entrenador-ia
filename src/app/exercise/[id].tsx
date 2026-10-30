@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Link, Stack, useLocalSearchParams } from 'expo-router';
 import type { ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -26,10 +27,15 @@ export default function ExerciseDetail() {
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Stack.Screen options={{ title: e.name.es }} />
 
-      {/* Animación: placeholder hasta tener el Lottie del ilustrador */}
+      {/* Video: espacio reservado hasta que lleguen los videos de Gymvisual */}
       <View style={styles.hero}>
-        <Text style={styles.heroText}>Animación pendiente</Text>
-        <Text style={styles.heroSub}>{e.media.animation.src}</Text>
+        <Ionicons name="play-circle-outline" size={36} color={colors.textMuted} />
+        <Text style={styles.heroText}>{e.media.provider ? 'Video en camino' : 'Video por definir'}</Text>
+        <Text style={styles.heroSub}>
+          {e.media.provider
+            ? `Gymvisual · ${e.media.provider.id} · estilo gris`
+            : 'Ejercicio nuevo: consultando video con el proveedor'}
+        </Text>
       </View>
 
       <Text style={styles.title}>{e.name.es}</Text>

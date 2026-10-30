@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { DateField } from '@/components/DateField';
@@ -24,6 +25,7 @@ import {
   dayPartLabel,
   DAYS,
   proposeWeek,
+  canBeGentle,
   toggleDayPart,
 } from '@/domain/week';
 import { colors, radius, spacing } from '@/theme';
@@ -41,6 +43,7 @@ export type Draft = {
   birthText: string; // como lo escribe el usuario: DD-MM-AAAA
   heightText: string; // en cm
   weekChoices: Record<DayOfWeek, DayChoice>;
+  gentleDays: DayOfWeek[]; // días de lesión con fuerza suave
   weekMinutes: Record<DayOfWeek, number>; // tiempo disponible por día
   partCounts: Record<DayPart, number>; // ejercicios por parte
 };
@@ -294,9 +297,20 @@ export function WeekStep({ draft, update }: StepProps) {
 
   const propose = (n: number) => {
     setDaysPerWeek(n);
-    update({ weekChoices: proposeWeek(n, hasConditions) });
+    const { choices, gentle } = proposeWeek(n, hasConditions);
+    update({ weekChoices: choices, gentleDays: gentle });
   };
-  const setDay = (day: DayOfWeek, parts: DayChoice) => update({ weekChoices: { ...draft.weekChoices, [day]: parts } });
+  const setDay = (day: DayOfWeek, parts: DayChoice) =>
+    update({
+      weekChoices: { ...draft.weekChoices, [day]: parts },
+      gentleDays: canBeGentle(parts) ? draft.gentleDays : draft.gentleDays.filter((g) => g !== day),
+    });
+  const toggleGentle = (day: DayOfWeek) =>
+    update({
+      gentleDays: draft.gentleDays.includes(day)
+        ? draft.gentleDays.filter((g) => g !== day)
+        : [...draft.gentleDays, day],
+    });
 
   return (
     <View style={styles.gap}>
@@ -373,6 +387,18 @@ export function WeekStep({ draft, update }: StepProps) {
                 </Text>
               </Pressable>
             </View>
+            {hasConditions && canBeGentle(parts) && (
+              <Pressable onPress={() => toggleGentle(d.id)} style={styles.stepRow} hitSlop={6}>
+                <Text style={styles.stepLabel} numberOfLines={1}>
+                  Fuerza suave (día de lesión)
+                </Text>
+                <Ionicons
+                  name={draft.gentleDays.includes(d.id) ? 'checkbox' : 'square-outline'}
+                  size={22}
+                  color={draft.gentleDays.includes(d.id) ? colors.accent : colors.textMuted}
+                />
+              </Pressable>
+            )}
             {!rest && (
               <View style={styles.stepRow}>
                 <Text style={styles.stepLabel} numberOfLines={1}>
@@ -444,7 +470,7 @@ export function SummaryStep({ draft }: StepProps) {
       <SummaryRow
         label="Tu semana"
         value={DAYS.map(
-          (d) => `${d.short}: ${dayChoiceLabel(draft.weekChoices[d.id], draft.conditions.length > 0).toLowerCase()}`,
+          (d) => `${d.short}: ${dayChoiceLabel(draft.weekChoices[d.id], draft.conditions.length > 0).toLowerCase()}${draft.gentleDays.includes(d.id) ? ' (fuerza suave)' : ''}`,
         ).join('\n')}
       />
       <SummaryRow label="Nivel" value={LEVELS.find((l) => l.id === draft.level)?.title ?? '—'} />
