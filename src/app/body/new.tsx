@@ -240,7 +240,7 @@ function Field({
           placeholder={placeholder}
           placeholderTextColor={colors.textMuted}
           keyboardType={decimal ? 'decimal-pad' : 'numbers-and-punctuation'}
-          style={[styles.input, { flex: 1 }, error && styles.inputError]}
+          style={[styles.input, { flex: 1, minWidth: 0 }, error && styles.inputError]}
         />
         {unit && <Text style={styles.unit}>{unit}</Text>}
       </View>
@@ -285,5 +285,6 @@ const styles = StyleSheet.create({
   siteTitle: { color: colors.text, fontSize: 16, fontWeight: '800' },
   takes: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   takeUnit: { color: colors.textMuted, fontWeight: '700', minWidth: 34, flexShrink: 0 },
-  takeInput: { flex: 1, textAlign: 'center', backgroundColor: colors.bg },
+  // minWidth: en web un campo no se encoge bajo su ancho propio y las tomas se salían de la tarjeta.
+  takeInput: { flex: 1, minWidth: 0, textAlign: 'center', backgroundColor: colors.bg },
 });
