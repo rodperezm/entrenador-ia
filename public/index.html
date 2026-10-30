@@ -27,8 +27,9 @@
         background-color: #0e0f13;
       }
       /* These styles make the root element full-height */
-      /* Instalada en iPhone, height: 100% no llega al borde y la app no recibe los márgenes
-         a tiempo: el alto se toma de la pantalla y los márgenes se aplican aquí mismo. */
+      /* Instalada en iPhone, height: 100% no llega al borde: el alto se toma de la pantalla.
+         El margen de arriba se aplica aquí; el de abajo, en WebSafeArea, para que cada barra
+         llegue al borde con su color. */
       #root {
         display: flex;
         position: fixed;
@@ -39,7 +40,6 @@
         height: 100dvh;
         box-sizing: border-box;
         padding-top: env(safe-area-inset-top);
-        padding-bottom: env(safe-area-inset-bottom);
       }
     </style>
   </head>
