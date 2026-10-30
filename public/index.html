@@ -27,10 +27,19 @@
         background-color: #0e0f13;
       }
       /* These styles make the root element full-height */
+      /* Instalada en iPhone, height: 100% no llega al borde y la app no recibe los márgenes
+         a tiempo: el alto se toma de la pantalla y los márgenes se aplican aquí mismo. */
       #root {
         display: flex;
-        height: 100%;
-        flex: 1;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 100vh;
+        height: 100dvh;
+        box-sizing: border-box;
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
       }
     </style>
   </head>
