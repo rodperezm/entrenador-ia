@@ -15,6 +15,25 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="KettleIA" />
     <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
+    <script>
+      // Si falla un archivo de la app (página guardada de otra versión), recarga una vez por minuto.
+      window.addEventListener(
+        'error',
+        function (e) {
+          var s = e.target;
+          if (!s || s.tagName !== 'SCRIPT' || s.src.indexOf('/_expo/static/') < 0) return;
+          try {
+            var last = Number(sessionStorage.getItem('chunk-reload') || 0);
+            if (Date.now() - last < 60000) return;
+            sessionStorage.setItem('chunk-reload', String(Date.now()));
+          } catch (_) {
+            return;
+          }
+          location.reload();
+        },
+        true,
+      );
+    </script>
     <style id="expo-reset">
       /* These styles make the body full-height */
       html,
