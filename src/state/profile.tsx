@@ -9,6 +9,8 @@ type ProfileState = {
   loading: boolean;
   saveProfile: (p: Omit<LocalProfile, 'updatedAt'>) => Promise<void>;
   clearProfile: () => Promise<void>;
+  /** Trae el perfil de la nube tal como está, sin cambiar su fecha. */
+  importProfile: (p: LocalProfile) => Promise<void>;
 };
 
 const ProfileContext = createContext<ProfileState | null>(null);
@@ -40,8 +42,13 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     setProfile(null);
   }, []);
 
+  const importProfile = useCallback(async (p: LocalProfile) => {
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(p));
+    setProfile(p);
+  }, []);
+
   return (
-    <ProfileContext.Provider value={{ profile, loading, saveProfile, clearProfile }}>
+    <ProfileContext.Provider value={{ profile, loading, saveProfile, clearProfile, importProfile }}>
       {children}
     </ProfileContext.Provider>
   );

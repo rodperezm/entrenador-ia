@@ -20,6 +20,7 @@ import {
   WelcomeStep,
 } from '@/features/onboarding/steps';
 import { type DayChoice, dayChoiceOf, DAYS, GENTLE_MAX, proposeWeek, sameChoice } from '@/domain/week';
+import { CLOUD_BACKUP_READY } from '@/lib/cloudSync';
 import { usePlan } from '@/state/plan';
 import { useResetAllData } from '@/state/useResetAllData';
 import { useProfile } from '@/state/profile';
@@ -203,7 +204,12 @@ function OnboardingForm() {
           <Text style={styles.subtitle}>{subtitle}</Text>
           <Component draft={draft} update={update} />
           {profile && step === 0 && (
-            <Button label="Borrar mis datos y empezar de cero" variant="ghost" onPress={resetAll} />
+            <>
+              {CLOUD_BACKUP_READY && (
+                <Button label="Cuenta y respaldo" variant="ghost" onPress={() => router.push('/account')} />
+              )}
+              <Button label="Borrar mis datos y empezar de cero" variant="ghost" onPress={resetAll} />
+            </>
           )}
         </ScrollView>
 

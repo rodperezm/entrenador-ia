@@ -1,8 +1,9 @@
+import { BebasNeue_400Regular, useFonts } from '@expo-google-fonts/bebas-neue';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useStayAwake } from '@/lib/useStayAwake';
 import { Link, router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BodyMap } from '@/components/BodyMap';
 import { Button, Stepper } from '@/components/ui';
@@ -39,9 +40,17 @@ type Override = { reps?: number; seconds?: number; weight?: number | null };
 // Entrenamiento guiado: un ejercicio a la vez. «✓ Hecha» registra lo planificado,
 // el descanso arranca solo y al terminar las series se pregunta el esfuerzo una vez.
 // «Ver todos» permite saltar a otro ejercicio para cambiar el orden.
+const BOTTOM_BAR_SPACE = 140; // alto que tapa la barra de descanso o confirmación
+const CLOCK_LARGE = 88;
+const CLOCK_MEDIUM = 64;
+const CLOCK_SMALL = 32;
+const COMPACT_HEIGHT = 720;
+
 export default function WorkoutScreen() {
   useStayAwake('workout');
   const insets = useSafeAreaInsets();
+  const { height: screenHeight } = useWindowDimensions();
+  const [fontsLoaded] = useFonts({ BebasNeue_400Regular });
   const day = DayOfWeek.safeParse(useLocalSearchParams<{ day: string }>().day).data;
   const { plan } = usePlan();
   const { addSession } = useHistory();
@@ -338,6 +347,9 @@ export default function WorkoutScreen() {
 
   const target = timed ? `${seconds} s` : `${reps} reps`;
   const position = items.filter(isClosed).length + 1;
+  const barOpen = confirmEnd || phase === 'rest' || painSheet != null;
+  const clockSize =
+    barOpen || phase === 'feedback' ? CLOCK_SMALL : screenHeight < COMPACT_HEIGHT ? CLOCK_MEDIUM : CLOCK_LARGE;
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
@@ -405,7 +417,13 @@ export default function WorkoutScreen() {
           <Button label="Terminar entrenamiento" variant="ghost" onPress={() => setConfirmEnd(true)} />
         </ScrollView>
       ) : (
-        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 140 }]}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            styles.contentFill,
+            { paddingBottom: insets.bottom + (barOpen ? BOTTOM_BAR_SPACE : spacing.lg) },
+          ]}
+        >
           <Text style={styles.blockTitle}>
             {BLOCK_LABELS[item.block]} · ejercicio {Math.min(position, items.length)} de {items.length}
           </Text>
@@ -535,11 +553,25 @@ export default function WorkoutScreen() {
           {upcoming != null && phase !== 'feedback' && (
             <Text style={styles.next}>A continuación: {exName(items[upcoming].slot.exerciseId)}</Text>
           )}
+
+          {/* Usa solo el espacio libre; con descanso o preguntas se achica para no competir con ellos. */}
+          <View style={styles.clockArea}>
+            <Text
+              style={[
+                styles.clock,
+                fontsLoaded && { fontFamily: 'BebasNeue_400Regular' },
+                { fontSize: clockSize, lineHeight: clockSize * 1.05 },
+              ]}
+            >
+              {fmtClock((now - startedAt) / 1000)}
+            </Text>
+            <Text style={styles.clockLabel}>Tiempo de entrenamiento</Text>
+          </View>
         </ScrollView>
       )}
 
       {/* Barra inferior: descanso automático o confirmación de término */}
-      {(confirmEnd || phase === 'rest' || painSheet != null) && (
+      {barOpen && (
         <View style={[styles.bottomBar, { paddingBottom: insets.bottom + spacing.md }]}>
           {painSheet != null && !confirmEnd ? (
             <PainSheet
@@ -865,6 +897,10 @@ const styles = StyleSheet.create({
   topSub: { color: colors.textMuted, fontSize: 13, fontVariant: ['tabular-nums'] },
   timerText: { color: colors.accent, fontSize: 10, fontWeight: '700' },
   content: { padding: spacing.lg, gap: spacing.lg },
+  contentFill: { flexGrow: 1 },
+  clockArea: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.xs },
+  clock: { color: colors.text, fontWeight: '400', fontVariant: ['tabular-nums'] },
+  clockLabel: { color: colors.textMuted, fontSize: 12, fontWeight: '600' },
   blockTitle: { color: colors.accent, fontSize: 12, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
   card: { backgroundColor: colors.surface, borderRadius: radius.lg, overflow: 'hidden' },
   cardDone: { opacity: 0.6 },

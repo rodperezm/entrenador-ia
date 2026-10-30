@@ -17,6 +17,8 @@ type PlanState = {
   savePlan: (p: StoredWeekPlan) => Promise<void>;
   /** Vuelve a la semana inicial y borra la rutina guardada. */
   resetPlan: () => Promise<void>;
+  /** Trae la semana y la rutina de la nube. */
+  importPlan: (w: WeekConfig | null, p: StoredWeekPlan | null) => Promise<void>;
 };
 
 const PlanContext = createContext<PlanState | null>(null);
@@ -87,9 +89,20 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     setPlan(null);
   }, []);
 
+  const importPlan = useCallback(async (w: WeekConfig | null, p: StoredWeekPlan | null) => {
+    if (w) {
+      await AsyncStorage.setItem(WEEK_KEY, JSON.stringify(w));
+      setWeek(w);
+    }
+    if (p) {
+      await AsyncStorage.setItem(PLAN_KEY, JSON.stringify(p));
+      setPlan(p);
+    }
+  }, []);
+
   return (
     <PlanContext.Provider
-      value={{ week, plan, loading, updateDay, updateAllDays, applyDayChoices, savePlan, resetPlan }}
+      value={{ week, plan, loading, updateDay, updateAllDays, applyDayChoices, savePlan, resetPlan, importPlan }}
     >
       {children}
     </PlanContext.Provider>

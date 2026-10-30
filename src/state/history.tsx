@@ -11,6 +11,8 @@ type HistoryState = {
   loading: boolean;
   addSession: (s: WorkoutSession) => void;
   clearHistory: () => void;
+  /** Combina las sesiones de la nube con las del teléfono y quita las borradas. */
+  importSessions: (incoming: WorkoutSession[], deletedIds: string[]) => void;
 };
 
 const HistoryContext = createContext<HistoryState | null>(null);
@@ -38,8 +40,18 @@ export function HistoryProvider({ children }: { children: ReactNode }) {
 
   const clearHistory = useCallback(() => setSessions([]), []);
 
+  const importSessions = useCallback(
+    (incoming: WorkoutSession[], deletedIds: string[]) =>
+      setSessions((prev) => {
+        const merged = new Map([...incoming, ...prev].map((s) => [s.id, s]));
+        deletedIds.forEach((id) => merged.delete(id));
+        return [...merged.values()].sort((a, b) => b.finishedAt.localeCompare(a.finishedAt));
+      }),
+    [],
+  );
+
   return (
-    <HistoryContext.Provider value={{ sessions, loading, addSession, clearHistory }}>
+    <HistoryContext.Provider value={{ sessions, loading, addSession, clearHistory, importSessions }}>
       {children}
     </HistoryContext.Provider>
   );

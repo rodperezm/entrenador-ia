@@ -8,15 +8,18 @@ import { dayMinutes } from '@/domain/timeBudget';
 import { DAY_LONG, dayDate, fmtDayDate, isToday, staleDays } from '@/domain/week';
 import { countExercises, describeDayConfig } from '@/features/planner/describe';
 import { useGenerateWeek } from '@/features/planner/useGenerateWeek';
+import { CLOUD_BACKUP_READY } from '@/lib/cloudSync';
 import { useHistory } from '@/state/history';
 import { usePlan } from '@/state/plan';
 import { useProfile } from '@/state/profile';
+import { useSync } from '@/state/sync';
 import { colors, radius, spacing } from '@/theme';
 
 export default function WeekScreen() {
   const { profile } = useProfile();
   const { week, plan } = usePlan();
   const { sessions } = useHistory();
+  const { enabled: syncEnabled } = useSync();
   const { generate, generating, notice } = useGenerateWeek();
   const { generate: generateOnOpen } = useLocalSearchParams<{ generate?: string }>();
   const generatedOnOpen = useRef(false);
@@ -45,6 +48,12 @@ export default function WeekScreen() {
       </Text>
 
       <TodayCard generating={generating} onGenerate={generate} />
+
+      {CLOUD_BACKUP_READY && !syncEnabled && sessions.length > 0 && (
+        <Link href="/account" style={styles.backup}>
+          Protege tu historial con un respaldo en la nube ›
+        </Link>
+      )}
 
       <Text style={styles.sectionTitle}>
         Tu semana · {activeDays} {activeDays === 1 ? 'día' : 'días'} de entrenamiento
@@ -183,6 +192,7 @@ const styles = StyleSheet.create({
   },
   todayTitle: { color: colors.text, fontSize: 20, fontWeight: '800' },
   todayDetail: { color: colors.textMuted, fontSize: 14, lineHeight: 20 },
+  backup: { color: colors.accent, fontSize: 14, fontWeight: '700' },
   sectionTitle: { color: colors.text, fontSize: 16, fontWeight: '800', marginTop: spacing.sm },
   dayDate: { color: colors.textMuted, fontSize: 13, fontWeight: '600' },
   dayToday: { color: colors.accent },

@@ -15,6 +15,8 @@ type BodyState = Stored & {
   saveFold: (f: WithOptionalId<FoldRecord>) => void;
   remove: (kind: 'record' | 'fold', id: string) => void;
   clearBody: () => void;
+  /** Combina los registros de la nube con los del teléfono y quita los borrados. */
+  importBody: (records: TapeRecord[], folds: FoldRecord[], deletedIds: string[]) => void;
 };
 
 type WithOptionalId<T extends { id: string }> = Omit<T, 'id'> & { id?: string };
@@ -24,6 +26,12 @@ const BodyContext = createContext<BodyState | null>(null);
 const byDateDesc = <T extends { date: string }>(xs: T[]) => [...xs].sort((a, b) => b.date.localeCompare(a.date));
 const upsert = <T extends { id: string; date: string }>(xs: T[], x: T) =>
   byDateDesc([x, ...xs.filter((y) => y.id !== x.id)]);
+
+const mergeById = <T extends { id: string; date: string }>(incoming: T[], current: T[], deletedIds: string[]) => {
+  const merged = new Map([...incoming, ...current].map((x) => [x.id, x]));
+  deletedIds.forEach((id) => merged.delete(id));
+  return byDateDesc([...merged.values()]);
+};
 
 export function BodyProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<Stored>({ records: [], folds: [] });
@@ -63,8 +71,17 @@ export function BodyProvider({ children }: { children: ReactNode }) {
 
   const clearBody = useCallback(() => setData({ records: [], folds: [] }), []);
 
+  const importBody = useCallback(
+    (records: TapeRecord[], folds: FoldRecord[], deletedIds: string[]) =>
+      setData((d) => ({
+        records: mergeById(records, d.records, deletedIds),
+        folds: mergeById(folds, d.folds, deletedIds),
+      })),
+    [],
+  );
+
   return (
-    <BodyContext.Provider value={{ ...data, loading, saveRecord, saveFold, remove, clearBody }}>
+    <BodyContext.Provider value={{ ...data, loading, saveRecord, saveFold, remove, clearBody, importBody }}>
       {children}
     </BodyContext.Provider>
   );
