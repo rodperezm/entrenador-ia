@@ -1,10 +1,14 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Link } from 'expo-router';
+import { Link, router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui';
+import { cycleInfo } from '@/domain/cycle';
+import { dayMinutes } from '@/domain/timeBudget';
 import { DAY_LONG, dayDate, fmtDayDate, isToday, staleDays } from '@/domain/week';
 import { countExercises, describeDayConfig } from '@/features/planner/describe';
 import { useGenerateWeek } from '@/features/planner/useGenerateWeek';
+import { useHistory } from '@/state/history';
 import { usePlan } from '@/state/plan';
 import { useProfile } from '@/state/profile';
 import { colors, radius, spacing } from '@/theme';
@@ -12,18 +16,38 @@ import { colors, radius, spacing } from '@/theme';
 export default function WeekScreen() {
   const { profile } = useProfile();
   const { week, plan } = usePlan();
+  const { sessions } = useHistory();
   const { generate, generating, notice } = useGenerateWeek();
+  const { generate: generateOnOpen } = useLocalSearchParams<{ generate?: string }>();
+  const generatedOnOpen = useRef(false);
+
+  // Al terminar el perfil, «Crear mi semana» llega aquí y arma la primera rutina.
+  useEffect(() => {
+    if (generateOnOpen !== '1' || generatedOnOpen.current || !profile) return;
+    generatedOnOpen.current = true;
+    router.setParams({ generate: undefined });
+    generate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [generateOnOpen, profile]);
+
   if (!profile) return null;
 
   const staleSet = plan ? staleDays(plan, week, profile.updatedAt) : new Set<string>();
   const stale = staleSet.size > 0;
   const activeDays = week.days.filter((d) => d.active).length;
+  const cycle = cycleInfo(sessions);
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Text style={styles.hello}>{profile.displayName ? `Hola, ${profile.displayName}` : 'Hola'} 👋</Text>
       <Text style={styles.lead}>
-        Configura cada día y genera tu rutina. {activeDays} {activeDays === 1 ? 'día' : 'días'} de entrenamiento.
+        Bloque {cycle.block} · Semana {cycle.week}: {cycle.weekName} · Foco: {cycle.phaseName}
+      </Text>
+
+      <TodayCard generating={generating} onGenerate={generate} />
+
+      <Text style={styles.sectionTitle}>
+        Tu semana · {activeDays} {activeDays === 1 ? 'día' : 'días'} de entrenamiento
       </Text>
 
       {week.days.map((d) => {
@@ -94,7 +118,72 @@ export default function WeekScreen() {
   );
 }
 
+// Lo que toca hoy, para entrar a entrenar con un solo toque.
+function TodayCard({ generating, onGenerate }: { generating: boolean; onGenerate: () => void }) {
+  const { profile } = useProfile();
+  const { week, plan } = usePlan();
+  const { sessions } = useHistory();
+  const cfg = week.days.find((d) => isToday(d.day));
+  if (!profile || !cfg) return null;
+
+  const dayPlan = plan?.days.find((p) => p.day === cfg.day);
+  const stale = !!plan && staleDays(plan, week, profile.updatedAt).has(cfg.day);
+  const trained = sessions.some((s) => new Date(s.finishedAt).toDateString() === new Date().toDateString());
+  const openDay = () => router.push({ pathname: '/day/[day]', params: { day: cfg.day } });
+
+  let title = `Hoy, ${DAY_LONG[cfg.day].toLowerCase()}`;
+  let detail = describeDayConfig(cfg, profile.conditions.length > 0);
+  let action: { label: string; onPress: () => void; ghost?: boolean } | null = null;
+
+  if (!plan?.days.length) {
+    title = 'Tu semana aún no tiene rutina';
+    detail = 'La IA la arma con tu perfil y tus lesiones. Puede tardar hasta un minuto.';
+    action = { label: generating ? 'La IA está armando tu semana…' : 'Generar mi semana con IA', onPress: onGenerate };
+  } else if (!cfg.active) {
+    detail = 'Día de descanso. Recuperar también es parte del entrenamiento.';
+  } else if (!dayPlan || stale) {
+    detail = 'Este día cambió y necesita su rutina.';
+    action = { label: 'Armar la rutina de hoy', onPress: openDay };
+  } else if (trained) {
+    title = 'Hoy ya entrenaste 💪';
+    detail = `${countExercises(dayPlan)} ejercicios · ≈ ${dayMinutes(dayPlan.blocks)} min`;
+    action = { label: 'Ver la rutina de hoy', onPress: openDay, ghost: true };
+  } else {
+    detail = `${countExercises(dayPlan)} ejercicios · ≈ ${dayMinutes(dayPlan.blocks)} min`;
+    action = {
+      label: 'Empezar entrenamiento',
+      onPress: () => router.push({ pathname: '/workout/[day]', params: { day: cfg.day } }),
+    };
+  }
+
+  return (
+    <View style={styles.today}>
+      <Text style={styles.todayTitle}>{title}</Text>
+      <Text style={styles.todayDetail}>{detail}</Text>
+      {action && (
+        <Button
+          label={action.label}
+          onPress={action.onPress}
+          variant={action.ghost ? 'ghost' : 'primary'}
+          disabled={generating}
+        />
+      )}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  today: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  todayTitle: { color: colors.text, fontSize: 20, fontWeight: '800' },
+  todayDetail: { color: colors.textMuted, fontSize: 14, lineHeight: 20 },
+  sectionTitle: { color: colors.text, fontSize: 16, fontWeight: '800', marginTop: spacing.sm },
   dayDate: { color: colors.textMuted, fontSize: 13, fontWeight: '600' },
   dayToday: { color: colors.accent },
   screen: { flex: 1, backgroundColor: colors.bg },

@@ -19,7 +19,7 @@ import {
   WeekStep,
   WelcomeStep,
 } from '@/features/onboarding/steps';
-import { type DayChoice, dayChoiceOf, DAYS, GENTLE_MAX, sameChoice } from '@/domain/week';
+import { type DayChoice, dayChoiceOf, DAYS, GENTLE_MAX, proposeWeek, sameChoice } from '@/domain/week';
 import { usePlan } from '@/state/plan';
 import { useResetAllData } from '@/state/useResetAllData';
 import { useProfile } from '@/state/profile';
@@ -27,9 +27,13 @@ import { colors, spacing } from '@/theme';
 
 const STEPS = [
   { title: 'Empecemos', subtitle: 'Armemos tu perfil de entrenamiento.', Component: WelcomeStep },
-  { title: 'Sobre ti', subtitle: 'Para tus índices corporales y para ajustar tu entrenamiento.', Component: AboutStep },
+  {
+    title: 'Sobre ti',
+    subtitle: 'Solo el sexo es obligatorio; lo demás puedes completarlo después.',
+    Component: AboutStep,
+  },
   { title: 'Tu nivel', subtitle: 'Define la complejidad inicial de los ejercicios.', Component: LevelStep },
-  { title: 'Tu equipamiento', subtitle: 'Solo te propondremos ejercicios que puedas hacer.', Component: EquipmentStep },
+  { title: 'Tu kettlebell', subtitle: 'Solo te propondremos ejercicios que puedas hacer.', Component: EquipmentStep },
   {
     title: 'Condiciones médicas',
     subtitle: 'Opcional. Ajustamos los ejercicios a tus limitaciones.',
@@ -46,7 +50,9 @@ const STEPS = [
 const canContinue = (step: number, d: Draft) =>
   [
     d.disclaimerAccepted,
-    d.sex !== null && parseBirth(d.birthText) !== null && parseHeight(d.heightText) !== null,
+    d.sex !== null &&
+      (!d.birthText || parseBirth(d.birthText) !== null) &&
+      (!d.heightText || parseHeight(d.heightText) !== null),
     d.level !== null,
     d.kettlebellWeightsKg.length > 0,
     true,
@@ -86,6 +92,7 @@ function OnboardingForm() {
     sex: profile?.sex ?? null,
     birthText: formatBirth(profile?.birthDate ?? null),
     heightText: profile?.heightCm ? String(profile.heightCm) : '',
+    isNew: !profile,
     weekChoices: initialChoices,
     gentleDays: week.days.filter((d) => d.gentleStrength).map((d) => d.day),
     weekMinutes: Object.fromEntries(week.days.map((d) => [d.day, d.availableMinutes])) as Draft['weekMinutes'],
@@ -105,8 +112,20 @@ function OnboardingForm() {
   const [showIntro, setShowIntro] = useState(!profile);
 
   const update = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }));
-  const { title, subtitle, Component } = STEPS[step];
-  const isLast = step === STEPS.length - 1;
+  // Perfil nuevo: sin resumen; del último paso se pasa directo a crear la semana.
+  const steps = profile ? STEPS : STEPS.slice(0, -1);
+  const { title, subtitle, Component } = steps[step];
+  const isLast = step === steps.length - 1;
+  const conditionsStep = STEPS.findIndex((s) => s.Component === ConditionsStep);
+
+  const next = () => {
+    // Al llegar a «Tu semana» por primera vez, ya viene propuesta según lesiones.
+    if (!profile && step === conditionsStep) {
+      const { choices, gentle } = proposeWeek(3, draft.conditions.length > 0);
+      update({ weekChoices: choices, gentleDays: gentle });
+    }
+    setStep(step + 1);
+  };
 
   const finish = async () => {
     setSaving(true);
@@ -148,7 +167,7 @@ function OnboardingForm() {
           cooldown: { ...d.blocks.cooldown, exerciseCount: c.cooldown },
         },
       }));
-      router.replace('/');
+      router.replace(profile ? '/' : { pathname: '/', params: { generate: '1' } });
     } finally {
       setSaving(false);
     }
@@ -171,14 +190,14 @@ function OnboardingForm() {
         />
 
         <View style={styles.progress}>
-          {STEPS.map((_, i) => (
+          {steps.map((_, i) => (
             <View key={i} style={[styles.progressBar, i <= step && styles.progressOn]} />
           ))}
         </View>
 
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <Text style={styles.stepCount}>
-            Paso {step + 1} de {STEPS.length}
+            Paso {step + 1} de {steps.length}
           </Text>
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.subtitle}>{subtitle}</Text>
@@ -190,9 +209,9 @@ function OnboardingForm() {
 
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
           <Button
-            label={isLast ? (saving ? 'Guardando…' : 'Guardar y empezar') : 'Continuar'}
+            label={isLast ? (saving ? 'Guardando…' : profile ? 'Guardar y empezar' : 'Crear mi semana con IA') : 'Continuar'}
             disabled={!canContinue(step, draft) || saving}
-            onPress={isLast ? finish : () => setStep(step + 1)}
+            onPress={isLast ? finish : next}
           />
           {step > 0 && <Button label="Atrás" variant="ghost" onPress={() => setStep(step - 1)} />}
         </View>

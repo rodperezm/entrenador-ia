@@ -204,6 +204,10 @@ export type DayConfig = z.infer<typeof DayConfig>;
 export const WeekConfig = z.object({ days: z.array(DayConfig).length(7) });
 export type WeekConfig = z.infer<typeof WeekConfig>;
 
+// Orden dentro de Fuerza: A potencia, B fuerza, C remate.
+export const StrengthRole = z.enum(['A', 'B', 'C']);
+export type StrengthRole = z.infer<typeof StrengthRole>;
+
 export const ExerciseSlot = z.object({
   exerciseId: ExerciseId,
   sets: z.number().int().positive(),
@@ -212,6 +216,7 @@ export const ExerciseSlot = z.object({
   weightKg: z.number().positive().nullable(),
   restSec: z.number().int().nonnegative(),
   rationale: z.string().nullable(), // explicación del LLM ("subimos a 16 kg porque...")
+  role: StrengthRole.optional(), // solo en Fuerza; las rutinas antiguas no lo tienen
 });
 
 export type ExerciseSlot = z.infer<typeof ExerciseSlot>;

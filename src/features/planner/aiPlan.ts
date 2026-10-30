@@ -1,6 +1,6 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { EXERCISES_BY_ID } from '@/data/exercises.seed';
-import { isGentle } from '@/domain/generator';
+import { isGentle, sortByRole, strengthRole } from '@/domain/generator';
 import { fitPart } from '@/domain/timeBudget';
 import { GENTLE_MAX } from '@/domain/week';
 import { GeneratedWeekPlan, type WeekConfig } from '@/domain/schema';
@@ -41,7 +41,8 @@ export async function generateWeekWithAi(request: ReturnType<typeof buildAiReque
   }
 
   // La función responde en flujo para no perder la conexión, y sus errores vienen dentro del JSON.
-  const data = raw instanceof Response ? await raw.text().then(JSON.parse).catch(() => null) : raw;
+  // En Expo Go la respuesta no es instancia del Response global: se reconoce por tener text().
+  const data = typeof raw?.text === 'function' ? await raw.text().then(JSON.parse).catch(() => null) : raw;
   if (!data || data.error) throw new AiPlanError(REASONS[data?.error] ?? 'el servidor no respondió');
 
   // Validar contra el esquema de la app y contra los candidatos enviados.
@@ -91,7 +92,18 @@ export async function generateWeekWithAi(request: ReturnType<typeof buildAiReque
       }
       d.blocks = d.blocks.filter((b) => b.slots.length > 0);
     }
-    for (const b of d.blocks) b.slots = fitPart(BLOCK_KEY[b.type], b.slots, cfg, request.profile.level);
+    // Fuerza siempre en orden A, B y C, aunque Claude la entregue de otra forma.
+    for (const b of d.blocks.filter((x) => x.type === 'main_strength')) {
+      b.slots = sortByRole(
+        b.slots.map((s) => {
+          const e = EXERCISES_BY_ID.get(s.exerciseId);
+          return e ? { ...s, role: strengthRole(e) } : s;
+        }),
+      );
+    }
+    for (const b of d.blocks) {
+      b.slots = fitPart(BLOCK_KEY[b.type], b.slots, cfg, request.profile.level, request.cycle);
+    }
   }
 
   return { plan: parsed.data, model: (data.model as string) ?? null };

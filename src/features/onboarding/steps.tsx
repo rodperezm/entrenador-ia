@@ -48,6 +48,7 @@ export type Draft = {
   gentleDays: DayOfWeek[]; // días de lesión con fuerza suave
   weekMinutes: Record<DayOfWeek, number>; // tiempo disponible por día
   partCounts: Record<DayPart, number>; // ejercicios por parte
+  isNew: boolean; // primera vez: el perfil parte con lo mínimo y la semana propuesta
 };
 type StepProps = { draft: Draft; update: (patch: Partial<Draft>) => void };
 
@@ -150,9 +151,9 @@ export function AboutStep({ draft, update }: StepProps) {
           </View>
         ))}
       </View>
-      <Text style={styles.hint}>Se usa para las fórmulas de % de grasa y los rangos de los índices corporales.</Text>
+      <Text style={styles.hint}>Define las figuras que explican los movimientos y tus índices corporales.</Text>
 
-      <Text style={styles.label}>Fecha de nacimiento</Text>
+      <Text style={styles.label}>Fecha de nacimiento (opcional)</Text>
       <DateField
         value={parseBirth(draft.birthText)}
         onChange={(iso) => update({ birthText: formatBirth(iso) })}
@@ -164,7 +165,7 @@ export function AboutStep({ draft, update }: StepProps) {
       />
       {!birthOk && <Text style={styles.error}>Elige una fecha válida (entre 12 y 100 años).</Text>}
 
-      <Text style={styles.label}>Altura (cm)</Text>
+      <Text style={styles.label}>Altura en cm (opcional)</Text>
       <TextInput
         value={draft.heightText}
         onChangeText={(heightText) => update({ heightText })}
@@ -175,6 +176,7 @@ export function AboutStep({ draft, update }: StepProps) {
         maxLength={5}
       />
       {!heightOk && <Text style={styles.error}>Entre 100 y 250 cm.</Text>}
+      <Text style={styles.hint}>Sirven para calcular tus índices en Cuerpo. Puedes agregarlos en Mi perfil.</Text>
     </View>
   );
 }
@@ -212,7 +214,28 @@ export function LevelStep({ draft, update }: StepProps) {
 export function EquipmentStep({ draft, update }: StepProps) {
   return (
     <View style={styles.gap}>
-      {BASE_EQUIPMENT.map((id) => (
+      {/* La kettlebell es el corazón de la app: va primero. */}
+      <Text style={styles.label}>¿Qué kettlebell tienes? (kg)</Text>
+      <Text style={styles.hint}>Con una basta. Marca todas las que tengas: la rutina solo usará esos pesos.</Text>
+      <View style={styles.weights}>
+        {KB_WEIGHTS.map((kg) => {
+          const on = draft.kettlebellWeightsKg.includes(kg);
+          return (
+            <Pressable
+              key={kg}
+              onPress={() =>
+                update({ kettlebellWeightsKg: toggle(draft.kettlebellWeightsKg, kg).sort((a, b) => a - b) })
+              }
+              style={[styles.weight, on && styles.weightOn]}
+            >
+              <Text style={[styles.weightText, on && { color: '#fff' }]}>{kg}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <Text style={[styles.label, { marginTop: spacing.md }]}>Lo básico</Text>
+      {BASE_EQUIPMENT.filter((id) => id !== 'kettlebell').map((id) => (
         <OptionCard key={id} title={EQUIPMENT[id]} selected locked />
       ))}
       <Text style={styles.label}>Opcional: ¿qué más tienes?</Text>
@@ -238,25 +261,6 @@ export function EquipmentStep({ draft, update }: StepProps) {
           onPress={() => update({ parkEquipment: toggle(draft.parkEquipment, id) })}
         />
       ))}
-
-      <Text style={[styles.label, { marginTop: spacing.md }]}>¿Qué pesos de kettlebell tienes? (kg)</Text>
-      <Text style={styles.hint}>Marca todas las que tengas. La IA solo subirá a pesos que tengas disponibles.</Text>
-      <View style={styles.weights}>
-        {KB_WEIGHTS.map((kg) => {
-          const on = draft.kettlebellWeightsKg.includes(kg);
-          return (
-            <Pressable
-              key={kg}
-              onPress={() =>
-                update({ kettlebellWeightsKg: toggle(draft.kettlebellWeightsKg, kg).sort((a, b) => a - b) })
-              }
-              style={[styles.weight, on && styles.weightOn]}
-            >
-              <Text style={[styles.weightText, on && { color: '#fff' }]}>{kg}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
     </View>
   );
 }
@@ -316,7 +320,7 @@ export function ConditionsStep({ draft, update }: StepProps) {
 
 export function WeekStep({ draft, update }: StepProps) {
   const hasConditions = draft.conditions.length > 0;
-  const [mode, setMode] = useState<'manual' | 'auto'>('manual');
+  const [mode, setMode] = useState<'manual' | 'auto'>(draft.isNew ? 'auto' : 'manual');
   const training = DAYS.filter((d) => draft.weekChoices[d.id].length > 0).length;
   const [daysPerWeek, setDaysPerWeek] = useState(Math.max(1, training || 3));
 
@@ -339,6 +343,15 @@ export function WeekStep({ draft, update }: StepProps) {
 
   return (
     <View style={styles.gap}>
+      {draft.isNew && (
+        <View style={styles.aiBox}>
+          <Text style={styles.aiTitle}>✨ La IA creará tu semana</Text>
+          <Text style={styles.body}>
+            Aquí eliges qué hacer cada día. Luego la IA arma tus rutinas según tu perfil, lesiones, equipamiento y
+            tiempo. Puede tardar hasta un minuto.
+          </Text>
+        </View>
+      )}
       <View style={styles.segment}>
         {(
           [
@@ -443,23 +456,25 @@ export function WeekStep({ draft, update }: StepProps) {
         );
       })}
 
-      <View style={styles.dayRow}>
-        <Text style={styles.dayName}>Ejercicios por parte</Text>
-        {DAY_PARTS.map((p) => (
-          <View key={p} style={styles.stepRow}>
-            <Text style={styles.stepLabel} numberOfLines={1}>
-              {dayPartLabel(p, hasConditions)}
-            </Text>
-            <Stepper
-              value={draft.partCounts[p]}
-              min={1}
-              max={PART_MAX[p]}
-              onChange={(n) => update({ partCounts: { ...draft.partCounts, [p]: n } })}
-            />
-          </View>
-        ))}
-        <Text style={styles.hint}>Es una base: la rutina la ajusta a los minutos de cada día.</Text>
-      </View>
+      {mode === 'manual' && (
+        <View style={styles.dayRow}>
+          <Text style={styles.dayName}>Ejercicios por parte</Text>
+          {DAY_PARTS.map((p) => (
+            <View key={p} style={styles.stepRow}>
+              <Text style={styles.stepLabel} numberOfLines={1}>
+                {dayPartLabel(p, hasConditions)}
+              </Text>
+              <Stepper
+                value={draft.partCounts[p]}
+                min={1}
+                max={PART_MAX[p]}
+                onChange={(n) => update({ partCounts: { ...draft.partCounts, [p]: n } })}
+              />
+            </View>
+          ))}
+          <Text style={styles.hint}>Es una base: la rutina la ajusta a los minutos de cada día.</Text>
+        </View>
+      )}
 
       <Text style={styles.hint}>
         Marca una o varias partes por día.
@@ -542,6 +557,13 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
+  aiBox: {
+    backgroundColor: colors.accentSoft,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  aiTitle: { color: colors.text, fontSize: 16, fontWeight: '800' },
   intro: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: spacing.lg, gap: spacing.md },
   introContent: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
   introLogo: { width: 260, height: 260 },

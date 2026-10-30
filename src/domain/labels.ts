@@ -1,5 +1,7 @@
 import type { BlockType, KettlebellGuide } from './schema';
 
+export const ROLE_LABELS = { A: 'A · Potencia', B: 'B · Fuerza', C: 'C · Remate' } as const;
+
 export const BLOCK_LABELS: Record<BlockType, string> = {
   warmup: 'Calentamiento',
   prehab: 'Prehab',

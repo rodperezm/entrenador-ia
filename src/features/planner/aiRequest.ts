@@ -1,7 +1,8 @@
 import { equipmentAt, MEDICAL_CONDITIONS, RESTRICTION_FLAGS } from '@/domain/catalog';
+import { cycleGuide, cycleInfo, previousBlockExercises } from '@/domain/cycle';
 import { effortKind, effortNote } from '@/domain/effort';
 import { filterExercisesForUser } from '@/domain/filter';
-import { strongPainIds } from '@/domain/generator';
+import { strengthRole, strongPainIds } from '@/domain/generator';
 import { leadPart, partBudgets } from '@/domain/timeBudget';
 import {
   type BlockType,
@@ -66,6 +67,7 @@ export function buildAiRequest(
       complexity: e.complexityLevel,
       kettlebell: e.equipment.required.includes('kettlebell'),
       equipment: e.equipment.required,
+      strengthRole: strengthRole(e),
       chain: e.progression.chainId,
       defaults: {
         sets: e.prescription.sets,
@@ -107,7 +109,10 @@ export function buildAiRequest(
     }));
   });
 
+  const cycle = cycleInfo(history);
+
   return {
+    cycle: { ...cycle, guide: cycleGuide(cycle), previousBlockExercises: [...previousBlockExercises(history, cycle)] },
     profile: {
       level: profile.level,
       sex: profile.sex,

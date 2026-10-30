@@ -1,5 +1,5 @@
 import { Link, router, Stack, useLocalSearchParams } from 'expo-router';
-import { type ReactNode, useState } from 'react';
+import { Fragment, type ReactNode, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { Chip } from '@/components/Chip';
 import { Button, Stepper } from '@/components/ui';
@@ -7,7 +7,7 @@ import { EXERCISES, EXERCISES_BY_ID } from '@/data/exercises.seed';
 import { averageMet, kcalRangeLabel, latestWeight } from '@/domain/calories';
 import { generateDayByRules } from '@/domain/generator';
 import { MUSCLE_GROUP_LABELS, MUSCLE_GROUPS } from '@/domain/catalog';
-import { BLOCK_LABELS } from '@/domain/labels';
+import { BLOCK_LABELS, ROLE_LABELS } from '@/domain/labels';
 import { type DayConfig, DayOfWeek, type DayPlan } from '@/domain/schema';
 import { dayMinutes, leadPart, timeStatus } from '@/domain/timeBudget';
 import {
@@ -171,15 +171,20 @@ export default function DayScreen() {
                 const ex = EXERCISES_BY_ID.get(s.exerciseId);
                 if (!ex) return null;
                 return (
-                  <Link key={i} href={{ pathname: '/exercise/[id]', params: { id: ex.id } }} asChild>
-                    <Pressable style={styles.slot}>
-                      <View style={{ flex: 1, gap: 2 }}>
-                        <Text style={styles.slotName}>{ex.name.es}</Text>
-                        {s.rationale && <Text style={styles.muted}>{s.rationale}</Text>}
-                      </View>
-                      <Text style={styles.slotRx}>{slotLabel(s)}</Text>
-                    </Pressable>
-                  </Link>
+                  <Fragment key={i}>
+                    {s.role && s.role !== b.slots[i - 1]?.role && (
+                      <Text style={styles.roleTitle}>{ROLE_LABELS[s.role]}</Text>
+                    )}
+                    <Link href={{ pathname: '/exercise/[id]', params: { id: ex.id } }} asChild>
+                      <Pressable style={styles.slot}>
+                        <View style={{ flex: 1, gap: 2 }}>
+                          <Text style={styles.slotName}>{ex.name.es}</Text>
+                          {s.rationale && <Text style={styles.muted}>{s.rationale}</Text>}
+                        </View>
+                        <Text style={styles.slotRx}>{slotLabel(s)}</Text>
+                      </Pressable>
+                    </Link>
+                  </Fragment>
                 );
               })}
             </View>
@@ -563,6 +568,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginBottom: 4,
   },
+  roleTitle: { color: colors.textMuted, fontSize: 12, fontWeight: '800', marginTop: spacing.sm },
   slot: {
     flexDirection: 'row',
     alignItems: 'center',

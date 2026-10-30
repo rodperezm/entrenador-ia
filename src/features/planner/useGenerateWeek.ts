@@ -45,7 +45,8 @@ export function useGenerateWeek() {
       const result = generateWeekByRules(week, profile, EXERCISES, sessions);
       await savePlan({ ...result, ...meta, generator: 'rules' });
       const reason = err instanceof AiPlanError ? err.message : 'error inesperado';
-      setNotice(`No se pudo usar la IA (${reason}). La rutina se armó con las reglas de la app.`);
+      console.warn(`IA no disponible: ${reason}`);
+      setNotice('Esta vez la IA no pudo armar tu semana. La armamos con las reglas de la app. Puedes volver a intentarlo.');
     } finally {
       setGenerating(false);
     }

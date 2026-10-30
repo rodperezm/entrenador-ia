@@ -1,3 +1,4 @@
+import type { CycleInfo } from './cycle';
 import type { DayConfig, ExerciseSlot, LocalProfile, PlannedBlock } from './schema';
 import { DAY_PARTS, type DayPart, GENTLE_MAX } from './week';
 
@@ -24,6 +25,8 @@ const LEAD_ORDER: DayPart[] = ['main', 'prehab', 'cooldown', 'warmup'];
 
 const MAX_COUNT: Record<DayPart, number> = { warmup: 8, prehab: 6, main: 10, cooldown: 8 };
 const MAIN_MAX_SETS: Record<Level, number> = { beginner: 3, intermediate: 4, advanced: 5 };
+const FINISHER_MAX_SETS = 2;
+const DELOAD_TIME = 0.6; // la descarga acorta la fuerza aunque sobren minutos
 const GENTLE_MIN_SETS = 2;
 const MAX_SETS = { warmup: 2, prehab: 3, cooldown: 3 };
 const MAX_HOLD_SEC = { warmup: 45, prehab: 45, cooldown: 60 };
@@ -74,6 +77,13 @@ export function partBudgets(cfg: DayConfig, level: Level): Partial<Record<DayPar
   ]);
 }
 
+// Tope de series de Fuerza según la semana del bloque.
+const cycleMaxSets = (cap: number, cycle?: CycleInfo) => {
+  if (!cycle) return cap;
+  if (cycle.week === 4) return Math.ceil(cap / 2);
+  return cycle.week === 2 ? cap : cap - 1;
+};
+
 export function maxCount(part: DayPart, cfg: DayConfig) {
   const block = cfg.blocks[part];
   const base = part === 'main' && cfg.gentleStrength ? Math.min(block.exerciseCount, GENTLE_MAX) : block.exerciseCount;
@@ -85,13 +95,22 @@ export function maxCount(part: DayPart, cfg: DayConfig) {
 // son la base y el resto queda de reserva. Si sobra, quita ejercicios y luego
 // vueltas; si falta, sube vueltas, duración y al final agrega ejercicios.
 // Con cantidad fija solo se tocan vueltas y duración.
-export function fitPart(part: DayPart, candidates: ExerciseSlot[], cfg: DayConfig, level: Level): ExerciseSlot[] {
-  const budget = partBudgets(cfg, level)[part] ?? 0;
+export function fitPart(
+  part: DayPart,
+  candidates: ExerciseSlot[],
+  cfg: DayConfig,
+  level: Level,
+  cycle?: CycleInfo,
+): ExerciseSlot[] {
+  const cycled = part === 'main' && !cfg.gentleStrength ? cycle : undefined;
+  const budget = (partBudgets(cfg, level)[part] ?? 0) * (cycled?.week === 4 ? DELOAD_TIME : 1);
+  const maxSets = part === 'main' ? cycleMaxSets(MAIN_MAX_SETS[level], cycled) : MAX_SETS[part];
   const fixed = !!cfg.blocks[part].fixedCount;
   const limit = maxCount(part, cfg);
   const baseCount = Math.min(cfg.blocks[part].exerciseCount, limit);
-  const out = candidates.slice(0, baseCount).map((s) => ({ ...s }));
-  const reserve = fixed ? [] : candidates.slice(baseCount).map((s) => ({ ...s }));
+  const capped = (s: ExerciseSlot) => ({ ...s, sets: Math.min(s.sets, maxSets) });
+  const out = candidates.slice(0, baseCount).map(capped);
+  const reserve = fixed ? [] : candidates.slice(baseCount).map(capped);
   const total = () => slotsSeconds(out);
 
   // Baja vueltas de a una, siempre al ejercicio que tenga más, para que queden parejos.
@@ -108,7 +127,7 @@ export function fitPart(part: DayPart, candidates: ExerciseSlot[], cfg: DayConfi
   while (!fixed && out.length > 1 && total() > budget) reserve.unshift(out.pop()!);
   dropSets(1);
 
-  const maxSets = part === 'main' ? MAIN_MAX_SETS[level] : MAX_SETS[part];
+  const setLimit = (s: ExerciseSlot) => (s.role === 'C' ? Math.min(maxSets, FINISHER_MAX_SETS) : maxSets);
   const maxHold = part === 'main' ? null : MAX_HOLD_SEC[part];
   // Aplica un cambio a cada ejercicio si cabe; responde si logró alguno.
   const growEach = (canGrow: (s: ExerciseSlot) => boolean, step: (s: ExerciseSlot, sign: 1 | -1) => void) => {
@@ -130,7 +149,7 @@ export function fitPart(part: DayPart, candidates: ExerciseSlot[], cfg: DayConfi
   let changed = true;
   while (changed) {
     changed = false;
-    while (growEach((s) => s.sets < maxSets, addSet)) changed = true;
+    while (growEach((s) => s.sets < setLimit(s), addSet)) changed = true;
     while (maxHold && growEach((s) => s.durationSec != null && s.durationSec < maxHold, addHold)) changed = true;
     const next = out.length < limit ? reserve.findIndex((s) => total() + slotSeconds(s) <= budget) : -1;
     if (next >= 0) {
