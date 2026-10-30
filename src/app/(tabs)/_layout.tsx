@@ -53,7 +53,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="tabata"
         options={{
-          title: 'Tabata',
+          title: 'Tabata/HIIT',
           tabBarIcon: ({ color, size }) => <Ionicons name="timer-outline" color={color as string} size={size} />,
         }}
         listeners={{

@@ -358,7 +358,7 @@ export default function WorkoutScreen() {
             <Ionicons name={showAll ? 'barbell-outline' : 'list'} size={26} color={colors.text} />
           </Pressable>
           <Link href="/timer" asChild>
-            <Pressable hitSlop={10} style={{ alignItems: 'center' }} accessibilityLabel="Tabata">
+            <Pressable hitSlop={10} style={{ alignItems: 'center' }} accessibilityLabel="Tabata/HIIT">
               <Ionicons name="timer-outline" size={26} color={colors.accent} />
             </Pressable>
           </Link>

@@ -228,7 +228,7 @@ export default function TimerScreen() {
         <Pressable onPress={() => router.back()} style={styles.close} hitSlop={10} accessibilityLabel="Cerrar">
           <Ionicons name="chevron-down" size={26} color={T.mut} />
         </Pressable>
-        <Text style={f(styles.headTitle)}>TABATA</Text>
+        <Text style={f(styles.headTitle)}>TABATA/HIIT</Text>
         <Text style={f(styles.headTotal)}>{fmtClock(totalLeft)}</Text>
         <Pressable onPress={runner.reset} style={styles.reset} accessibilityLabel="Reiniciar">
           <Ionicons name="refresh" size={24} color={T.n2} />
