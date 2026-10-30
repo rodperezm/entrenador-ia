@@ -72,8 +72,8 @@ export function IntroScreen({ onStart }: { onStart: () => void }) {
   return (
     <View style={[styles.intro, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
       <ScrollView contentContainerStyle={styles.introContent}>
-        <Image source={require('../../../assets/icon.png')} style={styles.introLogo} accessibilityLabel="Logo de KettleIA" />
-        <Text style={[styles.introBrand, display]}>KettleIA</Text>
+        <Image source={require('../../../assets/icon.png')} style={styles.introLogo} accessibilityLabel="Logo de KETTAI" />
+        <Text style={[styles.introBrand, display]}>KETTAI</Text>
         <Text style={[styles.introHeadline, display]}>Entrena fuerte.{'\n'}Cuida lo que duele.</Text>
         <Text style={styles.introBody}>
           La fuerza es la madre de todas las batallas. Solo necesitas una kettlebell, tu cuerpo y un plan que respeta tus

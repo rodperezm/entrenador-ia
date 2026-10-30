@@ -1,0 +1,252 @@
+<title>KETTAI</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Entrena fuerza con una kettlebell, tu cuerpo y un plan que cuida tus lesiones.">
+<link rel="icon" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;500;600;700&display=swap">
+<style>
+  /* Concepto: una sesión real de KETTAI. La marca oscura de la app, tipografía de reloj de gimnasio
+     y una gran banda roja que marca el golpe de la semana: fuerza primero. */
+  :root {
+    color-scheme: dark;
+    --bg: #0e0f13;
+    --surface: #1a1b22;
+    --surface-2: #272933;
+    --line: #333644;
+    --fg: #f4f4f7;
+    --muted: #a7aab8;
+    --red: #ff5040;
+    --red-ink: #1b0705;
+    --lime: #cdd63c;
+    --display: "Bebas Neue", "Arial Narrow", Impact, sans-serif;
+    --body: "Barlow", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--body);
+    font-size: 18px;
+    line-height: 1.55;
+    overflow-x: hidden;
+  }
+  a { color: inherit; }
+  a:focus-visible { outline: 3px solid var(--lime); outline-offset: 3px; }
+  .wrap {
+    width: 100%;
+    max-width: 1140px;
+    margin-inline: auto;
+    padding-left: max(20px, env(safe-area-inset-left, 0px));
+    padding-right: max(20px, env(safe-area-inset-right, 0px));
+  }
+  h1, h2, h3 { font-family: var(--display); font-weight: 400; letter-spacing: .01em; margin: 0; text-wrap: balance; }
+  h2 { font-size: clamp(44px, 7vw, 76px); line-height: .98; }
+  h3 { font-size: 30px; line-height: 1.05; }
+  p { margin: 0; }
+  .lead { color: var(--muted); font-size: 20px; max-width: 58ch; }
+  .label { color: var(--red); font-size: 14px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
+
+  header { padding-block: 22px; }
+  .brand { display: flex; align-items: center; gap: 12px; font-family: var(--display); font-size: 30px; }
+  .brand img { width: 42px; height: 42px; border-radius: 10px; }
+
+  .hero { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, .75fr); gap: 56px; align-items: center; padding-block: 32px 80px; }
+  .hero-copy { display: grid; gap: 24px; min-width: 0; }
+  h1 { font-size: clamp(66px, 11vw, 132px); line-height: .9; }
+  h1 span { color: var(--red); }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .button {
+    display: inline-block;
+    background: var(--red);
+    color: var(--red-ink);
+    font-weight: 700;
+    padding: 15px 28px;
+    border-radius: 99px;
+    text-decoration: none;
+    transition: transform .15s ease;
+  }
+  .button:hover { transform: translateY(-2px); }
+  .quiet { color: var(--muted); font-weight: 600; text-underline-offset: 4px; }
+
+  .phone {
+    justify-self: center;
+    width: min(100%, 320px);
+    background: var(--bg);
+    border: 8px solid var(--surface-2);
+    border-radius: 40px;
+    padding: 24px 18px 20px;
+    display: grid;
+    gap: 16px;
+  }
+  .phone-top { text-align: center; color: var(--muted); font-size: 13px; }
+  .phone-top b { display: block; color: var(--fg); font-size: 16px; }
+  .phone small { color: var(--red); font-size: 11px; font-weight: 700; letter-spacing: .08em; }
+  .phone h3 { font-family: var(--body); font-size: 26px; font-weight: 700; }
+  .set { background: var(--surface); border-radius: 18px; padding: 16px; display: grid; gap: 8px; text-align: center; }
+  .set span { color: var(--muted); font-size: 13px; font-weight: 600; }
+  .set strong { font-size: 25px; }
+  .done { background: var(--red); color: var(--red-ink); border-radius: 99px; padding: 11px; font-weight: 700; }
+  .clock { text-align: center; font-family: var(--display); font-size: 78px; line-height: 1; font-variant-numeric: tabular-nums; }
+  .clock span { display: block; color: var(--muted); font-family: var(--body); font-size: 12px; font-weight: 600; line-height: 1.8; }
+
+  .band { background: var(--red); color: var(--red-ink); }
+  .band .wrap { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; padding-block: 34px; }
+  .band div div { font-family: var(--display); font-size: 42px; line-height: 1; }
+  .band p { font-weight: 600; font-size: 16px; }
+
+  section { padding-block: 86px; }
+  .section-head { display: grid; gap: 16px; margin-bottom: 44px; }
+  .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 56px; align-items: start; }
+
+  .care { display: grid; gap: 0; border-top: 1px solid var(--line); }
+  .care article { display: grid; gap: 4px; padding-block: 20px; border-bottom: 1px solid var(--line); }
+  .care span { color: var(--muted); }
+  .care strong { font-size: 19px; }
+
+  .abc { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .abc article { background: var(--surface); border-radius: 18px; padding: 24px; display: grid; gap: 8px; align-content: start; }
+  .abc b { font-family: var(--display); font-size: 68px; line-height: .9; color: var(--red); font-weight: 400; }
+  .abc p { color: var(--muted); font-size: 16px; }
+  .weeks { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); margin-top: 44px; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  .weeks div { background: var(--bg); padding: 20px; display: grid; gap: 2px; min-width: 0; }
+  .weeks span { color: var(--muted); font-size: 14px; }
+  .weeks strong { font-family: var(--display); font-size: 28px; font-weight: 400; }
+
+  .loop { background: var(--surface); }
+  .history { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+  .history h3 { color: var(--lime); }
+  .history p { color: var(--muted); margin-top: 8px; font-size: 17px; }
+
+  .extras { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .extras article { border: 1px solid var(--line); border-radius: 18px; padding: 28px; display: grid; gap: 10px; align-content: start; }
+  .extras p { color: var(--muted); }
+
+  .final { text-align: center; padding-block: 92px 48px; }
+  .final .wrap { display: grid; gap: 22px; justify-items: center; }
+  .final h2 { font-size: clamp(54px, 9vw, 104px); }
+  footer { color: var(--muted); font-size: 14px; padding-block: 24px 42px; }
+  footer p { max-width: 72ch; }
+
+  @media (max-width: 880px) {
+    .hero, .split { grid-template-columns: minmax(0, 1fr); gap: 40px; }
+    .hero { padding-bottom: 56px; }
+    section { padding-block: 62px; }
+  }
+  @media (max-width: 680px) {
+    .band .wrap, .abc, .history, .extras { grid-template-columns: minmax(0, 1fr); }
+    .weeks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    body { font-size: 17px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .button { transition: none; } }
+</style>
+
+<header class="wrap">
+  <div class="brand"><img src="icon.png" alt="Logo de KETTAI">KETTAI</div>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <div class="hero-copy">
+      <p class="label">Una kettlebell, tu cuerpo y un plan</p>
+      <h1>La fuerza es la madre de <span>todas las batallas</span></h1>
+      <p class="lead">Entrena en casa o en el parque, sin gimnasio. KETTAI cuida tus lesiones, ordena tu entrenamiento y usa tu historial para armar cada semana mejor.</p>
+      <div class="actions">
+        <a class="button" href="https://rodperezm.github.io/entrenador-ia/">Probar KETTAI</a>
+        <a class="quiet" href="#plan">Ver cómo se arma tu plan</a>
+      </div>
+    </div>
+    <div class="phone" aria-label="Ejemplo del entrenamiento guiado en la app">
+      <div class="phone-top"><b>Viernes</b>12:24 · 15/22 series</div>
+      <small>FUERZA · EJERCICIO 7 DE 9</small>
+      <h3>Remo gorila</h3>
+      <div class="set"><span>Serie 2 de 3</span><strong>8 reps · 12 kg</strong><div class="done">✓ Hecha</div></div>
+      <div class="clock">12:24<span>Tiempo de entrenamiento</span></div>
+    </div>
+  </div>
+
+  <div class="band">
+    <div class="wrap">
+      <div><div>1 kettlebell</div><p>Con una basta para empezar.</p></div>
+      <div><div>Casa o parque</div><p>Tu rutina usa lo que tienes.</p></div>
+      <div><div>Tus minutos</div><p>El plan se ajusta al tiempo de cada día.</p></div>
+    </div>
+  </div>
+
+  <section>
+    <div class="wrap split">
+      <div class="section-head">
+        <p class="label">Te cuidamos</p>
+        <h2>Entrena fuerte. Cuida lo que duele.</h2>
+        <p class="lead">Una lesión no debería sacarte del camino. La app adapta el entrenamiento desde el primer día y te acompaña durante cada sesión.</p>
+      </div>
+      <div class="care">
+        <article><strong>Antes</strong><span>Marcas tus lesiones y evitamos los movimientos que debes cuidar.</span></article>
+        <article><strong>Durante</strong><span>Si algo duele, puedes aliviar el ejercicio, cambiarlo o parar.</span></article>
+        <article><strong>Después</strong><span>La próxima rutina toma en cuenta tu esfuerzo y tu dolor.</span></article>
+      </div>
+    </div>
+  </section>
+
+  <section id="plan">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="label">Lógica de entrenamiento + IA</p>
+        <h2>Tu plan tiene un método</h2>
+        <p class="lead">Las reglas de entrenamiento ponen orden y seguridad. La IA combina tu perfil, tus lesiones y tu historial para entregarte el mejor plan para tu semana.</p>
+      </div>
+      <div class="abc">
+        <article><b>A</b><h3>Potencia</h3><p>Swings y movimientos explosivos, con pocas repeticiones de calidad.</p></article>
+        <article><b>B</b><h3>Fuerza</h3><p>Sentadillas, presses y remos: baja en 3 segundos y sube rápido.</p></article>
+        <article><b>C</b><h3>Remate</h3><p>Un cierre intenso y opcional, si te queda tiempo.</p></article>
+      </div>
+      <div class="weeks" aria-label="Bloque de cuatro semanas">
+        <div><span>Semana 1</span><strong>Introductoria</strong><span>Tomas el ritmo</span></div>
+        <div><span>Semana 2</span><strong>Base</strong><span>Sumas series</span></div>
+        <div><span>Semana 3</span><strong>Choque</strong><span>Más exigencia</span></div>
+        <div><span>Semana 4</span><strong>Descarga</strong><span>Te recuperas</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="loop">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="label">Tu historial</p>
+        <h2>Cada entrenamiento mejora el siguiente</h2>
+      </div>
+      <div class="history">
+        <article><h3>Registras</h3><p>Series, carga, esfuerzo y dolor, con un toque mientras entrenas.</p></article>
+        <article><h3>Recordamos</h3><p>Tu historial queda guardado para ver cómo respondes.</p></article>
+        <article><h3>Planificamos</h3><p>La próxima semana parte de lo que hiciste, no desde cero.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="section-head">
+        <p class="label">Además</p>
+        <h2>Todo en el mismo lugar</h2>
+      </div>
+      <div class="extras">
+        <article><h3>Medidas corporales</h3><p>Registra peso, perímetros y pliegues. Sigue tu IMC, tu relación cintura-altura y tu porcentaje de grasa.</p></article>
+        <article><h3>Temporizador Tabata/HIIT</h3><p>Configura rondas, ejercicios y descansos, con pitidos y voz para no mirar la pantalla.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="final">
+    <div class="wrap">
+      <h2>Empieza con lo que tienes</h2>
+      <p class="lead">Una kettlebell y tu próximo entrenamiento.</p>
+      <a class="button" href="https://rodperezm.github.io/entrenador-ia/">Probar KETTAI</a>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap">
+  <p>KETTAI no reemplaza la evaluación ni la indicación de un médico, kinesiólogo u otro profesional de la salud. Si sientes dolor durante un ejercicio, detente.</p>
+</footer>

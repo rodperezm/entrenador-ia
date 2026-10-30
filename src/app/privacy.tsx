@@ -25,7 +25,7 @@ const SECTIONS = [
   },
   {
     title: 'Importante',
-    body: 'KettleIA no reemplaza a un médico, kinesiólogo u otro profesional de la salud.',
+    body: 'KETTAI no reemplaza a un médico, kinesiólogo u otro profesional de la salud.',
   },
 ];
 

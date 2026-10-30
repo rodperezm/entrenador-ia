@@ -181,12 +181,12 @@ function BackupActive() {
     if (Platform.OS === 'web') {
       const link = document.createElement('a');
       link.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
-      link.download = 'mis-datos-kettleia.json';
+      link.download = 'mis-datos-kettai.json';
       link.click();
       URL.revokeObjectURL(link.href);
       return;
     }
-    await Share.share({ title: 'Mis datos de KettleIA', message: json });
+    await Share.share({ title: 'Mis datos de KETTAI', message: json });
   };
 
   const askSignOut = () =>

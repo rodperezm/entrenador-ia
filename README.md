@@ -1,4 +1,4 @@
-# KettleIA
+# KETTAI
 
 App móvil de entrenamiento con kettlebell (Expo + React Native + TypeScript).
 
