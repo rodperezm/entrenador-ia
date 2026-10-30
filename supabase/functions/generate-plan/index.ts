@@ -22,6 +22,35 @@ const CORS = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
 
+const KEEP_ALIVE_MS = 10_000;
+
+// Claude puede tardar más de un minuto y Safari corta la conexión si no recibe datos.
+// Se envían saltos de línea mientras trabaja y al final el resultado en JSON, que los ignora.
+function keepAliveResponse(work: Promise<unknown>) {
+  const encoder = new TextEncoder();
+  let timer: ReturnType<typeof setInterval>;
+  const stream = new ReadableStream({
+    start(controller) {
+      const send = (text: string) => controller.enqueue(encoder.encode(text));
+      send('\n');
+      timer = setInterval(() => send('\n'), KEEP_ALIVE_MS);
+      work
+        .then((result) => {
+          clearInterval(timer);
+          send(JSON.stringify(result));
+          controller.close();
+        })
+        .catch(() => {}); // la app ya se desconectó
+    },
+    cancel() {
+      clearInterval(timer);
+    },
+  });
+  return new Response(stream, {
+    headers: { ...CORS, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform' },
+  });
+}
+
 type Block = 'warmup' | 'prehab' | 'main_strength' | 'cooldown';
 type Candidate = { id: string; blocks: Block[]; kettlebell: boolean; [k: string]: unknown };
 type RequestBody = {
@@ -177,6 +206,11 @@ Deno.serve(async (req) => {
     return json({ error: 'bad_request' }, 400);
   }
 
+  return keepAliveResponse(generatePlan(body));
+});
+
+// La respuesta ya empezó, así que los errores van dentro del JSON y no como estado HTTP.
+async function generatePlan(body: RequestBody) {
   try {
     const response = await anthropic.beta.messages.create({
       model: MODEL,
@@ -188,18 +222,18 @@ Deno.serve(async (req) => {
       messages: [{ role: 'user', content: JSON.stringify(body) }],
     });
 
-    if (response.stop_reason === 'refusal') return json({ error: 'refusal' }, 422);
-    if (response.stop_reason === 'max_tokens') return json({ error: 'truncated' }, 502);
+    if (response.stop_reason === 'refusal') return { error: 'refusal' };
+    if (response.stop_reason === 'max_tokens') return { error: 'truncated' };
 
     const text = response.content.find((b) => b.type === 'text');
-    if (!text || text.type !== 'text') return json({ error: 'empty_response' }, 502);
+    if (!text || text.type !== 'text') return { error: 'empty_response' };
     const plan = sanitize(JSON.parse(text.text) as Plan, body);
 
-    return json({ plan, model: response.model, usage: response.usage });
+    return { plan, model: response.model, usage: response.usage };
   } catch (err) {
-    if (err instanceof Anthropic.AuthenticationError) return json({ error: 'anthropic_key_invalid' }, 500);
-    if (err instanceof Anthropic.RateLimitError) return json({ error: 'rate_limited' }, 429);
-    if (err instanceof Anthropic.APIError) return json({ error: 'anthropic_error', status: err.status }, 502);
-    return json({ error: 'internal_error' }, 500);
+    if (err instanceof Anthropic.AuthenticationError) return { error: 'anthropic_key_invalid' };
+    if (err instanceof Anthropic.RateLimitError) return { error: 'rate_limited' };
+    if (err instanceof Anthropic.APIError) return { error: 'anthropic_error', status: err.status };
+    return { error: 'internal_error' };
   }
-});
+}

@@ -21,6 +21,7 @@ const REASONS: Record<string, string> = {
   rate_limited: 'Claude está saturado en este momento',
   refusal: 'Claude no pudo armar esta rutina',
   truncated: 'la respuesta de Claude quedó incompleta',
+  anthropic_error: 'Claude tuvo un problema al responder',
 };
 
 export async function generateWeekWithAi(request: ReturnType<typeof buildAiRequest>, week: WeekConfig) {
@@ -30,7 +31,7 @@ export async function generateWeekWithAi(request: ReturnType<typeof buildAiReque
     throw new AiPlanError('no se pudo iniciar sesión en Supabase');
   }
 
-  const { data, error } = await supabase.functions.invoke('generate-plan', { body: request });
+  const { data: raw, error } = await supabase.functions.invoke('generate-plan', { body: request });
   if (error) {
     let code = '';
     if (error instanceof FunctionsHttpError) {
@@ -38,6 +39,10 @@ export async function generateWeekWithAi(request: ReturnType<typeof buildAiReque
     }
     throw new AiPlanError(REASONS[code] ?? 'el servidor no respondió');
   }
+
+  // La función responde en flujo para no perder la conexión, y sus errores vienen dentro del JSON.
+  const data = raw instanceof Response ? await raw.text().then(JSON.parse).catch(() => null) : raw;
+  if (!data || data.error) throw new AiPlanError(REASONS[data?.error] ?? 'el servidor no respondió');
 
   // Validar contra el esquema de la app y contra los candidatos enviados.
   const locations = new Map(week.days.map((d) => [d.day, d.location]));
