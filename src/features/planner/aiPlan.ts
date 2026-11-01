@@ -1,6 +1,7 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { EXERCISES_BY_ID } from '@/data/exercises.seed';
-import { isGentle, sortByRole, strengthRole } from '@/domain/generator';
+import { isGentle } from '@/domain/generator';
+import { slotRole, sortByRole } from '@/domain/strength';
 import { fitPart } from '@/domain/timeBudget';
 import { GENTLE_MAX } from '@/domain/week';
 import { GeneratedWeekPlan, type WeekConfig } from '@/domain/schema';
@@ -42,8 +43,17 @@ export async function generateWeekWithAi(request: ReturnType<typeof buildAiReque
 
   // La función responde en flujo para no perder la conexión, y sus errores vienen dentro del JSON.
   // En Expo Go la respuesta no es instancia del Response global: se reconoce por tener text().
-  const data = typeof raw?.text === 'function' ? await raw.text().then(JSON.parse).catch(() => null) : raw;
-  if (!data || data.error) throw new AiPlanError(REASONS[data?.error] ?? 'el servidor no respondió');
+  const data =
+    typeof raw?.text === 'function'
+      ? await raw
+          .text()
+          .then(JSON.parse)
+          .catch(() => null)
+      : raw;
+  if (!data || data.error) {
+    const reason = REASONS[data?.error] ?? 'el servidor no respondió';
+    throw new AiPlanError(data?.status ? `${reason} (código ${data.status})` : reason);
+  }
 
   // Validar contra el esquema de la app y contra los candidatos enviados.
   const locations = new Map(week.days.map((d) => [d.day, d.location]));
@@ -97,12 +107,13 @@ export async function generateWeekWithAi(request: ReturnType<typeof buildAiReque
       b.slots = sortByRole(
         b.slots.map((s) => {
           const e = EXERCISES_BY_ID.get(s.exerciseId);
-          return e ? { ...s, role: strengthRole(e) } : s;
+          return e ? { ...s, role: slotRole(e, request.cycle.stage) ?? 'B' } : s;
         }),
       );
     }
     for (const b of d.blocks) {
-      b.slots = fitPart(BLOCK_KEY[b.type], b.slots, cfg, request.profile.level, request.cycle);
+      const intensity = request.week.find((w) => w.day === d.day)?.intensity;
+      b.slots = fitPart(BLOCK_KEY[b.type], b.slots, cfg, request.profile.level, request.cycle, intensity);
     }
   }
 

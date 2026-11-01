@@ -30,18 +30,13 @@ export default function ExerciseDetail() {
       {/* Video: espacio reservado hasta que lleguen los videos de Gymvisual */}
       <View style={styles.hero}>
         <Ionicons name="play-circle-outline" size={36} color={colors.textMuted} />
-        <Text style={styles.heroText}>{e.media.provider ? 'Video en camino' : 'Video por definir'}</Text>
-        <Text style={styles.heroSub}>
-          {e.media.provider
-            ? `Gymvisual · ${e.media.provider.id} · estilo gris`
-            : 'Ejercicio nuevo: consultando video con el proveedor'}
-        </Text>
+        <Text style={styles.heroText}>Video próximamente</Text>
       </View>
 
       <Text style={styles.title}>{e.name.es}</Text>
       <Text style={styles.body}>{e.description.es}</Text>
       <Text style={styles.meta}>
-        {e.blockTypes.map((b) => BLOCK_LABELS[b]).join(' · ')} · Nivel {e.complexityLevel} ·{' '}
+        {e.blockTypes.map((b) => BLOCK_LABELS[b]).join(' · ')} · Dificultad {e.complexityLevel} de 5 ·{' '}
         {[
           ...e.equipment.required.map((q) => EQUIPMENT[q]),
           ...e.equipment.optional.map((q) => `${EQUIPMENT[q]} (opcional)`),
@@ -236,7 +231,6 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   heroText: { color: colors.textMuted, fontWeight: '700' },
-  heroSub: { color: colors.border, fontSize: 11 },
   title: { color: colors.text, fontSize: 24, fontWeight: '800' },
   body: { color: colors.text, fontSize: 15, lineHeight: 21 },
   meta: { color: colors.textMuted, fontSize: 13, lineHeight: 19 },
@@ -260,7 +254,7 @@ const styles = StyleSheet.create({
     height: 26,
     borderRadius: 13,
     backgroundColor: colors.accent,
-    color: '#fff',
+    color: colors.onAccent,
     textAlign: 'center',
     lineHeight: 26,
     fontWeight: '800',

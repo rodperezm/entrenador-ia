@@ -19,7 +19,7 @@ import {
   WeekStep,
   WelcomeStep,
 } from '@/features/onboarding/steps';
-import { type DayChoice, dayChoiceOf, DAYS, GENTLE_MAX, proposeWeek, sameChoice } from '@/domain/week';
+import { type DayChoice, dayChoiceOf, DAYS, GENTLE_MAX, minDayMinutes, proposeWeek, sameChoice } from '@/domain/week';
 import { CLOUD_BACKUP_READY } from '@/lib/cloudSync';
 import { usePlan } from '@/state/plan';
 import { useResetAllData } from '@/state/useResetAllData';
@@ -27,39 +27,57 @@ import { useProfile } from '@/state/profile';
 import { colors, spacing } from '@/theme';
 
 const STEPS = [
-  { title: 'Empecemos', subtitle: 'Armemos tu perfil de entrenamiento.', Component: WelcomeStep },
+  {
+    title: 'Empecemos',
+    subtitle: 'Armemos tu perfil de entrenamiento.',
+    Component: WelcomeStep,
+    valid: (d: Draft) => d.disclaimerAccepted,
+  },
   {
     title: 'Sobre ti',
-    subtitle: 'Solo el sexo es obligatorio; lo demás puedes completarlo después.',
+    subtitle: 'Solo el sexo es obligatorio; lo demás es opcional.',
+    newSubtitle: 'Con esto ajustamos tus ejercicios.',
     Component: AboutStep,
+    valid: (d: Draft) =>
+      d.sex !== null &&
+      (!d.isNew || d.level !== null) &&
+      (!d.birthText || parseBirth(d.birthText) !== null) &&
+      (!d.heightText || parseHeight(d.heightText) !== null),
   },
-  { title: 'Tu nivel', subtitle: 'Define la complejidad inicial de los ejercicios.', Component: LevelStep },
-  { title: 'Tu kettlebell', subtitle: 'Solo te propondremos ejercicios que puedas hacer.', Component: EquipmentStep },
   {
-    title: 'Condiciones médicas',
+    title: 'Tu nivel',
+    subtitle: 'Define la complejidad inicial de los ejercicios.',
+    Component: LevelStep,
+    valid: (d: Draft) => d.level !== null,
+    profileOnly: true, // la primera vez va junto a «Sobre ti»
+  },
+  {
+    title: 'Tu kettlebell',
+    subtitle: 'Solo te propondremos ejercicios que puedas hacer.',
+    Component: EquipmentStep,
+    valid: (d: Draft) => d.kettlebellWeightsKg.length > 0,
+  },
+  {
+    title: 'Lesiones y condiciones',
     subtitle: 'Opcional. Ajustamos los ejercicios a tus limitaciones.',
     Component: ConditionsStep,
+    valid: () => true,
   },
   {
     title: 'Tu semana',
     subtitle: 'Qué quieres hacer cada día. Lo puedes cambiar cuando quieras.',
+    newSubtitle: 'Te proponemos los días. Lo puedes cambiar cuando quieras.',
     Component: WeekStep,
+    valid: (d: Draft) => DAYS.some((day) => d.weekChoices[day.id].length > 0),
   },
-  { title: 'Resumen', subtitle: 'Revisa tu perfil. Puedes cambiarlo cuando quieras.', Component: SummaryStep },
+  {
+    title: 'Resumen',
+    subtitle: 'Revisa tu perfil. Puedes cambiarlo cuando quieras.',
+    Component: SummaryStep,
+    valid: () => true,
+    profileOnly: true,
+  },
 ];
-
-const canContinue = (step: number, d: Draft) =>
-  [
-    d.disclaimerAccepted,
-    d.sex !== null &&
-      (!d.birthText || parseBirth(d.birthText) !== null) &&
-      (!d.heightText || parseHeight(d.heightText) !== null),
-    d.level !== null,
-    d.kettlebellWeightsKg.length > 0,
-    true,
-    DAYS.some((day) => d.weekChoices[day.id].length > 0),
-    true,
-  ][step];
 
 // Espera a que cargue el perfil guardado: el borrador se arma una sola vez con él.
 export default function Onboarding() {
@@ -113,11 +131,11 @@ function OnboardingForm() {
   const [showIntro, setShowIntro] = useState(!profile);
 
   const update = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }));
-  // Perfil nuevo: sin resumen; del último paso se pasa directo a crear la semana.
-  const steps = profile ? STEPS : STEPS.slice(0, -1);
-  const { title, subtitle, Component } = steps[step];
+  // Perfil nuevo: menos pasos; del último se pasa directo a crear la semana.
+  const steps = profile ? STEPS : STEPS.filter((s) => !s.profileOnly);
+  const { title, subtitle, newSubtitle, Component, valid } = steps[step];
   const isLast = step === steps.length - 1;
-  const conditionsStep = STEPS.findIndex((s) => s.Component === ConditionsStep);
+  const conditionsStep = steps.findIndex((s) => s.Component === ConditionsStep);
 
   const next = () => {
     // Al llegar a «Tu semana» por primera vez, ya viene propuesta según lesiones.
@@ -156,7 +174,7 @@ function OnboardingForm() {
       const c = draft.partCounts;
       updateAllDays((d) => ({
         ...d,
-        availableMinutes: draft.weekMinutes[d.day],
+        availableMinutes: Math.max(draft.weekMinutes[d.day], minDayMinutes(dayChoiceOf(d))),
         gentleStrength: draft.gentleDays.includes(d.day),
         blocks: {
           warmup: { ...d.blocks.warmup, exerciseCount: c.warmup },
@@ -187,7 +205,7 @@ function OnboardingForm() {
     <>
       <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Stack.Screen
-          options={{ headerShown: true, title: profile ? 'Editar perfil' : '', headerBackVisible: !!profile }}
+          options={{ headerShown: true, title: profile ? 'Mi perfil' : '', headerBackVisible: !!profile }}
         />
 
         <View style={styles.progress}>
@@ -201,7 +219,7 @@ function OnboardingForm() {
             Paso {step + 1} de {steps.length}
           </Text>
           <Text style={styles.title}>{title}</Text>
-          <Text style={styles.subtitle}>{subtitle}</Text>
+          <Text style={styles.subtitle}>{(!profile && newSubtitle) || subtitle}</Text>
           <Component draft={draft} update={update} />
           {profile && step === 0 && (
             <>
@@ -215,8 +233,18 @@ function OnboardingForm() {
 
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
           <Button
-            label={isLast ? (saving ? 'Guardando…' : profile ? 'Guardar y empezar' : 'Crear mi semana con IA') : 'Continuar'}
-            disabled={!canContinue(step, draft) || saving}
+            label={
+              isLast
+                ? saving
+                  ? 'Guardando…'
+                  : profile
+                    ? 'Guardar cambios'
+                    : new Date().getDay() === 1
+                      ? 'Crear mi semana con IA'
+                      : 'Armar mi preparación'
+                : 'Continuar'
+            }
+            disabled={!valid(draft) || saving}
             onPress={isLast ? finish : next}
           />
           {step > 0 && <Button label="Atrás" variant="ghost" onPress={() => setStep(step - 1)} />}

@@ -3,8 +3,7 @@ import { supabase } from './supabase';
 // Lectura y escritura del respaldo en la tabla user_items. La seguridad la da
 // Supabase: cada cuenta solo puede leer y escribir sus propias filas.
 
-// Oculto hasta configurar el correo que envía los códigos (SMTP en Supabase).
-export const CLOUD_BACKUP_READY = false;
+export const CLOUD_BACKUP_READY = true;
 
 export type ItemKind = 'profile' | 'week' | 'plan' | 'session' | 'tape' | 'fold';
 export type CloudItem = { kind: ItemKind; item_id: string; data: unknown; deleted: boolean };

@@ -1,5 +1,6 @@
 import type { CycleInfo } from './cycle';
 import type { DayConfig, ExerciseSlot, LocalProfile, PlannedBlock } from './schema';
+import type { Intensity } from './strength';
 import { DAY_PARTS, type DayPart, GENTLE_MAX } from './week';
 
 // Reparto del tiempo del día: los minutos mandan y la cantidad de ejercicios es
@@ -21,12 +22,14 @@ const SUPPORT_MAX_MIN: Record<DayPart, number> = {
   main: GENTLE_MAIN_MAX_MIN, // fuerza suave: el protagonista es la lesión
   cooldown: 12,
 };
+const SHORT_WARMUP_MIN = 5; // sin fuerza, el calentamiento solo prepara: corto
 const LEAD_ORDER: DayPart[] = ['main', 'prehab', 'cooldown', 'warmup'];
 
 const MAX_COUNT: Record<DayPart, number> = { warmup: 8, prehab: 6, main: 10, cooldown: 8 };
 const MAIN_MAX_SETS: Record<Level, number> = { beginner: 3, intermediate: 4, advanced: 5 };
 const FINISHER_MAX_SETS = 2;
 const DELOAD_TIME = 0.6; // la descarga acorta la fuerza aunque sobren minutos
+const LIGHT_MAX_SETS = 2;
 const GENTLE_MIN_SETS = 2;
 const MAX_SETS = { warmup: 2, prehab: 3, cooldown: 3 };
 const MAX_HOLD_SEC = { warmup: 45, prehab: 45, cooldown: 60 };
@@ -58,7 +61,8 @@ export function partBudgets(cfg: DayConfig, level: Level): Partial<Record<DayPar
 
   const gentle = cfg.gentleStrength && lead === 'main';
   const support = DAY_PARTS.filter((p) => cfg.blocks[p].enabled && p !== lead);
-  const supportMax = support.reduce((t, p) => t + SUPPORT_MAX_MIN[p] * 60, 0);
+  const partMax = (p: DayPart) => (p === 'warmup' && !cfg.blocks.main.enabled ? SHORT_WARMUP_MIN : SUPPORT_MAX_MIN[p]);
+  const supportMax = support.reduce((t, p) => t + partMax(p) * 60, 0);
   // Las partes de apoyo comparten el 40% del día, o la mitad si son tres.
   const share = support.length === 3 ? 0.5 : 0.4;
   const leadMaxMin = lead === 'main' ? (gentle ? GENTLE_MAIN_MAX_MIN : MAIN_MAX_MIN[level]) : LEAD_MAX_MIN[lead];
@@ -73,15 +77,16 @@ export function partBudgets(cfg: DayConfig, level: Level): Partial<Record<DayPar
   const scale = supportMax > 0 ? supportSec() / supportMax : 0;
   return Object.fromEntries([
     [lead, leadSec],
-    ...support.map((p) => [p, SUPPORT_MAX_MIN[p] * 60 * scale] as const),
+    ...support.map((p) => [p, partMax(p) * 60 * scale] as const),
   ]);
 }
 
 // Tope de series de Fuerza según la semana del bloque.
-const cycleMaxSets = (cap: number, cycle?: CycleInfo) => {
+const cycleMaxSets = (cap: number, cycle?: CycleInfo, intensity: Intensity = 'intense') => {
   if (!cycle) return cap;
-  if (cycle.week === 4) return Math.ceil(cap / 2);
-  return cycle.week === 2 ? cap : cap - 1;
+  const byWeek = cycle.week === 4 ? Math.ceil(cap / 2) : cycle.week === 1 ? cap - 1 : cap;
+  if (intensity === 'light') return Math.min(byWeek, LIGHT_MAX_SETS);
+  return Math.max(LIGHT_MAX_SETS, byWeek - (intensity === 'moderate' ? 1 : 0));
 };
 
 export function maxCount(part: DayPart, cfg: DayConfig) {
@@ -101,13 +106,16 @@ export function fitPart(
   cfg: DayConfig,
   level: Level,
   cycle?: CycleInfo,
+  intensity: Intensity = 'intense',
 ): ExerciseSlot[] {
   const cycled = part === 'main' && !cfg.gentleStrength ? cycle : undefined;
-  const budget = (partBudgets(cfg, level)[part] ?? 0) * (cycled?.week === 4 ? DELOAD_TIME : 1);
-  const maxSets = part === 'main' ? cycleMaxSets(MAIN_MAX_SETS[level], cycled) : MAX_SETS[part];
+  const shorter = cycled?.week === 4 || (cycled && intensity === 'light');
+  const budget = (partBudgets(cfg, level)[part] ?? 0) * (shorter ? DELOAD_TIME : 1);
+  const maxSets = part === 'main' ? cycleMaxSets(MAIN_MAX_SETS[level], cycled, intensity) : MAX_SETS[part];
   const fixed = !!cfg.blocks[part].fixedCount;
-  const limit = maxCount(part, cfg);
-  const baseCount = Math.min(cfg.blocks[part].exerciseCount, limit);
+  const baseCount = Math.min(cfg.blocks[part].exerciseCount, maxCount(part, cfg));
+  // Moderado y suave cuidan la recuperación: no suman ejercicios aunque sobre tiempo.
+  const limit = part === 'main' && intensity !== 'intense' ? baseCount : maxCount(part, cfg);
   const capped = (s: ExerciseSlot) => ({ ...s, sets: Math.min(s.sets, maxSets) });
   const out = candidates.slice(0, baseCount).map(capped);
   const reserve = fixed ? [] : candidates.slice(baseCount).map(capped);

@@ -20,5 +20,5 @@ const styles = StyleSheet.create({
   },
   active: { backgroundColor: colors.accent, borderColor: colors.accent },
   text: { color: colors.textMuted, fontWeight: '600', fontSize: 13 },
-  activeText: { color: '#fff' },
+  activeText: { color: colors.onAccent },
 });

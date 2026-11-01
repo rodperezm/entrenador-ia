@@ -48,6 +48,6 @@ export const EFFORT_QUESTION: Record<Exclude<EffortKind, 'none'>, string> = {
 export function effortNote(kind: EffortKind, rpe: number | null): string {
   if (kind === 'none' || rpe == null) return '';
   const opt = EFFORT_OPTIONS[kind].find((o) => o.rpe === rpe);
-  if (kind === 'reps') return ` · podía ${(opt?.label ?? String(10 - rpe)).toLowerCase()} más`;
+  if (kind === 'reps') return rpe >= 10 ? ' · no podía más' : ` · podía ${(opt?.label ?? String(10 - rpe)).toLowerCase()} más`;
   return ` · aguante: ${(opt?.label ?? '').split(' (')[0].toLowerCase()}`;
 }

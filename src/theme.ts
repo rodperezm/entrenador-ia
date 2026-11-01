@@ -6,6 +6,7 @@ export const colors = {
   text: '#F4F5F7',
   textMuted: '#9AA0AC',
   accent: '#FF4D3D',
+  onAccent: '#1B0705', // texto sobre el rojo: el blanco no alcanza el contraste mínimo
   accentSoft: 'rgba(255, 77, 61, 0.15)',
   warning: '#FFB020',
   warningSoft: 'rgba(255, 176, 32, 0.12)',

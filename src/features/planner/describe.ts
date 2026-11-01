@@ -1,19 +1,18 @@
-import { MUSCLE_GROUP_LABELS } from '@/domain/catalog';
 import type { DayConfig, DayPlan } from '@/domain/schema';
 
-export function describeDayConfig(d: DayConfig, hasConditions: boolean): string {
+// Lo elegido para el día: lo que va incluido siempre no se repite.
+export function dayTypeLabel(d: DayConfig, hasConditions: boolean): string {
   if (!d.active) return 'Descanso';
   const b = d.blocks;
   const parts: string[] = [];
-  if (b.warmup.enabled) parts.push(`Calentamiento ${b.warmup.exerciseCount}`);
-  if (b.prehab.enabled) parts.push(`${hasConditions ? 'Lesión' : 'Movilidad'} ${b.prehab.exerciseCount}`);
-  if (b.main.enabled)
-    parts.push(
-      `Fuerza ${d.gentleStrength ? 'suave ' : ''}${d.gentleStrength ? Math.min(b.main.exerciseCount, 2) : b.main.exerciseCount}: ${b.main.muscleGroups.map((g) => MUSCLE_GROUP_LABELS[g]).join(', ')}`,
-    );
-  if (b.cooldown.enabled) parts.push(`Elongación ${b.cooldown.exerciseCount}`);
-  return `${parts.join(' · ') || 'Sin bloques'} · ${d.availableMinutes}'`;
+  if (b.main.enabled) parts.push(d.gentleStrength ? 'Fuerza suave' : 'Fuerza');
+  if (b.prehab.enabled) parts.push(hasConditions ? 'Lesión' : 'Movilidad');
+  if (b.cooldown.enabled && !b.main.enabled) parts.push('Elongación');
+  return parts.join(' + ') || 'Sin partes';
 }
+
+export const describeDayConfig = (d: DayConfig, hasConditions: boolean) =>
+  `${dayTypeLabel(d, hasConditions)} · ${d.availableMinutes} min`;
 
 export const countExercises = (d: DayPlan) => d.blocks.reduce((n, b) => n + b.slots.length, 0);
 

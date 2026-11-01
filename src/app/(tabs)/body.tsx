@@ -158,7 +158,7 @@ export default function BodyScreen() {
       <View style={styles.actions}>
         <Link href={{ pathname: '/body/new', params: { type: 'tape' } }} asChild>
           <Pressable style={styles.action}>
-            <Ionicons name="resize-outline" size={22} color="#fff" />
+            <Ionicons name="resize-outline" size={22} color={colors.onAccent} />
             <Text style={styles.actionText}>Peso y medidas</Text>
           </Pressable>
         </Link>
@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   actionAlt: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  actionText: { color: '#fff', fontWeight: '800' },
+  actionText: { color: colors.onAccent, fontWeight: '800' },
   section: { color: colors.text, fontSize: 18, fontWeight: '800', marginTop: spacing.sm },
   histRow: {
     flexDirection: 'row',

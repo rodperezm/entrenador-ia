@@ -10,7 +10,7 @@ export function Button({
 }: {
   label: string;
   onPress: () => void;
-  variant?: 'primary' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'ghost';
   disabled?: boolean;
 }) {
   return (
@@ -19,12 +19,20 @@ export function Button({
       disabled={disabled}
       style={({ pressed }) => [
         styles.button,
-        variant === 'primary' ? styles.buttonPrimary : styles.buttonGhost,
+        { primary: styles.buttonPrimary, secondary: styles.buttonSecondary, ghost: styles.buttonGhost }[variant],
         disabled && styles.disabled,
         pressed && !disabled && { opacity: 0.85 },
       ]}
     >
-      <Text style={[styles.buttonText, variant === 'ghost' && { color: colors.textMuted }]}>{label}</Text>
+      <Text
+        style={[
+          styles.buttonText,
+          variant === 'ghost' && { color: colors.textMuted },
+          variant === 'secondary' && { color: colors.accent },
+        ]}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -119,8 +127,9 @@ function Check({ checked, small }: { checked: boolean; small?: boolean }) {
 const styles = StyleSheet.create({
   button: { paddingVertical: 16, borderRadius: radius.pill, alignItems: 'center' },
   buttonPrimary: { backgroundColor: colors.accent },
+  buttonSecondary: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: colors.accent },
   buttonGhost: { backgroundColor: 'transparent' },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  buttonText: { color: colors.onAccent, fontSize: 16, fontWeight: '700' },
   disabled: { opacity: 0.35 },
   card: {
     backgroundColor: colors.surface,
@@ -137,7 +146,7 @@ const styles = StyleSheet.create({
   lockedTag: { color: colors.textMuted, fontSize: 10, fontWeight: '800', letterSpacing: 0.8 },
   check: { borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   checkOn: { backgroundColor: colors.accent, borderColor: colors.accent },
-  checkMark: { color: '#fff', fontWeight: '900', fontSize: 14 },
+  checkMark: { color: colors.onAccent, fontWeight: '900', fontSize: 14 },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   stepBtn: {
     width: 36,

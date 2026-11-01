@@ -31,6 +31,13 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
+          title: 'Hoy',
+          tabBarIcon: ({ color, size }) => <Ionicons name="today-outline" color={color as string} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="week"
+        options={{
           title: 'Mi semana',
           tabBarLabel: 'Semana',
           tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" color={color as string} size={size} />,

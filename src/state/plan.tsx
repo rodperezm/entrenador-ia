@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 import { type DayConfig, type DayOfWeek, StoredWeekPlan, WeekConfig } from '@/domain/schema';
-import { applyDayChoice, type DayChoice, dayChoiceOf, defaultWeekConfig, sameChoice } from '@/domain/week';
+import { applyDayChoice, type DayChoice, dayChoiceOf, defaultWeekConfig, normalizeDay, sameChoice } from '@/domain/week';
 
 const WEEK_KEY = 'week-config.v1';
 const PLAN_KEY = 'week-plan.v1';
@@ -42,7 +42,13 @@ export function PlanProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     Promise.all([load<WeekConfig>(WEEK_KEY, WeekConfig), load<StoredWeekPlan>(PLAN_KEY, StoredWeekPlan)]).then(
       ([w, p]) => {
-        if (w) setWeek(w);
+        if (w) {
+          const fixed = { days: w.days.map(normalizeDay) };
+          setWeek(fixed);
+          if (fixed.days.some((d, i) => d !== w.days[i])) {
+            AsyncStorage.setItem(WEEK_KEY, JSON.stringify(fixed)).catch(() => {});
+          }
+        }
         setPlan(p);
         setLoading(false);
       },
@@ -91,8 +97,9 @@ export function PlanProvider({ children }: { children: ReactNode }) {
 
   const importPlan = useCallback(async (w: WeekConfig | null, p: StoredWeekPlan | null) => {
     if (w) {
-      await AsyncStorage.setItem(WEEK_KEY, JSON.stringify(w));
-      setWeek(w);
+      const fixed = { days: w.days.map(normalizeDay) };
+      await AsyncStorage.setItem(WEEK_KEY, JSON.stringify(fixed));
+      setWeek(fixed);
     }
     if (p) {
       await AsyncStorage.setItem(PLAN_KEY, JSON.stringify(p));

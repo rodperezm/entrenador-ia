@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BodyMap } from '@/components/BodyMap';
-import { Button, Stepper } from '@/components/ui';
+import { Button, CheckRow, Stepper } from '@/components/ui';
 import { EXERCISES, EXERCISES_BY_ID } from '@/data/exercises.seed';
 import { averageMet, kcalRangeLabel, latestWeight } from '@/domain/calories';
 import { equipmentAt } from '@/domain/catalog';
@@ -14,6 +14,7 @@ import { filterExercisesForUser } from '@/domain/filter';
 import { isGentle } from '@/domain/generator';
 import { EFFORT_OPTIONS, EFFORT_QUESTION, effortKind } from '@/domain/effort';
 import { BLOCK_LABELS } from '@/domain/labels';
+import { strengthInfo } from '@/domain/strength';
 import { type BlockType, DayOfWeek, type ExerciseSlot, type PainLevel, painOf, type SetLog } from '@/domain/schema';
 import { fmtClock } from '@/domain/session';
 import { DAY_LONG } from '@/domain/week';
@@ -70,6 +71,7 @@ export default function WorkoutScreen() {
   const [painOpen, setPainOpen] = useState(false);
   const [pain, setPain] = useState<PainLevel | null>(null);
   const [rpe, setRpe] = useState<number | null>(null);
+  const [techniqueOk, setTechniqueOk] = useState(false);
   const [skipped, setSkipped] = useState<string[]>([]);
   // Dolor con lesión conocida: nivel por ejercicio, hoja de opciones y ejercicios cambiados.
   const [itemPain, setItemPain] = useState<Record<string, PainLevel>>({});
@@ -213,6 +215,7 @@ export default function WorkoutScreen() {
     setPainOpen(false);
     setPain(null);
     setRpe(null);
+    setTechniqueOk(false);
     setPainSheet(null);
     setPainAsked(false);
   };
@@ -233,6 +236,7 @@ export default function WorkoutScreen() {
     repsDone: timed ? null : reps,
     durationSec: timed ? seconds : null,
     weightKg: usesKb ? weight : null,
+    plannedWeightKg: usesKb ? item.slot.weightKg : null,
     rpe: null,
     painFlag: (painLevel ?? 0) >= 2,
     painLevel,
@@ -270,7 +274,15 @@ export default function WorkoutScreen() {
   const confirmFeedback = (endNow = false) => {
     const level = painHere(pain);
     const nextLogs = logs.map((l) =>
-      l.itemKey === item.key ? { ...l, rpe, painLevel: level || pain, painFlag: level >= 2 } : l,
+      l.itemKey === item.key
+        ? {
+            ...l,
+            rpe,
+            painLevel: level || pain,
+            painFlag: level >= 2,
+            ...(item.slot.role === 'A' ? { techniqueOk } : {}),
+          }
+        : l,
     );
     setLogs(nextLogs);
     if (endNow) finish(nextLogs);
@@ -428,6 +440,7 @@ export default function WorkoutScreen() {
             {BLOCK_LABELS[item.block]} · ejercicio {Math.min(position, items.length)} de {items.length}
           </Text>
           <Text style={styles.exName}>{ex?.name.es ?? item.slot.exerciseId}</Text>
+          {ex && item.block === 'main_strength' && <Text style={styles.hint}>{strengthInfo(ex)}</Text>}
 
           {ex && (
             <View style={styles.mapRow}>
@@ -455,10 +468,20 @@ export default function WorkoutScreen() {
                     onPress={() => setRpe(rpe === o.rpe ? null : o.rpe)}
                     style={[styles.chip, rpe === o.rpe && styles.chipOn]}
                   >
-                    <Text style={[styles.chipText, rpe === o.rpe && { color: '#fff' }]}>{o.label}</Text>
+                    <Text style={[styles.chipText, rpe === o.rpe && { color: colors.onAccent }]}>{o.label}</Text>
                   </Pressable>
                 ))}
               </View>
+              {usesKb && kind === 'reps' && (
+                <Text style={styles.hint}>¿Quedó muy pesado? Marca «Ninguna» y no subiremos el peso.</Text>
+              )}
+              {item.slot.role === 'A' && (
+                <CheckRow
+                  label="Pude mantener la técnica"
+                  checked={techniqueOk}
+                  onPress={() => setTechniqueOk(!techniqueOk)}
+                />
+              )}
               <PainPicker
                 open={painOpen || hasConditions}
                 onOpen={() => setPainOpen(true)}
@@ -511,7 +534,7 @@ export default function WorkoutScreen() {
                             onPress={() => setOv({ weight: kg })}
                             style={[styles.chip, weight === kg && styles.chipOn]}
                           >
-                            <Text style={[styles.chipText, weight === kg && { color: '#fff' }]}>{kg}</Text>
+                            <Text style={[styles.chipText, weight === kg && { color: colors.onAccent }]}>{kg}</Text>
                           </Pressable>
                         ))}
                       </View>
@@ -530,7 +553,7 @@ export default function WorkoutScreen() {
               )}
 
               <Pressable onPress={markDone} style={styles.doneBtn}>
-                <Ionicons name="checkmark" size={28} color="#fff" />
+                <Ionicons name="checkmark" size={28} color={colors.onAccent} />
                 <Text style={styles.doneText}>{kind === 'none' ? 'Hecho' : 'Hecha'}</Text>
               </Pressable>
 
@@ -684,7 +707,7 @@ function PainSheet({
     return (
       <>
         <Text style={styles.barTitle}>Molestia leve: anotada</Text>
-        <Text style={styles.hint}>Puedes seguir con cuidado. La próxima vez mantenemos la carga, sin subirla.</Text>
+        <Text style={styles.hint}>Puedes seguir con cuidado. Tu próxima semana mantendrá la carga, sin subirla.</Text>
         <Button label="Seguir" onPress={onClose} />
         <Button label="Hacerlo más liviano" variant="ghost" onPress={onLighten} />
       </>
@@ -743,14 +766,14 @@ function PainPicker({
               onPress={() => onPain(on ? null : o.level)}
               style={[styles.chip, on && (o.level === 0 ? styles.chipOn : styles.painOn)]}
             >
-              <Text style={[styles.chipText, on && { color: o.level === 0 ? '#fff' : colors.bg }]}>{o.label}</Text>
+              <Text style={[styles.chipText, on && { color: o.level === 0 ? colors.onAccent : colors.bg }]}>{o.label}</Text>
             </Pressable>
           );
         })}
       </View>
       {pain === 3 && (
         <Text style={styles.painWarn}>
-          Si el dolor es fuerte, detén este ejercicio. La próxima rutina lo cambiará por uno más suave.
+          Si el dolor es fuerte, detén este ejercicio. Te avisaremos para cambiarlo por uno más suave.
         </Text>
       )}
     </View>
@@ -810,7 +833,7 @@ function Summary({
         <View style={styles.painBox}>
           <Text style={styles.painTitle}>Dolor fuerte en: {strong.join(', ')}</Text>
           <Text style={styles.text}>
-            La próxima rutina cambiará estos ejercicios por otros más suaves. Si el dolor sigue o se repite, consulta a
+            Te avisaremos para cambiar estos ejercicios por otros más suaves. Si el dolor sigue o se repite, consulta a
             un profesional.
           </Text>
         </View>
@@ -818,18 +841,18 @@ function Summary({
       {moderate.length > 0 && (
         <View style={styles.painBox}>
           <Text style={styles.painTitle}>Dolor moderado en: {moderate.join(', ')}</Text>
-          <Text style={styles.text}>La próxima rutina bajará la exigencia de estos ejercicios.</Text>
+          <Text style={styles.text}>Tu próxima semana bajará la exigencia de estos ejercicios.</Text>
         </View>
       )}
       {mild.length > 0 && (
         <View style={styles.painBox}>
           <Text style={styles.painTitle}>Molestia leve en: {mild.join(', ')}</Text>
-          <Text style={styles.text}>La próxima rutina mantendrá la carga de estos ejercicios, sin subirla.</Text>
+          <Text style={styles.text}>Tu próxima semana mantendrá la carga de estos ejercicios, sin subirla.</Text>
         </View>
       )}
       <Text style={styles.text}>
         {logs.length
-          ? 'Tus series quedaron guardadas y se usarán para ajustar la próxima rutina.'
+          ? 'Tus series quedaron guardadas y se usarán para ajustar tu próxima semana.'
           : 'No se registró ninguna serie, así que no se guardó esta sesión.'}
       </Text>
       <Button label="Volver" onPress={() => router.back()} />
@@ -863,7 +886,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
   },
-  doneText: { color: '#fff', fontSize: 20, fontWeight: '900' },
+  doneText: { color: colors.onAccent, fontSize: 20, fontWeight: '900' },
   links: { flexDirection: 'row', justifyContent: 'space-between' },
   smallLink: { color: colors.accent, fontWeight: '700', fontSize: 14 },
   smallLinkWarn: { color: colors.warning, fontWeight: '700', fontSize: 14 },

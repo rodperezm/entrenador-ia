@@ -23,11 +23,14 @@ import { BLOCK_LABELS } from '@/domain/labels';
 import type { BlockType, DayOfWeek, LocalProfile, Sex } from '@/domain/schema';
 import {
   DAY_PARTS,
+  DAY_TYPE_PARTS,
   type DayPart,
   type DayChoice,
   dayChoiceLabel,
+  dayIncludedNote,
   dayPartLabel,
   DAYS,
+  minDayMinutes,
   proposeWeek,
   canBeGentle,
   toggleDayPart,
@@ -72,18 +75,20 @@ export function IntroScreen({ onStart }: { onStart: () => void }) {
   return (
     <View style={[styles.intro, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
       <ScrollView contentContainerStyle={styles.introContent}>
-        <Image source={require('../../../assets/icon.png')} style={styles.introLogo} accessibilityLabel="Logo de KETTAI" />
+        <Image
+          source={require('../../../assets/icon.png')}
+          style={styles.introLogo}
+          accessibilityLabel="Logo de KETTAI"
+        />
         <Text style={[styles.introBrand, display]}>KETTAI</Text>
         <Text style={[styles.introHeadline, display]}>Entrena fuerte.{'\n'}Cuida lo que duele.</Text>
         <Text style={styles.introBody}>
-          La fuerza es la madre de todas las batallas. Solo necesitas una kettlebell, tu cuerpo y un plan que respeta tus
-          lesiones.
+          La fuerza es la madre de todas las batallas. Solo necesitas una kettlebell, tu cuerpo y un plan que respeta
+          tus lesiones.
         </Text>
       </ScrollView>
       <Button label="Empezar" onPress={onStart} />
-      {CLOUD_BACKUP_READY && (
-        <Button label="Ya tengo cuenta" variant="ghost" onPress={() => router.push('/account')} />
-      )}
+      {CLOUD_BACKUP_READY && <Button label="Ya tengo cuenta" variant="ghost" onPress={() => router.push('/account')} />}
     </View>
   );
 }
@@ -158,30 +163,40 @@ export function AboutStep({ draft, update }: StepProps) {
       </View>
       <Text style={styles.hint}>Define las figuras que explican los movimientos y tus índices corporales.</Text>
 
-      <Text style={styles.label}>Fecha de nacimiento (opcional)</Text>
-      <DateField
-        value={parseBirth(draft.birthText)}
-        onChange={(iso) => update({ birthText: formatBirth(iso) })}
-        placeholder="Elegir fecha"
-        initialDate={new Date(1985, 0, 1)}
-        minimumDate={new Date(new Date().getFullYear() - 100, 0, 1)}
-        maximumDate={new Date(new Date().getFullYear() - 12, 11, 31)}
-        invalid={!birthOk}
-      />
-      {!birthOk && <Text style={styles.error}>Elige una fecha válida (entre 12 y 100 años).</Text>}
+      {/* Primera vez: lo opcional queda para Mi perfil y el nivel va aquí para ahorrar un paso. */}
+      {draft.isNew ? (
+        <>
+          <Text style={[styles.label, { marginTop: spacing.md }]}>Tu nivel</Text>
+          <LevelStep draft={draft} update={update} />
+        </>
+      ) : (
+        <>
+          <Text style={styles.label}>Fecha de nacimiento (opcional)</Text>
+          <DateField
+            value={parseBirth(draft.birthText)}
+            onChange={(iso) => update({ birthText: formatBirth(iso) })}
+            placeholder="Elegir fecha"
+            initialDate={new Date(1985, 0, 1)}
+            minimumDate={new Date(new Date().getFullYear() - 100, 0, 1)}
+            maximumDate={new Date(new Date().getFullYear() - 12, 11, 31)}
+            invalid={!birthOk}
+          />
+          {!birthOk && <Text style={styles.error}>Elige una fecha válida (entre 12 y 100 años).</Text>}
 
-      <Text style={styles.label}>Altura en cm (opcional)</Text>
-      <TextInput
-        value={draft.heightText}
-        onChangeText={(heightText) => update({ heightText })}
-        placeholder="175"
-        placeholderTextColor={colors.textMuted}
-        style={[styles.input, !heightOk && styles.inputError]}
-        keyboardType="decimal-pad"
-        maxLength={5}
-      />
-      {!heightOk && <Text style={styles.error}>Entre 100 y 250 cm.</Text>}
-      <Text style={styles.hint}>Sirven para calcular tus índices en Cuerpo. Puedes agregarlos en Mi perfil.</Text>
+          <Text style={styles.label}>Altura en cm (opcional)</Text>
+          <TextInput
+            value={draft.heightText}
+            onChangeText={(heightText) => update({ heightText })}
+            placeholder="175"
+            placeholderTextColor={colors.textMuted}
+            style={[styles.input, !heightOk && styles.inputError]}
+            keyboardType="decimal-pad"
+            maxLength={5}
+          />
+          {!heightOk && <Text style={styles.error}>Entre 100 y 250 cm.</Text>}
+          <Text style={styles.hint}>Sirven para calcular tus índices en Cuerpo.</Text>
+        </>
+      )}
     </View>
   );
 }
@@ -217,6 +232,7 @@ export function LevelStep({ draft, update }: StepProps) {
 // ---------- 4. Equipamiento ----------
 
 export function EquipmentStep({ draft, update }: StepProps) {
+  const [showMore, setShowMore] = useState(!draft.isNew);
   return (
     <View style={styles.gap}>
       {/* La kettlebell es el corazón de la app: va primero. */}
@@ -233,39 +249,48 @@ export function EquipmentStep({ draft, update }: StepProps) {
               }
               style={[styles.weight, on && styles.weightOn]}
             >
-              <Text style={[styles.weightText, on && { color: '#fff' }]}>{kg}</Text>
+              <Text style={[styles.weightText, on && { color: colors.onAccent }]}>{kg}</Text>
             </Pressable>
           );
         })}
       </View>
 
-      <Text style={[styles.label, { marginTop: spacing.md }]}>Lo básico</Text>
-      {BASE_EQUIPMENT.filter((id) => id !== 'kettlebell').map((id) => (
-        <OptionCard key={id} title={EQUIPMENT[id]} selected locked />
-      ))}
-      <Text style={styles.label}>Opcional: ¿qué más tienes?</Text>
-      {OPTIONAL_EQUIPMENT.map((id) => (
-        <OptionCard
-          key={id}
-          title={EQUIPMENT[id]}
-          selected={draft.equipment.includes(id)}
-          onPress={() => update({ equipment: toggle(draft.equipment, id) })}
-        />
-      ))}
+      {!showMore && (
+        <Pressable onPress={() => setShowMore(true)} style={styles.moreLink}>
+          <Text style={styles.link}>Tengo más equipamiento (opcional)</Text>
+        </Pressable>
+      )}
+      {showMore && (
+        <>
+          <Text style={[styles.label, { marginTop: spacing.md }]}>Lo básico</Text>
+          {BASE_EQUIPMENT.filter((id) => id !== 'kettlebell').map((id) => (
+            <OptionCard key={id} title={EQUIPMENT[id]} selected locked />
+          ))}
+          <Text style={styles.label}>Opcional: ¿qué más tienes?</Text>
+          {OPTIONAL_EQUIPMENT.map((id) => (
+            <OptionCard
+              key={id}
+              title={EQUIPMENT[id]}
+              selected={draft.equipment.includes(id)}
+              onPress={() => update({ equipment: toggle(draft.equipment, id) })}
+            />
+          ))}
 
-      <Text style={[styles.label, { marginTop: spacing.md }]}>Si entrenas en un parque, ¿qué hay ahí?</Text>
-      <Text style={styles.hint}>
-        Al parque llevas tu colchoneta, kettlebell, mancuernas y banda. La silla y la barra de tu casa no: marca si tu
-        parque tiene algo parecido.
-      </Text>
-      {PARK_EQUIPMENT_IDS.map((id) => (
-        <OptionCard
-          key={id}
-          title={PARK_EQUIPMENT[id]!}
-          selected={draft.parkEquipment.includes(id)}
-          onPress={() => update({ parkEquipment: toggle(draft.parkEquipment, id) })}
-        />
-      ))}
+          <Text style={[styles.label, { marginTop: spacing.md }]}>Si entrenas en un parque, ¿qué hay ahí?</Text>
+          <Text style={styles.hint}>
+            Al parque llevas tu colchoneta, kettlebell, mancuernas y banda. La silla y la barra de tu casa no: marca si
+            tu parque tiene algo parecido.
+          </Text>
+          {PARK_EQUIPMENT_IDS.map((id) => (
+            <OptionCard
+              key={id}
+              title={PARK_EQUIPMENT[id]!}
+              selected={draft.parkEquipment.includes(id)}
+              onPress={() => update({ parkEquipment: toggle(draft.parkEquipment, id) })}
+            />
+          ))}
+        </>
+      )}
     </View>
   );
 }
@@ -274,6 +299,7 @@ export function EquipmentStep({ draft, update }: StepProps) {
 
 export function ConditionsStep({ draft, update }: StepProps) {
   const [expanded, setExpanded] = useState<string | null>(null);
+  const protectsKnees = draft.conditions.some((c) => c.activeFlags.includes('deep_knee_flexion_loaded'));
 
   const setCondition = (conditionId: string, activeFlags: RestrictionFlagId[] | null) => {
     const others = draft.conditions.filter((c) => c.conditionId !== conditionId);
@@ -317,6 +343,19 @@ export function ConditionsStep({ draft, update }: StepProps) {
         );
       })}
       {draft.conditions.length === 0 && <Text style={styles.hint}>Si no tienes ninguna, sigue adelante.</Text>}
+      {protectsKnees && (
+        <>
+          <Text style={styles.hint}>
+            Como evitamos sentadillas profundas, una silla firme nos permite incluir sentadilla a la silla y subida al
+            cajón para mantener fuertes tus piernas.
+          </Text>
+          <OptionCard
+            title="Tengo una silla o banco firme"
+            selected={draft.equipment.includes('chair')}
+            onPress={() => update({ equipment: toggle(draft.equipment, 'chair') })}
+          />
+        </>
+      )}
     </View>
   );
 }
@@ -326,17 +365,28 @@ export function ConditionsStep({ draft, update }: StepProps) {
 export function WeekStep({ draft, update }: StepProps) {
   const hasConditions = draft.conditions.length > 0;
   const [mode, setMode] = useState<'manual' | 'auto'>(draft.isNew ? 'auto' : 'manual');
+  const mondayStart = new Date().getDay() === 1;
   const training = DAYS.filter((d) => draft.weekChoices[d.id].length > 0).length;
   const [daysPerWeek, setDaysPerWeek] = useState(Math.max(1, training || 3));
+  // Primera vez: basta con días y minutos; el detalle por día se abre si lo pide.
+  const [custom, setCustom] = useState(!draft.isNew);
+  const chosenDays = DAYS.filter((d) => draft.weekChoices[d.id].length > 0);
+  const sessionMinutes = draft.weekMinutes[(chosenDays[0] ?? DAYS[0]).id];
+  const setSessionMinutes = (m: number) =>
+    update({ weekMinutes: Object.fromEntries(DAYS.map((d) => [d.id, m])) as Draft['weekMinutes'] });
 
   const propose = (n: number) => {
     setDaysPerWeek(n);
     const { choices, gentle } = proposeWeek(n, hasConditions);
-    update({ weekChoices: choices, gentleDays: gentle });
+    const weekMinutes = Object.fromEntries(
+      DAYS.map((d) => [d.id, Math.max(draft.weekMinutes[d.id], minDayMinutes(choices[d.id]))]),
+    ) as Draft['weekMinutes'];
+    update({ weekChoices: choices, gentleDays: gentle, weekMinutes });
   };
   const setDay = (day: DayOfWeek, parts: DayChoice) =>
     update({
       weekChoices: { ...draft.weekChoices, [day]: parts },
+      weekMinutes: { ...draft.weekMinutes, [day]: Math.max(draft.weekMinutes[day], minDayMinutes(parts)) },
       gentleDays: canBeGentle(parts) ? draft.gentleDays : draft.gentleDays.filter((g) => g !== day),
     });
   const toggleGentle = (day: DayOfWeek) =>
@@ -350,34 +400,37 @@ export function WeekStep({ draft, update }: StepProps) {
     <View style={styles.gap}>
       {draft.isNew && (
         <View style={styles.aiBox}>
-          <Text style={styles.aiTitle}>✨ La IA creará tu semana</Text>
+          <Text style={styles.aiTitle}>{mondayStart ? '✨ La IA creará tu semana' : 'Partes con días de técnica'}</Text>
           <Text style={styles.body}>
-            Aquí eliges qué hacer cada día. Luego la IA arma tus rutinas según tu perfil, lesiones, equipamiento y
-            tiempo. Puede tardar hasta un minuto.
+            {mondayStart
+              ? 'Luego la IA arma tus rutinas según tu perfil, lesiones, equipamiento y tiempo. Puede tardar hasta un minuto.'
+              : 'La app arma tu preparación y, desde el lunes, la IA crea tu semana.'}
           </Text>
         </View>
       )}
-      <View style={styles.segment}>
-        {(
-          [
-            ['manual', 'Elijo yo'],
-            ['auto', 'Propónmelo tú'],
-          ] as const
-        ).map(([id, label]) => (
-          <Pressable
-            key={id}
-            onPress={() => {
-              setMode(id);
-              if (id === 'auto') propose(daysPerWeek);
-            }}
-            style={[styles.segBtn, mode === id && styles.segOn]}
-          >
-            <Text style={[styles.segText, mode === id && { color: '#fff' }]} numberOfLines={1}>
-              {label}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
+      {custom && (
+        <View style={styles.segment}>
+          {(
+            [
+              ['manual', 'Elijo yo'],
+              ['auto', 'Propónmelo tú'],
+            ] as const
+          ).map(([id, label]) => (
+            <Pressable
+              key={id}
+              onPress={() => {
+                setMode(id);
+                if (id === 'auto') propose(daysPerWeek);
+              }}
+              style={[styles.segBtn, mode === id && styles.segOn]}
+            >
+              <Text style={[styles.segText, mode === id && { color: colors.onAccent }]} numberOfLines={1}>
+                {label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
 
       {mode === 'auto' && (
         <View style={styles.autoBox}>
@@ -389,19 +442,32 @@ export function WeekStep({ draft, update }: StepProps) {
                 onPress={() => propose(n)}
                 style={[styles.weight, daysPerWeek === n && styles.weightOn]}
               >
-                <Text style={[styles.weightText, daysPerWeek === n && { color: '#fff' }]}>{n}</Text>
+                <Text style={[styles.weightText, daysPerWeek === n && { color: colors.onAccent }]}>{n}</Text>
               </Pressable>
             ))}
           </View>
           <Text style={styles.hint}>
             {hasConditions
-              ? 'Con 4 días o más alternamos días de fuerza con días para tu lesión. Puedes cambiar cualquier día abajo.'
-              : 'Repartimos los días de fuerza con descanso entre medio. Puedes cambiar cualquier día abajo.'}
+              ? 'Con 4 días o más alternamos días de fuerza con días para tu lesión.'
+              : 'Repartimos tus días de fuerza en la semana.'}
+            {custom ? ' Puedes cambiar cualquier día abajo.' : ''}
           </Text>
+          {!custom && (
+            <>
+              <Text style={[styles.label, { marginTop: spacing.md }]}>¿Cuánto tiempo tienes por sesión?</Text>
+              <View style={styles.stepRow}>
+                <Text style={styles.stepLabel}>{chosenDays.map((d) => d.short).join(' · ')}</Text>
+                <Stepper value={sessionMinutes} min={20} max={120} step={5} suffix="'" onChange={setSessionMinutes} />
+              </View>
+              <Pressable onPress={() => setCustom(true)} style={styles.moreLink}>
+                <Text style={styles.link}>Ajustar cada día (opcional)</Text>
+              </Pressable>
+            </>
+          )}
         </View>
       )}
 
-      {DAYS.map((d) => {
+      {custom && DAYS.map((d) => {
         const parts = draft.weekChoices[d.id];
         const rest = parts.length === 0;
         return (
@@ -410,7 +476,7 @@ export function WeekStep({ draft, update }: StepProps) {
               {d.long}
             </Text>
             <View style={styles.dayTypes}>
-              {DAY_PARTS.map((p) => {
+              {DAY_TYPE_PARTS.map((p) => {
                 const on = parts.includes(p);
                 return (
                   <Pressable
@@ -418,7 +484,7 @@ export function WeekStep({ draft, update }: StepProps) {
                     onPress={() => setDay(d.id, toggleDayPart(parts, p))}
                     style={[styles.typeChip, on && styles.typeChipOn]}
                   >
-                    <Text style={[styles.typeChipText, on && { color: '#fff' }]} numberOfLines={1}>
+                    <Text style={[styles.typeChipText, on && { color: colors.onAccent }]} numberOfLines={1}>
                       {dayPartLabel(p, hasConditions)}
                     </Text>
                   </Pressable>
@@ -430,6 +496,7 @@ export function WeekStep({ draft, update }: StepProps) {
                 </Text>
               </Pressable>
             </View>
+            {!rest && <Text style={styles.hint}>{dayIncludedNote(parts)}</Text>}
             {hasConditions && canBeGentle(parts) && (
               <Pressable onPress={() => toggleGentle(d.id)} style={styles.stepRow} hitSlop={6}>
                 <Text style={styles.stepLabel} numberOfLines={1}>
@@ -449,7 +516,7 @@ export function WeekStep({ draft, update }: StepProps) {
                 </Text>
                 <Stepper
                   value={draft.weekMinutes[d.id]}
-                  min={10}
+                  min={minDayMinutes(parts)}
                   max={120}
                   step={5}
                   suffix="'"
@@ -482,9 +549,9 @@ export function WeekStep({ draft, update }: StepProps) {
       )}
 
       <Text style={styles.hint}>
-        Marca una o varias partes por día.
-        {hasConditions ? ' «Lesión» son los ejercicios para cuidar tu condición.' : ''} Después puedes afinar cada día
-        (grupos musculares, casa o parque) en «Mi semana».
+        {custom ? 'Elige qué haces cada día. Fuerza necesita al menos 20 minutos.' : ''}
+        {custom && hasConditions ? ' «Lesión» son los ejercicios para cuidar tu condición.' : ''} Después puedes afinar
+        cada día (tiempo, casa o parque) en «Semana».
       </Text>
     </View>
   );
@@ -515,7 +582,8 @@ export function SummaryStep({ draft }: StepProps) {
       <SummaryRow
         label="Tu semana"
         value={DAYS.map(
-          (d) => `${d.short}: ${dayChoiceLabel(draft.weekChoices[d.id], draft.conditions.length > 0).toLowerCase()}${draft.gentleDays.includes(d.id) ? ' (fuerza suave)' : ''}`,
+          (d) =>
+            `${d.short}: ${dayChoiceLabel(draft.weekChoices[d.id], draft.conditions.length > 0).toLowerCase()}${draft.gentleDays.includes(d.id) ? ' (fuerza suave)' : ''}`,
         ).join('\n')}
       />
       <SummaryRow label="Nivel" value={LEVELS.find((l) => l.id === draft.level)?.title ?? '—'} />
@@ -642,6 +710,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
   },
   link: { color: colors.accent, fontWeight: '600', marginTop: spacing.sm },
+  moreLink: { paddingVertical: spacing.sm },
   summaryRow: { backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, gap: 2 },
   summaryLabel: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
   available: { backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, gap: spacing.sm },

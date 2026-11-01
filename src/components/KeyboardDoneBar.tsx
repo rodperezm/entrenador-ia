@@ -51,5 +51,5 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
   },
   pressed: { opacity: 0.8 },
-  done: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  done: { color: colors.onAccent, fontSize: 16, fontWeight: '800' },
 });

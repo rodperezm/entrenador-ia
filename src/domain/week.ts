@@ -21,6 +21,10 @@ export function dayDate(day: DayOfWeek, today = new Date()): Date {
 export const isToday = (day: DayOfWeek, today = new Date()) =>
   dayDate(day, today).toDateString() === today.toDateString();
 
+// La rutina se armó otra semana: falta ajustarla con lo que quedó registrado.
+export const isFromPastWeek = (generatedAt: string, today = new Date()) =>
+  dayDate('mon', new Date(generatedAt)).getTime() !== dayDate('mon', today).getTime();
+
 // dd-mm-aaaa
 export const fmtDayDate = (d: Date) =>
   `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
@@ -51,7 +55,29 @@ export const defaultWeekConfig = (): WeekConfig => ({ days: DAYS.map((d) => defa
 // Cada día se arma marcando sus partes; sin ninguna es día de descanso.
 export type DayPart = 'warmup' | 'prehab' | 'main' | 'cooldown';
 export const DAY_PARTS: DayPart[] = ['warmup', 'prehab', 'main', 'cooldown'];
+export const DAY_TYPE_PARTS: DayPart[] = ['main', 'prehab', 'cooldown']; // lo que se elige: el calentamiento acompaña
 export type DayChoice = DayPart[]; // [] = descanso
+
+const MIN_DAY_MINUTES = 10;
+const MIN_STRENGTH_MINUTES = 20;
+export const minDayMinutes = (parts: DayChoice) => (parts.includes('main') ? MIN_STRENGTH_MINUTES : MIN_DAY_MINUTES);
+
+// Fuerza siempre lleva calentamiento y elongación; Lesión siempre lleva calentamiento;
+// Elongación puede ir sola y el calentamiento nunca va solo.
+export const normalizeDayParts = (parts: DayChoice): DayChoice => {
+  const main = parts.includes('main');
+  const prehab = parts.includes('prehab');
+  return DAY_PARTS.filter((p) => {
+    if (p === 'warmup') return main || prehab;
+    return p === 'cooldown' ? main || parts.includes('cooldown') : parts.includes(p);
+  });
+};
+
+export const dayIncludedNote = (parts: DayChoice) => {
+  if (parts.includes('main')) return 'Calentamiento y Elongación siempre van con Fuerza.';
+  if (parts.includes('prehab')) return 'Incluye un calentamiento suave. Elongación es opcional.';
+  return parts.length ? 'Sin calentamiento: estira lento y sin forzar.' : null;
+};
 
 export const dayPartLabel = (p: DayPart, hasConditions: boolean) =>
   ({
@@ -68,17 +94,21 @@ export const dayChoiceLabel = (parts: DayChoice, hasConditions: boolean) =>
 export const sameChoice = (a: DayChoice, b: DayChoice) => a.length === b.length && a.every((p) => b.includes(p));
 
 // Marca o desmarca una parte; quitar la última deja el día en descanso.
-export const toggleDayPart = (parts: DayChoice, p: DayPart): DayChoice =>
-  parts.includes(p) ? parts.filter((x) => x !== p) : DAY_PARTS.filter((x) => x === p || parts.includes(x));
+export const toggleDayPart = (parts: DayChoice, p: DayPart): DayChoice => {
+  const chosen: DayChoice = parts.filter((x) => x !== 'warmup');
+  return normalizeDayParts(chosen.includes(p) ? chosen.filter((x) => x !== p) : [...chosen, p]);
+};
 
 // Activa las partes elegidas conservando lo personal del día (lugar, grupos, cantidades).
-export function applyDayChoice(cfg: DayConfig, parts: DayChoice): DayConfig {
+export function applyDayChoice(cfg: DayConfig, choice: DayChoice): DayConfig {
+  const parts = normalizeDayParts(choice);
   if (!parts.length) return { ...cfg, active: false, gentleStrength: false };
   const b = cfg.blocks;
   const has = (p: DayPart) => parts.includes(p);
   return {
     ...cfg,
     active: true,
+    availableMinutes: Math.max(cfg.availableMinutes, minDayMinutes(parts)),
     gentleStrength: cfg.gentleStrength && canBeGentle(parts),
     blocks: {
       warmup: { ...b.warmup, enabled: has('warmup') },
@@ -116,6 +146,15 @@ export const withGentleStrength = (cfg: DayConfig): DayConfig => ({
 export function dayChoiceOf(cfg: DayConfig): DayChoice {
   if (!cfg.active) return [];
   return DAY_PARTS.filter((p) => cfg.blocks[p].enabled);
+}
+
+// Días guardados antes de la regla de partes. El que tenía solo calentamiento pasa a Elongación.
+export function normalizeDay(cfg: DayConfig): DayConfig {
+  const parts = dayChoiceOf(cfg);
+  const fixed = normalizeDayParts(parts);
+  const next: DayChoice = fixed.length || !parts.length ? fixed : ['cooldown'];
+  const valid = sameChoice(parts, next) && cfg.availableMinutes >= minDayMinutes(next);
+  return valid ? cfg : applyDayChoice(cfg, next);
 }
 
 // Días de entrenamiento repartidos en la semana según cuántos quiere entrenar.

@@ -1,6 +1,7 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Link, router, Stack } from 'expo-router';
-import { useState } from 'react';
-import { Alert, Platform, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { type ComponentProps, useState } from 'react';
+import { Alert, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { KeyboardDoneBar } from '@/components/KeyboardDoneBar';
 import { Button, CheckRow } from '@/components/ui';
 import { requestBackupCode, requestLoginCode, verifyBackupCode, verifyLoginCode } from '@/lib/cloudSync';
@@ -10,7 +11,7 @@ import { colors, radius, spacing } from '@/theme';
 
 type Mode = 'new' | 'existing';
 
-const CODE_LENGTH = 6;
+const CODE_LENGTH = 8; // Debe coincidir con «Longitud del OTP» en Supabase.
 
 const friendlyError = (e: unknown) => {
   const code = (e as { code?: string })?.code;
@@ -39,9 +40,6 @@ export default function AccountScreen() {
       <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Stack.Screen options={{ title: 'Cuenta y respaldo' }} />
         {enabled ? <BackupActive /> : <BackupSetup />}
-        <Link href="/privacy" style={styles.link}>
-          Cómo cuidamos tus datos
-        </Link>
       </ScrollView>
       <KeyboardDoneBar />
     </>
@@ -146,7 +144,7 @@ function BackupSetup() {
           <TextInput
             value={code}
             onChangeText={(t) => setCode(t.replace(/\D/g, ''))}
-            placeholder="123456"
+            placeholder="12345678"
             placeholderTextColor={colors.textMuted}
             keyboardType="number-pad"
             maxLength={CODE_LENGTH}
@@ -161,7 +159,30 @@ function BackupSetup() {
         </>
       )}
       {error && <Text style={styles.error}>{error}</Text>}
+      <Link href="/privacy" style={styles.link}>
+        Cómo cuidamos tus datos
+      </Link>
     </>
+  );
+}
+
+function ActionRow({
+  icon,
+  label,
+  onPress,
+  danger,
+}: {
+  icon: ComponentProps<typeof Ionicons>['name'];
+  label: string;
+  onPress: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}>
+      <Ionicons name={icon} size={22} color={danger ? colors.accent : colors.text} />
+      <Text style={[styles.rowLabel, danger && { color: colors.accent }]}>{label}</Text>
+      {!danger && <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />}
+    </Pressable>
   );
 }
 
@@ -169,12 +190,16 @@ function BackupActive() {
   const { status, email, lastSyncAt, syncNow, signOut, removeAccount, exportData } = useSync();
   const [error, setError] = useState<string | null>(null);
 
+  const pending = status === 'pending';
   const statusText = {
     off: 'Respaldo apagado',
     syncing: 'Sincronizando…',
-    ok: lastSyncAt ? `Al día · ${new Date(lastSyncAt).toLocaleString('es-CL')}` : 'Al día',
+    ok: 'Todo al día',
     pending: 'Pendiente: se sube apenas haya conexión.',
   }[status];
+  const lastCopy = lastSyncAt
+    ? new Date(lastSyncAt).toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' })
+    : null;
 
   const download = async () => {
     const json = exportData();
@@ -207,14 +232,39 @@ function BackupActive() {
 
   return (
     <>
-      <Text style={styles.title}>Respaldo activo</Text>
-      {email && <Text style={styles.body}>{email}</Text>}
-      <Text style={styles.body}>{statusText}</Text>
-      <Button label="Sincronizar ahora" variant="ghost" onPress={syncNow} disabled={status === 'syncing'} />
-      <Text style={styles.label}>Tus datos</Text>
-      <Button label="Descargar mis datos" variant="ghost" onPress={download} />
-      <Button label="Cerrar sesión en este teléfono" variant="ghost" onPress={askSignOut} />
-      <Button label="Borrar mi cuenta y mi respaldo" variant="ghost" onPress={askDelete} />
+      <View style={styles.statusCard}>
+        <View style={[styles.statusIcon, pending && { backgroundColor: colors.warningSoft }]}>
+          <Ionicons
+            name={pending ? 'cloud-upload-outline' : 'shield-checkmark'}
+            size={30}
+            color={pending ? colors.warning : colors.accent}
+          />
+        </View>
+        <Text style={styles.statusTitle}>Respaldo activo</Text>
+        {email && <Text style={styles.body}>{email}</Text>}
+        <View style={styles.divider} />
+        <Text style={[styles.statusText, pending && { color: colors.warning }]}>{statusText}</Text>
+        {lastCopy && <Text style={styles.small}>Última copia: {lastCopy}</Text>}
+      </View>
+      <Button
+        label={status === 'syncing' ? 'Sincronizando…' : 'Sincronizar ahora'}
+        onPress={syncNow}
+        disabled={status === 'syncing'}
+      />
+
+      <Text style={styles.section}>Tus datos</Text>
+      <View style={styles.group}>
+        <ActionRow icon="download-outline" label="Descargar mis datos" onPress={download} />
+        <View style={styles.rowDivider} />
+        <ActionRow icon="lock-closed-outline" label="Cómo cuidamos tus datos" onPress={() => router.push('/privacy')} />
+      </View>
+
+      <Text style={styles.section}>Tu cuenta</Text>
+      <View style={styles.group}>
+        <ActionRow icon="log-out-outline" label="Cerrar sesión en este teléfono" onPress={askSignOut} />
+        <View style={styles.rowDivider} />
+        <ActionRow icon="trash-outline" label="Borrar mi cuenta y mi respaldo" onPress={askDelete} danger />
+      </View>
       {error && <Text style={styles.error}>{error}</Text>}
     </>
   );
@@ -242,4 +292,31 @@ const styles = StyleSheet.create({
   noticeTitle: { color: colors.text, fontSize: 16, fontWeight: '800' },
   link: { color: colors.accent, fontSize: 14, fontWeight: '700' },
   error: { color: colors.warning, fontSize: 14, lineHeight: 20 },
+  statusCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    padding: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  statusIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  statusTitle: { color: colors.text, fontSize: 24, fontWeight: '800' },
+  statusText: { color: colors.text, fontSize: 15, fontWeight: '700', textAlign: 'center' },
+  small: { color: colors.textMuted, fontSize: 13 },
+  divider: { alignSelf: 'stretch', height: 1, backgroundColor: colors.border, marginVertical: spacing.md },
+  section: { color: colors.text, fontSize: 20, fontWeight: '800', marginTop: spacing.md },
+  group: { backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.border },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.lg },
+  rowLabel: { color: colors.text, fontSize: 16, fontWeight: '600', flex: 1 },
+  rowDivider: { height: 1, backgroundColor: colors.border, marginLeft: 50 },
 });

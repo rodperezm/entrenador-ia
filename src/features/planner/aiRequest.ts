@@ -2,13 +2,16 @@ import { equipmentAt, MEDICAL_CONDITIONS, RESTRICTION_FLAGS } from '@/domain/cat
 import { cycleGuide, cycleInfo, previousBlockExercises } from '@/domain/cycle';
 import { effortKind, effortNote } from '@/domain/effort';
 import { filterExercisesForUser } from '@/domain/filter';
-import { strengthRole, strongPainIds } from '@/domain/generator';
+import { legsRestIds, strongPainIds } from '@/domain/generator';
+import { wasTooHard } from '@/domain/progression';
+import { A_STAGES, dayIntensity, strengthRole } from '@/domain/strength';
 import { leadPart, partBudgets } from '@/domain/timeBudget';
 import {
   type BlockType,
   type Exercise,
   type LocalProfile,
   painOf,
+  type StoredWeekPlan,
   type WeekConfig,
   type WorkoutSession,
 } from '@/domain/schema';
@@ -35,6 +38,7 @@ export function buildAiRequest(
   exercises: Exercise[],
   history: WorkoutSession[],
   body: BodySnapshot | null,
+  plan: StoredWeekPlan | null = null,
 ) {
   const forConditions = new Set(
     profile.conditions.flatMap((c) => MEDICAL_CONDITIONS.find((m) => m.id === c.conditionId)?.prehabExerciseIds ?? []),
@@ -55,8 +59,22 @@ export function buildAiRequest(
       allowed.get(e.id)!.add(block);
     }
   }
+  // En Fuerza solo entran patrones principales y los balísticos de la etapa alcanzada.
+  const cycle = cycleInfo(history, profile.level);
+  const allowedA = A_STAGES[cycle.stage - 1].concat(
+    cycle.stage === A_STAGES.length ? A_STAGES[A_STAGES.length - 1] : [],
+  );
+  const fitsStrength = (e: Exercise) =>
+    allowedA.includes(e.id) ||
+    strengthRole(e) === 'B' ||
+    (strengthRole(e) === 'C' && !e.restrictionFlags.includes('ballistic'));
+  const resting = legsRestIds(exercises, history);
+  for (const e of exercises) {
+    if (!fitsStrength(e) || resting.includes(e.id)) allowed.get(e.id)?.delete('main_strength');
+  }
+
   const candidates = exercises
-    .filter((e) => allowed.has(e.id))
+    .filter((e) => allowed.has(e.id) && allowed.get(e.id)!.size > 0)
     .map((e) => ({
       id: e.id,
       name: e.name.es,
@@ -64,10 +82,10 @@ export function buildAiRequest(
       muscleGroups: e.muscleGroups,
       primaryMuscles: e.anatomy.primary.map((m) => m.muscle),
       pattern: e.movementPattern,
+      strengthRole: strengthRole(e),
       complexity: e.complexityLevel,
       kettlebell: e.equipment.required.includes('kettlebell'),
       equipment: e.equipment.required,
-      strengthRole: strengthRole(e),
       chain: e.progression.chainId,
       defaults: {
         sets: e.prescription.sets,
@@ -93,7 +111,9 @@ export function buildAiRequest(
     ids.forEach((id) => seen.add(id));
     return ids.map((id) => ({
       exerciseId: id,
+      name: byId.get(id)?.name.es ?? id, // con dolor fuerte no está en candidatos: sin esto la IA deduce el nombre del id
       date: s.finishedAt.slice(0, 10),
+      tooHard: wasTooHard(id, history),
       sets: s.sets
         .filter((l) => l.exerciseId === id)
         .map((l) => ({
@@ -109,10 +129,24 @@ export function buildAiRequest(
     }));
   });
 
-  const cycle = cycleInfo(history);
+  // Dentro del bloque se conservan los ejercicios de Fuerza ya elegidos.
+  const fixedByDay =
+    plan?.cycleBlock === cycle.blockStart
+      ? Object.fromEntries(
+          plan.days.map((d) => [
+            d.day,
+            d.blocks.filter((b) => b.type === 'main_strength').flatMap((b) => b.slots.map((s) => s.exerciseId)),
+          ]),
+        )
+      : {};
 
   return {
-    cycle: { ...cycle, guide: cycleGuide(cycle), previousBlockExercises: [...previousBlockExercises(history, cycle)] },
+    cycle: {
+      ...cycle,
+      guide: cycleGuide(cycle, profile.level),
+      previousBlockExercises: [...previousBlockExercises(history, cycle)],
+      fixedByDay,
+    },
     profile: {
       level: profile.level,
       sex: profile.sex,
@@ -130,6 +164,7 @@ export function buildAiRequest(
       .map(({ active: _active, ...d }) => ({
         ...d,
         availableEquipment: equipmentAt(d.location, profile),
+        intensity: dayIntensity(week.days, d.day),
         leadPart: leadPart({ ...d, active: true }),
         minutesByPart: Object.fromEntries(
           Object.entries(partBudgets({ ...d, active: true }, profile.level)).map(([part, sec]) => [

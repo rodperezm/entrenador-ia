@@ -18,35 +18,35 @@ import { useCues } from '@/features/workout/useCues';
 import { MAX_TRACK_SEC } from '@/features/workout/tabataTrack';
 import { useRunner } from '@/features/workout/useRunner';
 import { useTrackRunner } from '@/features/workout/useTrackRunner';
+import { colors } from '@/theme';
 
-// Temporizador Tabata opcional, réplica de la app del usuario
-// (github.com/rodperezm/tabata-app): mismos colores, textos y comportamiento.
+// Temporizador Tabata opcional: textos y comportamiento de la app del usuario
+// (github.com/rodperezm/tabata-app), con la identidad visual de KETTAI.
 
 const STORAGE_KEY = 'tabata-config.v1';
 
-// Tema oscuro del original.
 const T = {
-  bg: '#171B2B',
-  fg: '#F0EEE9',
-  bar: '#10131F',
-  card: '#222845',
-  mut: '#a3a7bd',
-  bd: '#343b60',
-  n1: '#6FA6D6', // rondas
-  n2: '#CBD33A', // ejercicios, total, botón
-  ink: '#1E2233',
+  bg: colors.bg,
+  fg: colors.text,
+  bar: colors.surface,
+  card: colors.surface,
+  mut: colors.textMuted,
+  bd: colors.border,
+  n1: colors.text, // rondas
+  n2: colors.accent, // ejercicios, total, botón
+  ink: colors.onAccent,
 };
 
 type Look = PhaseKind | 'idle' | 'done';
-// Paleta del original (Pantone 2026).
+// Rojo para entrenar, ámbar para prepararse y grises para recuperar.
 const COL: Record<Look, [string, string]> = {
-  idle: ['#F0EEE9', '#1E2233'],
-  prep: ['#CBD33A', '#1E2233'],
-  work: ['#CF2B58', '#FFFFFF'],
-  rest: ['#6DB89B', '#1E2233'],
-  roundRest: ['#6FA6D6', '#1E2233'],
-  cool: ['#C6B4D6', '#1E2233'],
-  done: ['#6DB89B', '#1E2233'],
+  idle: [colors.surface, colors.text],
+  prep: [colors.warning, colors.onAccent],
+  work: [colors.accent, colors.onAccent],
+  rest: [colors.surfaceAlt, colors.text],
+  roundRest: [colors.border, colors.text],
+  cool: [colors.surface, colors.text],
+  done: [colors.accent, colors.onAccent],
 };
 const NAME: Record<Look, string> = {
   idle: 'Listo',
@@ -340,8 +340,8 @@ export default function TimerScreen() {
           const on = tab === id;
           return (
             <Pressable key={id} onPress={() => showTab(id)} style={[styles.tab, on && styles.tabOn]}>
-              <Ionicons name={icon} size={26} color={on ? T.bar : T.fg} />
-              <Text style={f([styles.tabText, { color: on ? T.bar : T.fg }])}>{label}</Text>
+              <Ionicons name={icon} size={26} color={on ? T.ink : T.mut} />
+              <Text style={f([styles.tabText, { color: on ? T.ink : T.mut }])}>{label}</Text>
             </Pressable>
           );
         })}
@@ -449,6 +449,6 @@ const styles = StyleSheet.create({
     borderTopColor: T.bd,
   },
   tab: { flex: 1, maxWidth: 190, alignItems: 'center', gap: 2, paddingVertical: 8, borderRadius: 26 },
-  tabOn: { backgroundColor: T.fg },
+  tabOn: { backgroundColor: T.n2 },
   tabText: { fontSize: 20, letterSpacing: 0.6, textTransform: 'uppercase' },
 });

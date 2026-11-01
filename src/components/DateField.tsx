@@ -157,5 +157,5 @@ const styles = StyleSheet.create({
   },
   cancelText: { color: colors.text, fontWeight: '700', fontSize: 15 },
   ok: { flex: 1, paddingVertical: 12, borderRadius: radius.pill, backgroundColor: colors.accent, alignItems: 'center' },
-  okText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  okText: { color: colors.onAccent, fontWeight: '800', fontSize: 15 },
 });

@@ -22,7 +22,7 @@ const num = (n: number, d = 2) => n.toLocaleString('es-CL', { minimumFractionDig
 const TAPE_TIPS: ReactNode[] = [
   'Mide siempre a la misma hora, idealmente en la mañana, en ayunas y después de ir al baño.',
   'Usa una cinta métrica flexible, sin apretar la piel. Debe quedar paralela al suelo.',
-  'Mantente de pie, relajado, y toma la medida al final de una exhalación normal, sin contraer el abdomen.',
+  'Mantente de pie, sin tensión, y toma la medida al final de una exhalación normal, sin contraer el abdomen.',
   'Pésate en la misma balanza y con poca ropa. Basta con un registro por semana para ver la tendencia.',
 ];
 
@@ -401,7 +401,7 @@ function Badge({ x, y, n }: { x: number; y: number; n: number }) {
   return (
     <G>
       <Circle cx={x} cy={y} r={13} fill={colors.accent} stroke={colors.bg} strokeWidth={2.5} />
-      <SvgText x={x} y={y + 5.5} fontSize={15} fontWeight="800" fill="#fff" textAnchor="middle">
+      <SvgText x={x} y={y + 5.5} fontSize={15} fontWeight="800" fill={colors.onAccent} textAnchor="middle">
         {String(n)}
       </SvgText>
     </G>
@@ -554,7 +554,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stepNumText: { color: '#fff', fontWeight: '800' },
+  stepNumText: { color: colors.onAccent, fontWeight: '800' },
   label: { color: colors.textMuted, fontSize: 11, fontWeight: '800', letterSpacing: 1, marginTop: 4 },
   formula: { color: colors.accent, fontSize: 14, fontVariant: ['tabular-nums'], lineHeight: 20 },
   formulaBox: { backgroundColor: colors.bg, borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 8 },

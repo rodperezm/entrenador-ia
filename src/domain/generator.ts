@@ -1,4 +1,4 @@
-import { equipmentAt, MEDICAL_CONDITIONS, MUSCLE_GROUP_LABELS, MUSCLES, type MuscleGroupId } from './catalog';
+import { equipmentAt, MEDICAL_CONDITIONS, type MuscleGroupId } from './catalog';
 import { type CycleInfo, cycleInfo, previousBlockExercises } from './cycle';
 import { filterExercisesForUser } from './filter';
 import type {
@@ -13,9 +13,19 @@ import type {
   WorkoutSession,
 } from './schema';
 import { painOf } from './schema';
-import { progressSlot } from './progression';
+import { progressSlot, wasTooHard } from './progression';
+import {
+  A_STAGES,
+  dayIntensity,
+  type Intensity,
+  type SessionNeed,
+  sessionNeeds,
+  slotRole,
+  sortByRole,
+  strengthRole,
+} from './strength';
 import { fitPart, maxCount } from './timeBudget';
-import { DAYS } from './week';
+import { DAYS, dayDate } from './week';
 
 // Generador por reglas. Produce la misma estructura que devolverá el LLM
 // (GeneratedWeekPlan), así la app no cambia cuando se conecte la IA, y sirve
@@ -23,33 +33,34 @@ import { DAYS } from './week';
 
 type Level = LocalProfile['level'];
 
+type DayStrengthPlan = {
+  cycle: CycleInfo;
+  intensity: Intensity;
+  previousBlock: Set<string>;
+  history: WorkoutSession[];
+  locked: Set<string>;
+  mainSeed?: number;
+};
+
 const MAX_COMPLEXITY: Record<Level, number> = { beginner: 2, intermediate: 3, advanced: 5 };
 const TARGET_COMPLEXITY: Record<Level, number> = { beginner: 1, intermediate: 2, advanced: 3 };
 
-// Bloques de Fuerza. La secuencia define qué se agrega al subir la cantidad y qué se
-// quita primero si falta tiempo: el final, por eso el remate C va tarde.
-const ROLE_SEQUENCE: StrengthRole[] = ['A', 'B', 'B', 'B', 'C', 'A', 'B', 'B', 'B', 'B'];
-const POWER_ROLE_SEQUENCE: StrengthRole[] = ['A', 'A', 'B', 'B', 'C', 'B', 'B', 'B', 'B', 'B'];
-const FINISHER_IDS = ['kb_swing_finisher', 'kb_complex'];
 const POWER_REPS_MAX = 10;
+const POWER_REPS_FOCUS = 6;
 const POWER_REST_SEC = 120;
+const POWER_MIN_SETS = 3;
 const CHOQUE_REPS_DOWN = 2;
-const PREVIOUS_BLOCK_PENALTY = 1.2;
+const CHOQUE_REST = 0.75;
+const MIN_REST_SEC = 45;
+const LADDER_REST_DOWN = 15;
+const DENSITY_REPS_UP = 2;
+const DENSITY_SEC_UP = 10;
+const DENSITY_MAX_COMPLEXITY = 3; // los levantamientos muy técnicos no se apuran con fatiga
 const ROLE_NOTE: Record<StrengthRole, string> = {
   A: 'Potencia: pocas repeticiones de calidad.',
   B: 'Baja en 3 s y sube rápido.',
   C: 'Remate: mantén la técnica aunque canses.',
 };
-
-export function strengthRole(e: Exercise): StrengthRole {
-  if (FINISHER_IDS.includes(e.id) || e.movementPattern === 'carry') return 'C';
-  return e.restrictionFlags.includes('ballistic') ? 'A' : 'B';
-}
-
-const ROLE_ORDER: StrengthRole[] = ['A', 'B', 'C'];
-export const sortByRole = (slots: ExerciseSlot[]) =>
-  [...slots].sort((a, b) => ROLE_ORDER.indexOf(a.role ?? 'B') - ROLE_ORDER.indexOf(b.role ?? 'B'));
-
 // Barajado determinista (mismo resultado para la misma semana y día).
 function seeded(seed: number) {
   let s = seed || 1;
@@ -89,89 +100,139 @@ export function pickWeight(e: Exercise, profile: LocalProfile): number | null {
   return below.length ? Math.max(...below) : Math.min(...owned);
 }
 
-function pickMain(
-  pool: Exercise[],
-  groups: MuscleGroupId[],
-  count: number,
-  profile: LocalProfile,
-  usedThisWeek: Map<string, number>,
-  rand: () => number,
-  cycle: CycleInfo,
-  previousBlock: Set<string>,
-): { exercise: Exercise; group: MuscleGroupId }[] {
-  const cap = MAX_COMPLEXITY[profile.level];
-  // En el foco de técnica se prefieren ejercicios algo más simples.
-  const target = Math.max(1, TARGET_COMPLEXITY[profile.level] - (cycle.phase === 'base' ? 1 : 0));
-  // Orden fijo: el azar del puntaje no debe depender de cómo llegó barajada la lista.
-  const candidates = pool.filter((e) => e.complexityLevel <= cap).sort((a, b) => a.id.localeCompare(b.id));
-  const picked: { exercise: Exercise; group: MuscleGroupId }[] = [];
-  const order = groups.length ? groups : (['legs', 'back', 'chest', 'core'] as MuscleGroupId[]);
-  const roles = cycle.phase === 'power' ? POWER_ROLE_SEQUENCE : ROLE_SEQUENCE;
-  let cursor = 0;
+const nextIds = (ids: Set<string>, exercises: Exercise[]) =>
+  new Set(exercises.filter((e) => ids.has(e.id)).flatMap((e) => e.progression.next));
 
-  // Ni repetido ni otra variante de la misma cadena (dos swings el mismo día).
+type MainContext = {
+  usedThisWeek: Map<string, number>;
+  rand: () => number;
+  cycle: CycleInfo;
+  previousBlock: Set<string>;
+  all: Exercise[];
+  locked: Set<string>;
+  intensity: Intensity;
+  dayIndex: number;
+};
+
+const patternFamily = (e: Exercise) =>
+  ['squat', 'lunge'].includes(e.movementPattern) ? 'legs' : e.movementPattern.split('_')[0];
+
+// Elige por patrón. Cada lugar de la sesión busca primero lo ya fijado en este bloque.
+function pickMain(pool: Exercise[], groups: MuscleGroupId[], count: number, profile: LocalProfile, ctx: MainContext) {
+  const { cycle, previousBlock, usedThisWeek, rand, locked } = ctx;
+  const cap = MAX_COMPLEXITY[profile.level];
+  const target = TARGET_COMPLEXITY[profile.level];
+  // Orden fijo: el azar del puntaje no debe depender de cómo llegó barajada la lista.
+  const candidates = pool
+    .filter((e) => e.complexityLevel <= cap && strengthRole(e) !== null)
+    .sort((a, b) => a.id.localeCompare(b.id));
+  const picked: { exercise: Exercise; role: StrengthRole }[] = [];
+  const wantedGroups = new Set(groups);
+  const canUseBallistics =
+    ctx.intensity !== 'light' && candidates.some((e) => e.restrictionFlags.includes('ballistic'));
+  const allowsStageOne = !profile.conditions.some((c) => c.activeFlags.includes('ballistic'));
+  const next = nextIds(previousBlock, ctx.all);
+  // Al cambiar de bloque se mantiene el patrón y cambia el estímulo: prefiere la variante
+  // siguiente y evita repetir el ejercicio. El bloque A se rige por sus etapas.
+  const spiralBonus = (e: Exercise) => (next.has(e.id) ? 1.6 : previousBlock.has(e.id) ? -2 : 0);
+
   const isOpen = (e: Exercise) =>
     !picked.some(
       (p) =>
         p.exercise.id === e.id ||
         (e.progression.chainId !== null && p.exercise.progression.chainId === e.progression.chainId),
     );
-  const best = (options: Exercise[], group: MuscleGroupId) =>
+  const choose = (options: Exercise[]) =>
+    options.find((e) => locked.has(e.id)) ??
     options
-      .filter((e) => e.muscleGroups.includes(group))
       .map((e) => ({
         e,
-        // Menor puntaje = mejor: primario del grupo, complejidad cercana al nivel,
-        // poco repetido en la semana, con kettlebell; algo de azar para variar.
+        // Menor puntaje = mejor: complejidad cercana al nivel, poco repetido en la semana,
+        // con kettlebell, en las zonas elegidas y siguiendo la espiral del bloque.
         score:
-          (e.anatomy.primary.some((m) => MUSCLES[m.muscle].group === group) ? 0 : 1) +
           Math.abs(e.complexityLevel - target) * 0.8 +
           (usedThisWeek.get(e.id) ?? 0) * 1.5 +
-          (previousBlock.has(e.id) ? PREVIOUS_BLOCK_PENALTY : 0) +
           (e.equipment.required.includes('kettlebell') ? 0 : 0.4) +
           (e.mechanics === 'compound' ? 0 : 0.5) +
+          (e.muscleGroups.some((g) => wantedGroups.has(g as MuscleGroupId)) ? 0 : 0.4) -
+          spiralBonus(e) +
           rand() * 0.6,
       }))
       .sort((a, b) => a.score - b.score)[0]?.e;
 
-  for (let i = 0; i < count; i++) {
+  const forNeed = (need: SessionNeed): Exercise | undefined => {
     const open = candidates.filter(isOpen);
-    // Sin balísticos o acarreos disponibles (lesión, nivel), ese lugar pasa al bloque B.
-    const sources = [
-      open.filter((e) => strengthRole(e) === (roles[i] ?? 'B')),
-      open.filter((e) => strengthRole(e) === 'B'),
-      open,
-    ];
-    let found = false;
-    for (const source of sources) {
-      for (let g = 0; g < order.length && !found; g++) {
-        const group = order[(cursor + g) % order.length];
-        const exercise = best(source, group);
-        if (exercise) {
-          picked.push({ exercise, group });
-          cursor = (cursor + g + 1) % order.length;
-          found = true;
-        }
+    const inRole = (role: StrengthRole) => open.filter((e) => strengthRole(e) === role);
+    if (need.role === 'A') {
+      if (need.explosive) {
+        if (!canUseBallistics || cycle.stage < A_STAGES.length) return undefined;
+        return choose(open.filter((e) => A_STAGES[A_STAGES.length - 1].includes(e.id)));
       }
-      if (found) break;
+      const isStageOne = cycle.stage === 1;
+      if (isStageOne ? allowsStageOne : canUseBallistics) {
+        const stage = choose(open.filter((e) => A_STAGES[cycle.stage - 1].includes(e.id)));
+        if (stage) return stage;
+      }
+      return choose(inRole('B').filter((e) => e.movementPattern === 'hinge'));
     }
-    if (!found) break;
+    if (need.role === 'C') {
+      const options = inRole('C');
+      if (!canUseBallistics) return choose(options.filter((e) => !e.restrictionFlags.includes('ballistic')));
+      return choose(options.filter((e) => e.movementPattern === 'carry')) ?? choose(options);
+    }
+    for (const pattern of need.patterns ?? []) {
+      const exercise = choose(inRole('B').filter((e) => e.movementPattern === pattern));
+      if (exercise) return exercise;
+    }
+    return undefined;
+  };
+
+  // Dentro del bloque se conservan los fijos. Si uno ya no se puede, entra otro igual o más simple
+  // de la misma familia; si no hay, se omite antes que repetir otro patrón.
+  const staged = A_STAGES.flat();
+  const stageNow = A_STAGES[cycle.stage - 1];
+  for (const id of locked) {
+    const fixed = candidates.find((e) => e.id === id && (!staged.includes(id) || stageNow.includes(id)));
+    const original = ctx.all.find((e) => e.id === id);
+    const role = original && strengthRole(original);
+    const replacement =
+      fixed ??
+      (role === 'A' || (original && staged.includes(id))
+        ? forNeed({ role: 'A', patterns: ['hinge'] })
+        : role && original
+          ? choose(
+              candidates
+                .filter(isOpen)
+                .filter(
+                  (e) =>
+                    strengthRole(e) === role &&
+                    e.complexityLevel <= original.complexityLevel &&
+                    patternFamily(e) === patternFamily(original),
+                ),
+            )
+          : undefined);
+    if (replacement) picked.push({ exercise: replacement, role: slotRole(replacement, cycle.stage) ?? 'B' });
+  }
+  if (locked.size) return picked;
+
+  for (const need of sessionNeeds(cycle.phase === 'power', ctx.dayIndex)) {
+    if (picked.length >= count) break;
+    const exercise = forNeed(need);
+    if (exercise) picked.push({ exercise, role: slotRole(exercise, cycle.stage) ?? 'B' });
   }
   return picked;
 }
-
 function generateDay(
   cfg: DayConfig,
   profile: LocalProfile,
   exercises: Exercise[],
   usedThisWeek: Map<string, number>,
   seed: number,
-  cycle: CycleInfo,
-  previousBlock: Set<string>,
-  mainSeed = seed,
+  plan: DayStrengthPlan,
 ): DayPlan {
   const rand = seeded(seed);
-  const mainRand = seeded(mainSeed);
+  const { cycle, intensity } = plan;
+  const mainRand = seeded(plan.mainSeed ?? seed);
   // Solo el equipamiento disponible donde entrena ese día (casa o parque).
   const dayProfile = { ...profile, equipment: equipmentAt(cfg.location, profile) };
   const pool = (block: Parameters<typeof filterExercisesForUser>[2]) =>
@@ -181,37 +242,36 @@ function generateDay(
 
   // Fuerza primero: el calentamiento y la elongación dependen de lo elegido.
   // Día de fuerza suave (lesión): pocos ejercicios, sencillos y sin balísticos ni saltos.
-  const mainPool = cfg.gentleStrength ? pool('main_strength').filter(isGentle) : pool('main_strength');
+  const resting = legsRestIds(exercises, plan.history);
+  const strengthPool = pool('main_strength').filter((e) => !resting.includes(e.id));
+  const mainPool = cfg.gentleStrength ? strengthPool.filter(isGentle) : strengthPool;
   const mainOptions = b.main.enabled
-    ? pickMain(
-        mainPool,
-        b.main.muscleGroups,
-        maxCount('main', cfg),
-        profile,
+    ? pickMain(mainPool, b.main.muscleGroups, maxCount('main', cfg), profile, {
         usedThisWeek,
-        mainRand,
+        rand: mainRand,
         cycle,
-        previousBlock,
-      )
+        previousBlock: plan.previousBlock,
+        all: exercises,
+        locked: plan.locked,
+        intensity,
+        dayIndex: DAYS.findIndex((x) => x.id === cfg.day),
+      })
     : [];
   // Cada parte recibe opciones de sobra y se queda con las que caben en sus minutos.
   const fit = (part: Parameters<typeof fitPart>[0], slots: ExerciseSlot[]) =>
-    fitPart(part, slots, cfg, profile.level, cycle);
+    fitPart(part, slots, cfg, profile.level, cycle, intensity);
   const mainSlots = sortByRole(
     fit(
       'main',
-      mainOptions.map(({ exercise, group }) => {
-        const role = strengthRole(exercise);
-        const slot = prescribe(
-          exercise,
-          profile,
-          `Trabaja ${MUSCLE_GROUP_LABELS[group].toLowerCase()}. ${ROLE_NOTE[role]}`,
-        );
-        if (role !== 'A') return { ...slot, role };
+      mainOptions.map(({ exercise, role }) => {
+        const base = prescribe(exercise, profile, null);
+        const slot = { ...base, role, rationale: base.reps ? ROLE_NOTE[role] : null };
+        if (role !== 'A') return slot;
+        const repsMax = cycle.phase === 'power' ? POWER_REPS_FOCUS : POWER_REPS_MAX;
         return {
           ...slot,
-          role,
-          reps: slot.reps && Math.min(slot.reps, POWER_REPS_MAX),
+          sets: Math.max(slot.sets, POWER_MIN_SETS),
+          reps: slot.reps && Math.min(slot.reps, repsMax),
           restSec: Math.max(slot.restSec, POWER_REST_SEC),
         };
       }),
@@ -221,8 +281,10 @@ function generateDay(
   const mainGroups = new Set(main.flatMap((m) => m.exercise.muscleGroups));
 
   if (b.warmup.enabled) {
-    // Preferir calentamientos que activen los grupos del día.
-    const options = pool('warmup').sort(
+    // Sin fuerza el calentamiento es suave. Preferir los que activen los grupos del día.
+    const warmups = pool('warmup');
+    const gentleWarmups = warmups.filter(isGentle);
+    const options = (b.main.enabled || !gentleWarmups.length ? warmups : gentleWarmups).sort(
       (x, y) =>
         Number(!y.muscleGroups.some((g) => mainGroups.has(g))) - Number(!x.muscleGroups.some((g) => mainGroups.has(g))),
     );
@@ -265,7 +327,7 @@ function generateDay(
     const byGroup = pool('cooldown')
       .filter((e) => !linked.includes(e.id) && e.muscleGroups.some((g) => workedGroups.has(g)))
       .map((e) => e.id);
-    // Si aun así no hay nada (p. ej. solo calentamiento), elongación general.
+    // Si aun así no hay nada (p. ej. día solo de elongación), elongación general.
     const general = pool('cooldown')
       .map((e) => e.id)
       .filter((id) => !linked.includes(id) && !byGroup.includes(id));
@@ -309,16 +371,54 @@ export function strongPainIds(history: WorkoutSession[], now = Date.now()): stri
   return painful;
 }
 
+// Dolor fuerte en un ejercicio de piernas: toda la semana siguiente, Fuerza va sin sentadillas
+// ni zancadas. Solo en Fuerza: el trabajo de lesión y la elongación siguen ayudando a la rodilla.
+export function legsRestIds(exercises: Exercise[], history: WorkoutSession[], now = Date.now()): string[] {
+  const since = dayDate('mon', new Date(now)).getTime() - 7 * 24 * 3600 * 1000;
+  const recent = history.filter((s) => Date.parse(s.finishedAt) >= since);
+  const legs = exercises.filter((e) => patternFamily(e) === 'legs').map((e) => e.id);
+  return strongPainIds(recent, now).some((id) => legs.includes(id)) ? legs : [];
+}
+
 const withoutPainful = (profile: LocalProfile, history: WorkoutSession[]): LocalProfile => ({
   ...profile,
   excludedExerciseIds: [...profile.excludedExerciseIds, ...strongPainIds(history)],
 });
 
 // Última molestia registrada en el ejercicio: con dolor, la semana del bloque no exige más.
-const hadPain = (id: string, history: WorkoutSession[]) => {
+export const hadPain = (id: string, history: WorkoutSession[]) => {
   const last = history.find((s) => s.sets.some((l) => l.exerciseId === id));
   return !!last?.sets.some((l) => l.exerciseId === id && painOf(l) > 0);
 };
+
+export const lastWeightOf = (id: string, history: WorkoutSession[]) =>
+  history.flatMap((s) => s.sets).find((l) => l.exerciseId === id && l.weightKg != null)?.weightKg ?? null;
+
+// Avanzado: el remate rota su forma de densidad en cada bloque, y la semana de máxima intensidad la duplica.
+function densityFinisher(slot: ExerciseSlot, e: Exercise, cycle: CycleInfo): ExerciseSlot {
+  const steps = cycle.week === 3 ? 2 : 1;
+  const lessRest = Math.max(MIN_REST_SEC, slot.restSec - LADDER_REST_DOWN * steps);
+  const format = (cycle.block - 1) % 3;
+  const reps = slot.reps && Math.min(e.prescription.repRange?.max ?? Infinity, slot.reps + DENSITY_REPS_UP * steps);
+  const canAddWork = slot.durationSec != null || reps !== slot.reps;
+  if (format === 0 || (format === 1 && !canAddWork)) {
+    return { ...slot, restSec: lessRest, rationale: 'Remate con densidad: menos descanso entre vueltas.' };
+  }
+  if (format === 1) {
+    return {
+      ...slot,
+      reps,
+      durationSec: slot.durationSec && slot.durationSec + DENSITY_SEC_UP * steps,
+      rationale: 'Remate con densidad: más trabajo con el mismo descanso.',
+    };
+  }
+  return {
+    ...slot,
+    sets: slot.sets + 1,
+    restSec: lessRest,
+    rationale: 'Remate con densidad: una vuelta más, con menos descanso.',
+  };
+}
 
 // Semana del bloque sobre un ejercicio de Fuerza ya progresado.
 function applyCycleWeek(
@@ -328,27 +428,72 @@ function applyCycleWeek(
   profile: LocalProfile,
   cycle: CycleInfo,
   history: WorkoutSession[],
+  previousBlock: Set<string>,
 ): ExerciseSlot {
-  if (hadPain(e.id, history)) return slot;
+  const pain = hadPain(e.id, history);
+  // La descarga aplica siempre; con dolor se conserva el aviso sobre la molestia.
   if (cycle.week === 4) {
     const lighter = (a: number | null, b: number | null) => (a != null && b != null ? Math.min(a, b) : a);
     return {
       ...slot,
       reps: lighter(slot.reps, prescribed.reps),
       weightKg: lighter(slot.weightKg, prescribed.weightKg),
-      rationale: 'Semana de descarga: menos volumen para recuperarte.',
+      rationale: pain
+        ? 'Semana de descarga: más suave por la molestia que marcaste.'
+        : 'Semana de descarga: menos volumen para recuperarte.',
     };
   }
-  if (cycle.week !== 3 || slot.weightKg == null) return slot;
-  const heavier = profile.kettlebellWeightsKg.filter((w) => w > slot.weightKg!).sort((a, b) => a - b)[0];
-  if (heavier == null) return slot;
+  // Con dolor o si quedó muy pesado, la semana del bloque no exige más.
+  if (pain || wasTooHard(e.id, history)) return slot;
+  if (profile.level === 'advanced' && slot.role === 'C' && e.complexityLevel <= DENSITY_MAX_COMPLEXITY) {
+    return densityFinisher(slot, e, cycle);
+  }
+  const heavier =profile.kettlebellWeightsKg.filter((w) => w > (slot.weightKg ?? Infinity)).sort((a, b) => a - b)[0];
   const minReps = e.prescription.repRange?.min ?? 1;
-  return {
-    ...slot,
-    weightKg: heavier,
-    reps: slot.reps && Math.max(minReps, slot.reps - CHOQUE_REPS_DOWN),
-    rationale: `Semana de choque: subimos a ${heavier} kg con menos repeticiones.`,
-  };
+  if (cycle.week === 3) {
+    // Principiante: la semana de máxima intensidad es técnica, nunca más peso (ni el que subiría por progresión).
+    if (profile.level === 'beginner') {
+      const lastWeight = lastWeightOf(e.id, history);
+      const raised = lastWeight != null && slot.weightKg != null && slot.weightKg > lastWeight;
+      return {
+        ...slot,
+        weightKg: raised ? lastWeight : slot.weightKg,
+        reps: raised ? (e.prescription.repRange?.max ?? slot.reps) : slot.reps,
+        rationale: `Semana de máxima intensidad: ${slot.weightKg != null ? 'mismo peso, ' : ''}prioridad a la técnica.`,
+      };
+    }
+    if (heavier != null) {
+      const reps = slot.reps && Math.max(minReps, slot.reps - CHOQUE_REPS_DOWN);
+      return {
+        ...slot,
+        sets: Math.max(POWER_MIN_SETS - 1, slot.sets - 1),
+        weightKg: heavier,
+        reps,
+        rationale: `Semana de máxima intensidad: subimos a ${heavier} kg${reps !== slot.reps ? ' con menos repeticiones' : ''}.`,
+      };
+    }
+    if (slot.role === 'A') return { ...slot, rationale: 'Semana de máxima intensidad: máxima calidad y velocidad.' };
+    return {
+      ...slot,
+      restSec: Math.max(MIN_REST_SEC, Math.round(slot.restSec * CHOQUE_REST)),
+      rationale:
+        slot.durationSec != null ? 'Semana de máxima intensidad: descansa menos.' : 'Semana de máxima intensidad: baja en 4 s y descansa menos.',
+    };
+  }
+  // Primer peldaño del bloque nuevo: mismo ejercicio, un paso más arriba que antes.
+  if (cycle.week === 1 && cycle.block > 1 && previousBlock.has(e.id)) {
+    if (heavier != null) return { ...slot, weightKg: heavier, rationale: `Nuevo ciclo: subimos a ${heavier} kg.` };
+    const same = slot.weightKg != null ? 'mismo peso' : 'mismo ejercicio';
+    if (cycle.block % 2 || slot.durationSec != null) {
+      return {
+        ...slot,
+        restSec: Math.max(MIN_REST_SEC, slot.restSec - LADDER_REST_DOWN),
+        rationale: `Nuevo ciclo: ${same} con menos descanso.`,
+      };
+    }
+    return { ...slot, rationale: `Nuevo ciclo: ${same}, baja en 4 s para sumar tensión.` };
+  }
+  return slot;
 }
 
 // Ajustar series, reps y peso según lo que el usuario registró y la semana del bloque.
@@ -359,8 +504,12 @@ function applyProgression(
   exercises: Exercise[],
   history: WorkoutSession[],
   cycle: CycleInfo,
+  locked: string[] = [],
 ) {
   const byId = new Map(exercises.map((e) => [e.id, e]));
+  const previousBlock = previousBlockExercises(history, cycle);
+  const painful = strongPainIds(history);
+  const swappedFamilies = locked.filter((id) => painful.includes(id)).map((id) => patternFamily(byId.get(id)!));
   return {
     ...d,
     blocks: d.blocks.map((b) => ({
@@ -368,14 +517,18 @@ function applyProgression(
       slots: b.slots.map((s) => {
         const e = byId.get(s.exerciseId)!;
         const progressed = progressSlot(s, e, profile, history);
+        if (b.type === 'main_strength' && !locked.includes(s.exerciseId) && swappedFamilies.includes(patternFamily(e))) {
+          return { ...progressed, rationale: 'Cambiado por el dolor fuerte que marcaste.' };
+        }
         const cycled = b.type === 'main_strength' && !cfg?.gentleStrength;
-        return cycled ? applyCycleWeek(progressed, s, e, profile, cycle, history) : progressed;
+        return cycled ? applyCycleWeek(progressed, s, e, profile, cycle, history, previousBlock) : progressed;
       }),
     })),
   };
 }
 
-// Rehace un solo día con reglas; la fuerza de `otherDays` se penaliza para no repetirla.
+// Rehace un solo día con reglas. Dentro del bloque conserva los ejercicios de Fuerza
+// (`lockedIds`), salvo que el dolor, el lugar o el equipamiento obliguen a cambiarlos.
 export function generateDayByRules(
   cfg: DayConfig,
   otherDays: DayPlan[],
@@ -383,14 +536,22 @@ export function generateDayByRules(
   exercises: Exercise[],
   history: WorkoutSession[] = [],
   seed = Date.now(),
+  lockedIds: string[] = [],
+  weekDays: DayConfig[] = [cfg],
 ): DayPlan {
   const usedThisWeek = new Map<string, number>();
   for (const s of otherDays.flatMap((d) => d.blocks.filter((b) => b.type === 'main_strength').flatMap((b) => b.slots)))
     usedThisWeek.set(s.exerciseId, (usedThisWeek.get(s.exerciseId) ?? 0) + 1);
   const p = withoutPainful(profile, history);
-  const cycle = cycleInfo(history);
-  const day = generateDay(cfg, p, exercises, usedThisWeek, seed, cycle, previousBlockExercises(history, cycle));
-  return applyProgression(day, cfg, profile, exercises, history, cycle);
+  const cycle = cycleInfo(history, profile.level);
+  const day = generateDay(cfg, p, exercises, usedThisWeek, seed, {
+    cycle,
+    intensity: cycle.preparation ? 'light' : dayIntensity(weekDays, cfg.day),
+    previousBlock: previousBlockExercises(history, cycle),
+    history,
+    locked: new Set(lockedIds),
+  });
+  return applyProgression(day, cfg, profile, exercises, history, cycle, lockedIds);
 }
 
 export function generateWeekByRules(
@@ -399,26 +560,24 @@ export function generateWeekByRules(
   exercises: Exercise[],
   history: WorkoutSession[] = [],
   seed = Date.now(),
+  lockedByDay: Partial<Record<DayConfig['day'], string[]>> = {},
 ): GeneratedWeekPlan {
   const usedThisWeek = new Map<string, number>();
-  const cycle = cycleInfo(history);
+  const cycle = cycleInfo(history, profile.level);
   const previousBlock = previousBlockExercises(history, cycle);
   const days = week.days
     .filter((d) => d.active)
-    .map((d, i) => {
-      // Mismo bloque y día: mismos ejercicios de fuerza, para poder medir el progreso.
-      const blockSeed = cycle.block * 1000 + DAYS.findIndex((x) => x.id === d.day) + 1;
-      return generateDay(
-        d,
-        withoutPainful(profile, history),
-        exercises,
-        usedThisWeek,
-        seed + i * 7919,
+    .map((d, i) =>
+      generateDay(d, withoutPainful(profile, history), exercises, usedThisWeek, seed + i * 7919, {
         cycle,
+        intensity: cycle.preparation ? 'light' : dayIntensity(week.days, d.day),
         previousBlock,
-        blockSeed,
-      );
-    })
+        history,
+        locked: new Set(lockedByDay[d.day]),
+        // Mismo bloque y día: mismos ejercicios de Fuerza, para poder medir el progreso.
+        mainSeed: cycle.block * 1000 + DAYS.findIndex((x) => x.id === d.day) + 1,
+      }),
+    )
     .map((d) =>
       applyProgression(
         d,
@@ -427,6 +586,7 @@ export function generateWeekByRules(
         exercises,
         history,
         cycle,
+        lockedByDay[d.day],
       ),
     );
   const total = days.reduce((n, d) => n + d.blocks.reduce((m, b) => m + b.slots.length, 0), 0);

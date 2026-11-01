@@ -245,6 +245,8 @@ export const StoredWeekPlan = GeneratedWeekPlan.extend({
   configHash: z.string(),
   // Huella de la configuración de cada día al armar su rutina (permite rehacer un solo día).
   dayHashes: z.partialRecord(DayOfWeek, z.string()).optional(),
+  // Bloque en que se armó: dentro del mismo bloque, los ejercicios de Fuerza se mantienen.
+  cycleBlock: z.string().optional(),
 });
 export type StoredWeekPlan = z.infer<typeof StoredWeekPlan>;
 
@@ -257,10 +259,12 @@ export const SetLog = z.object({
   repsDone: z.number().int().nonnegative().nullable(),
   durationSec: z.number().int().nonnegative().nullable(),
   weightKg: z.number().nonnegative().nullable(),
+  plannedWeightKg: z.number().nonnegative().nullable().optional(), // si es mayor que weightKg, la persona lo bajó
   rpe: z.number().min(1).max(10).nullable(), // esfuerzo percibido (10 = no podía más)
   painFlag: z.boolean(), // hubo dolor moderado o fuerte (se mantiene por compatibilidad)
   // 0 nada · 1 leve · 2 moderado · 3 fuerte. Registros antiguos no lo tienen.
   painLevel: z.number().int().min(0).max(3).nullable().default(null),
+  techniqueOk: z.boolean().optional(), // bloque A: la persona confirmó que mantuvo la técnica
 });
 export type SetLog = z.infer<typeof SetLog>;
 

@@ -13,6 +13,7 @@ import {
 // la carga; con dolor moderado o fuerte se baja.
 
 const EASY_RPE = 8; // esfuerzo máximo para considerar que se puede progresar
+const TOO_HARD_RPE = 9.5;
 const TIME_STEP_SEC = 5;
 
 function lastLogs(exerciseId: string, history: WorkoutSession[]): SetLog[] {
@@ -21,6 +22,18 @@ function lastLogs(exerciseId: string, history: WorkoutSession[]): SetLog[] {
     if (logs.length) return logs;
   }
   return [];
+}
+
+// Quedó muy pesado: sin repeticiones de reserva, sin completarlas o bajando el peso planificado.
+export function wasTooHard(exerciseId: string, history: WorkoutSession[]) {
+  const logs = lastLogs(exerciseId, history);
+  const rpes = logs.map((l) => l.rpe).filter((v): v is number => v != null);
+  const avgRpe = rpes.length ? rpes.reduce((a, b) => a + b, 0) / rpes.length : 0;
+  return (
+    avgRpe >= TOO_HARD_RPE ||
+    logs.some((l) => l.targetReps != null && l.repsDone != null && l.repsDone < l.targetReps) ||
+    logs.some((l) => l.plannedWeightKg != null && l.weightKg != null && l.weightKg < l.plannedWeightKg)
+  );
 }
 
 const nextUp = (owned: number[], w: number) => owned.filter((x) => x > w).sort((a, b) => a - b)[0] ?? null;
@@ -95,6 +108,15 @@ export function progressSlot(
   const lastTarget = logs[0].targetReps ?? slot.reps ?? 0;
   const hitTarget = logs.every((l) => (l.repsDone ?? 0) >= lastTarget);
 
+  if (wasTooHard(e.id, history)) {
+    return {
+      ...slot,
+      reps: lastTarget || slot.reps,
+      weightKg: lastWeight,
+      rationale: 'Mantenemos la carga: la última vez costó demasiado.',
+    };
+  }
+
   if (completed && hitTarget && easy && range) {
     if (lastTarget < range.max) {
       const reps = Math.min(range.max, lastTarget + 2);
@@ -122,18 +144,12 @@ export function progressSlot(
     };
   }
 
-  if (avgRpe != null && avgRpe >= 9.5) {
-    return {
-      ...slot,
-      reps: lastTarget || slot.reps,
-      weightKg: lastWeight,
-      rationale: 'Mantenemos: la última vez fue muy exigente.',
-    };
-  }
   return {
     ...slot,
     reps: lastTarget || slot.reps,
     weightKg: lastWeight,
-    rationale: 'Repite la carga anterior hasta completarla.',
+    rationale: easy
+      ? 'Mantenemos la carga para completar todas las series.'
+      : 'Mantenemos la carga: la última vez fue exigente.',
   };
 }

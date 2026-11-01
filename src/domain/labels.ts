@@ -4,7 +4,7 @@ export const ROLE_LABELS = { A: 'A · Potencia', B: 'B · Fuerza', C: 'C · Rema
 
 export const BLOCK_LABELS: Record<BlockType, string> = {
   warmup: 'Calentamiento',
-  prehab: 'Prehab',
+  prehab: 'Lesión y movilidad',
   main_strength: 'Fuerza',
   cooldown: 'Elongación',
 };
