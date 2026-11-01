@@ -2,7 +2,7 @@ import { type AudioPlayer, createAudioPlayer } from 'expo-audio';
 import { File, Paths } from 'expo-file-system';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Phase } from '@/domain/session';
-import { buildTabataWav, phaseStarts } from './tabataTrack';
+import { buildTabataWav, phaseStarts, trackPosition } from './tabataTrack';
 import type { RunnerStatus } from './useRunner';
 
 // Reloj del Tabata basado en la pista de audio (como el original): el tiempo
@@ -65,15 +65,5 @@ export function useTrackRunner(phases: Phase[]) {
     setStatus('idle');
   }, [release]);
 
-  // Fase actual a partir del tiempo de la pista.
-  let index = 0;
-  while (index < phases.length - 1 && elapsed >= starts[index] + phases[index].durationSec) index++;
-  const remainingSec =
-    status === 'idle'
-      ? (phases[0]?.durationSec ?? 0)
-      : status === 'done'
-        ? 0
-        : Math.max(0, starts[index] + (phases[index]?.durationSec ?? 0) - elapsed);
-
-  return { index, status, remainingSec, start, pause, resume, reset, total };
+  return { ...trackPosition(phases, starts, status, elapsed), status, start, pause, resume, reset, total };
 }

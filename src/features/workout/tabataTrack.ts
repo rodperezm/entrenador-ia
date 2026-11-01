@@ -1,4 +1,5 @@
 import type { Phase } from '@/domain/session';
+import type { RunnerStatus } from './useRunner';
 
 // Pista de audio completa del entrenamiento, portada de buildTrack() del
 // temporizador Tabata original: todos los pitidos y el tic-tac ya ubicados en
@@ -6,6 +7,8 @@ import type { Phase } from '@/domain/session';
 // así sonido y números nunca se desfasan.
 
 const SR = 8000; // 8 kHz, como el original
+export const TRACK_SAMPLE_RATE = SR;
+export const WAV_HEADER_BYTES = 44;
 export const MAX_TRACK_SEC = 2400; // hasta 40 minutos; más largo usa el modo en vivo
 
 function addTone(buf: Int16Array, at: number, freq: number, dur: number, vol: number, tri = false) {
@@ -34,11 +37,24 @@ export function phaseStarts(phases: Phase[]) {
   return { starts, total: t };
 }
 
+// Fase actual y tiempo restante a partir de la posición de la pista.
+export function trackPosition(phases: Phase[], starts: number[], status: RunnerStatus, elapsed: number) {
+  let index = 0;
+  while (index < phases.length - 1 && elapsed >= starts[index] + phases[index].durationSec) index++;
+  const remainingSec =
+    status === 'idle'
+      ? (phases[0]?.durationSec ?? 0)
+      : status === 'done'
+        ? 0
+        : Math.max(0, starts[index] + (phases[index]?.durationSec ?? 0) - elapsed);
+  return { index, remainingSec };
+}
+
 // Devuelve el archivo WAV completo (cabecera + muestras de 16 bits) en un solo búfer.
 export function buildTabataWav(phases: Phase[]): Uint8Array {
   const { starts, total } = phaseStarts(phases);
   const samples = Math.ceil((total + 2) * SR);
-  const bytes = new Uint8Array(44 + samples * 2);
+  const bytes = new Uint8Array(WAV_HEADER_BYTES + samples * 2);
   const v = new DataView(bytes.buffer);
   const w = (o: number, s: string) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
   w(0, 'RIFF');
@@ -53,7 +69,7 @@ export function buildTabataWav(phases: Phase[]): Uint8Array {
   v.setUint16(34, 16, true);
   w(36, 'data');
   v.setUint32(40, samples * 2, true);
-  const buf = new Int16Array(bytes.buffer, 44, samples);
+  const buf = new Int16Array(bytes.buffer, WAV_HEADER_BYTES, samples);
 
   let c = 0;
   phases.forEach((ph, i) => {

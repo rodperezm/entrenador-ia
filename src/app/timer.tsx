@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useStayAwake } from '@/lib/useStayAwake';
 import { router, Stack } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   buildTabata,
@@ -89,9 +89,9 @@ export default function TimerScreen() {
   const [stageH, setStageH] = useState(0);
   const phases = useMemo(() => buildTabata(cfg), [cfg]);
   const durations = useMemo(() => phases.map((p) => p.durationSec), [phases]);
-  // Como el original: en el teléfono, una sola pista de audio marca el tiempo;
-  // en web (o si dura más de 40 min) se usa el modo "en vivo" con pitidos sueltos.
-  const live = Platform.OS === 'web' || totalSeconds(phases) > MAX_TRACK_SEC;
+  // Una sola pista de audio marca el tiempo; si dura más de 40 min se usa el modo
+  // "en vivo" con pitidos sueltos.
+  const live = totalSeconds(phases) > MAX_TRACK_SEC;
   const liveRunner = useRunner(durations);
   const trackRunner = useTrackRunner(phases);
   const runner = live ? liveRunner : trackRunner;
