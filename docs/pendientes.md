@@ -26,6 +26,9 @@ Actualizada al 31-10-2026. Reemplaza la ayuda memoria del 27-10-2026, cuyos punt
 - [ ] Contador: facturación e impuestos por ventas en tiendas.
 
 ## 4. Imágenes y ejercicios
+- [x] Video de YouTube incrustado en la ficha de los 151 ejercicios (`src/data/youtubeVideos.ts`).
+- [ ] Revisar los videos cuyo título no calza del todo con el ejercicio.
+- [ ] Decidir si los videos de YouTube son definitivos o transitorios hasta tener videos propios.
 - [ ] Responder a Gymvisual: revisar lista y precio del pack de 263 videos gris (correo del 30-10-2026, sin leer).
 - [ ] Aclarar versión mujer, licencia por escrito y forma de pago (AMEX, Discover o PayPal).
 - [ ] Definir cómo se ve cada video en la app y cuánto pesa.

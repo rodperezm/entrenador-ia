@@ -16,6 +16,10 @@ const SECTIONS = [
     body: 'Cuando generas una semana con IA, tu nivel, edad, sexo, altura, equipamiento, lesiones, medidas e historial reciente se envían a Anthropic, nuestro proveedor de IA, para crear tu rutina. Esto ocurre tengas o no el respaldo activo.',
   },
   {
+    title: 'Videos de ejercicios',
+    body: 'Los videos se reproducen desde YouTube. Al abrir un ejercicio, YouTube recibe datos técnicos de tu conexión, como tu dirección IP. No le enviamos tu perfil ni tus datos de salud.',
+  },
+  {
     title: 'Para qué los usamos',
     body: 'Solo para armar y ajustar tu entrenamiento y mantener tu historial. No vendemos tus datos.',
   },

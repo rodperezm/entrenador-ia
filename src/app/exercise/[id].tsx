@@ -3,6 +3,7 @@ import { Link, Stack, useLocalSearchParams } from 'expo-router';
 import type { ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BodyMap } from '@/components/BodyMap';
+import { YouTubeVideo } from '@/components/YouTubeVideo';
 import { EXERCISES_BY_ID } from '@/data/exercises.seed';
 import { EQUIPMENT, MUSCLES, RESTRICTION_FLAGS } from '@/domain/catalog';
 import { BLOCK_LABELS, GRIP_LABELS } from '@/domain/labels';
@@ -27,11 +28,14 @@ export default function ExerciseDetail() {
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Stack.Screen options={{ title: e.name.es }} />
 
-      {/* Video: espacio reservado hasta que lleguen los videos de Gymvisual */}
-      <View style={styles.hero}>
-        <Ionicons name="play-circle-outline" size={36} color={colors.textMuted} />
-        <Text style={styles.heroText}>Video próximamente</Text>
-      </View>
+      {e.media.youtubeId ? (
+        <YouTubeVideo videoId={e.media.youtubeId} title={e.name.es} />
+      ) : (
+        <View style={styles.hero}>
+          <Ionicons name="play-circle-outline" size={36} color={colors.textMuted} />
+          <Text style={styles.heroText}>Video próximamente</Text>
+        </View>
+      )}
 
       <Text style={styles.title}>{e.name.es}</Text>
       <Text style={styles.body}>{e.description.es}</Text>

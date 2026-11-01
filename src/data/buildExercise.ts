@@ -1,6 +1,7 @@
 import type { EquipmentId, MuscleGroupId, MuscleId, RestrictionFlagId } from '@/domain/catalog';
 import { type BlockType, type Exercise, ExerciseSchema } from '@/domain/schema';
 import { GYMVISUAL_VIDEO_IDS } from './mediaSources';
+import { YOUTUBE_VIDEO_IDS } from './youtubeVideos';
 
 // Forma compacta para escribir el seed a mano. `buildExercise` la expande
 // al modelo completo `Exercise` y la valida con zod.
@@ -86,6 +87,7 @@ export function buildExercise(d: ExerciseInput): Exercise {
       provider: GYMVISUAL_VIDEO_IDS[d.id]
         ? { name: 'gymvisual', id: GYMVISUAL_VIDEO_IDS[d.id], style: 'basic_grey' }
         : null,
+      youtubeId: YOUTUBE_VIDEO_IDS[d.id] ?? null,
     },
     instructions: {
       steps: d.steps.map((s, i) => ({ order: i + 1, text: t(s), frame: i })),

@@ -55,6 +55,8 @@ export const MediaSchema = z.object({
     .object({ name: z.literal('gymvisual'), id: z.string(), style: z.enum(['basic_grey', 'full_color']) })
     .nullable()
     .default(null),
+  // Video de YouTube que se muestra en la ficha del ejercicio.
+  youtubeId: z.string().nullable().default(null),
 });
 
 export const KettlebellGuide = z.object({
