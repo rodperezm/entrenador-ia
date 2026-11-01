@@ -1,5 +1,6 @@
 import type { RestrictionFlagId } from '@/domain/catalog';
 import { buildExercise, type ExerciseInput } from './buildExercise';
+import { EXTRA_BATCH2 } from './exercises.extra.batch2';
 import { EXTRA_COOLDOWN } from './exercises.extra.cooldown';
 import { EXTRA_KB_BATCH1 } from './exercises.extra.kb-batch1';
 import { EXTRA_STRENGTH } from './exercises.extra.strength';
@@ -1267,7 +1268,14 @@ const ADDED_FLAGS: Record<string, RestrictionFlagId[]> = {
 const withFlags = (d: ExerciseInput): ExerciseInput =>
   ADDED_FLAGS[d.id] ? { ...d, flags: [...(d.flags ?? []), ...ADDED_FLAGS[d.id]] } : d;
 
-export const EXERCISES = [...defs, ...EXTRA_WARMUP_PREHAB, ...EXTRA_STRENGTH, ...EXTRA_KB_BATCH1, ...EXTRA_COOLDOWN]
+export const EXERCISES = [
+  ...defs,
+  ...EXTRA_WARMUP_PREHAB,
+  ...EXTRA_STRENGTH,
+  ...EXTRA_KB_BATCH1,
+  ...EXTRA_BATCH2,
+  ...EXTRA_COOLDOWN,
+]
   .map(withFlags)
   .map(buildExercise);
 export const EXERCISES_BY_ID = new Map(EXERCISES.map((e) => [e.id, e]));

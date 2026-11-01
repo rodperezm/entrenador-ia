@@ -1,5 +1,37 @@
 # Solicitudes de cotización: animaciones de ejercicios
 
+## 4. Gymvisual — tanda 2 (BORRADOR, sin enviar) · Estilo: Basic grey
+
+- **Antes de enviar:** revisar la lista actualizada y el pack de 263 videos de su correo del 30-10-2026, y quitar lo que ya venga incluido.
+- **Message:**
+
+```
+Hello Aliaksandr,
+
+Thank you for the updated list. We added 15 more exercises. Could you tell me which of these are included in the 263-video pack, or available separately, and their IDs?
+
+1. Kettlebell pullover (lying on the floor)
+2. Resistance band lat pulldown
+3. Band-assisted pull-up
+4. Kettlebell goblet carry
+5. Kettlebell bottoms-up carry
+6. Kettlebell around the world
+7. Kettlebell figure 8
+8. Kettlebell weighted crunch
+9. Hanging knee raise
+10. Kettlebell sumo squat
+11. Kettlebell thruster (one arm)
+12. Single-leg box squat (to a chair)
+13. Pistol squat
+14. Parallel bar dips
+15. Kettlebell long cycle (clean and jerk, one arm)
+
+Please also confirm the total price of the pack, whether it includes female versions, and the license terms in writing.
+
+Best regards,
+Rodrigo
+```
+
 ## 3. Gymvisual — seguimiento (ENVIADO el 29-10-2026 por el formulario de respuesta) · Estilo elegido: Basic grey
 
 - **Dónde:** link de respuesta de su correo del 28-10-2026: el link «responder» de su correo (no se guarda aquí: lleva un token privado)

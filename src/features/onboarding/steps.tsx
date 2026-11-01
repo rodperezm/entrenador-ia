@@ -88,7 +88,13 @@ export function IntroScreen({ onStart }: { onStart: () => void }) {
         </Text>
       </ScrollView>
       <Button label="Empezar" onPress={onStart} />
-      {CLOUD_BACKUP_READY && <Button label="Ya tengo cuenta" variant="ghost" onPress={() => router.push('/account')} />}
+      {CLOUD_BACKUP_READY && (
+        <Button
+          label="Ya tengo cuenta"
+          variant="ghost"
+          onPress={() => router.push({ pathname: '/account', params: { mode: 'existing' } })}
+        />
+      )}
     </View>
   );
 }

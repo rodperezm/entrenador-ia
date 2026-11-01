@@ -45,6 +45,7 @@ export const EQUIPMENT = {
   chair: 'Silla / banco',
   dumbbells: 'Mancuernas',
   pullup_bar: 'Barra de dominadas',
+  parallel_bars: 'Barras paralelas',
   resistance_band: 'Banda elástica',
 } as const;
 export type EquipmentId = keyof typeof EQUIPMENT;
@@ -55,6 +56,7 @@ export const PORTABLE_EQUIPMENT: EquipmentId[] = ['mat', 'kettlebell', 'dumbbell
 // Lo que puede haber fijo en un parque (el usuario marca qué hay en el suyo).
 export const PARK_EQUIPMENT: Partial<Record<EquipmentId, string>> = {
   pullup_bar: 'Barra de dominadas',
+  parallel_bars: 'Barras paralelas',
   chair: 'Banca',
 };
 export const PARK_EQUIPMENT_IDS = Object.keys(PARK_EQUIPMENT) as EquipmentId[];

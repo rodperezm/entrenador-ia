@@ -10,6 +10,7 @@ import { dayMinutes } from '@/domain/timeBudget';
 import { DAY_LONG, isFromPastWeek, isToday, staleDays } from '@/domain/week';
 import { countExercises, describeDayConfig } from '@/features/planner/describe';
 import { useGenerateWeek } from '@/features/planner/useGenerateWeek';
+import { WeekCard } from '@/features/planner/WeekCard';
 import { WeekStrip } from '@/features/planner/WeekStrip';
 import { CLOUD_BACKUP_READY } from '@/lib/cloudSync';
 import { useHistory } from '@/state/history';
@@ -86,6 +87,7 @@ export default function TodayScreen() {
       )}
 
       <TodayCard generating={generating} onGenerate={generate} />
+      <WeekCard generating={generating} onGenerate={generate} />
 
       {stale && !pendingWeek && (
         <Link href="/week" style={styles.warnLink}>
@@ -138,32 +140,16 @@ function TodayCard({ generating, onGenerate }: { generating: boolean; onGenerate
   let detail = describeDayConfig(cfg, profile.conditions.length > 0);
   let action: { label: string; onPress: () => void; ghost?: boolean } | null = null;
 
-  if (!plan?.days.length) {
-    title = 'Tu semana aún no tiene rutina';
-    detail = preparing
-      ? 'Días de técnica para tomar el ritmo antes del lunes.'
-      : 'La IA la arma con tu perfil y tus lesiones. Puede tardar hasta un minuto.';
-    action = {
-      label: preparing
-        ? 'Armar mi preparación'
-        : generating
-          ? 'La IA está armando tu semana…'
-          : 'Generar mi semana con IA',
-      onPress: onGenerate,
-    };
-  } else if (pendingWeek) {
-    title = preparing ? 'Arma tus días de preparación' : `Tu Semana ${cycle.week} está lista para armarse`;
-    detail = preparing
-      ? 'Días de técnica para tomar el ritmo antes del lunes.'
-      : 'La IA arma tu semana con lo que registraste: pesos, esfuerzo y molestias. Puede tardar hasta un minuto.';
-    action = {
-      label: generating
-        ? 'La IA está armando tu semana…'
-        : preparing
-          ? 'Armar mi preparación'
-          : `Armar mi Semana ${cycle.week} con IA`,
-      onPress: onGenerate,
-    };
+  const weekMissing = !plan?.days.length || pendingWeek;
+  // Sin semana armada, el recuadro semanal es el que lleva la acción.
+  const waitingWeek = weekMissing && !preparing;
+
+  if (weekMissing && preparing) {
+    title = 'Arma tus días de preparación';
+    detail = 'Días de técnica para tomar el ritmo antes del lunes.';
+    action = { label: 'Armar mi preparación', onPress: onGenerate };
+  } else if (waitingWeek && cfg.active) {
+    detail = 'Tu rutina de hoy aparece cuando armes la semana.';
   } else if (!cfg.active) {
     detail = 'Día de descanso. Recuperar también es parte del entrenamiento.';
   } else if (!dayPlan || stale) {
@@ -186,7 +172,7 @@ function TodayCard({ generating, onGenerate }: { generating: boolean; onGenerate
   }
 
   return (
-    <View style={styles.today}>
+    <View style={[styles.today, waitingWeek && styles.todayQuiet]}>
       <Text style={styles.todayTitle}>{title}</Text>
       <Text style={styles.todayDetail}>{detail}</Text>
       {action && (
@@ -210,6 +196,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.sm,
   },
+  todayQuiet: { borderColor: colors.border },
   todayTitle: { color: colors.text, fontSize: 20, fontWeight: '800' },
   todayDetail: { color: colors.textMuted, fontSize: 14, lineHeight: 20 },
   notice: { backgroundColor: colors.accentSoft, borderRadius: radius.md, padding: spacing.md, gap: spacing.xs },

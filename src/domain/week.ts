@@ -29,6 +29,28 @@ export const isFromPastWeek = (generatedAt: string, today = new Date()) =>
 export const fmtDayDate = (d: Date) =>
   `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
 
+const MONTHS = [
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
+];
+
+// «lunes 2 de noviembre», el lunes de la semana que viene.
+export function nextMondayLabel(today = new Date()) {
+  const monday = dayDate('mon', today);
+  const next = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 7);
+  return `lunes ${next.getDate()} de ${MONTHS[next.getMonth()]}`;
+}
+
 // Semana inicial: lunes, miércoles y viernes de cuerpo completo.
 const TRAINING_DAYS: DayOfWeek[] = ['mon', 'wed', 'fri'];
 

@@ -14,7 +14,7 @@ export const A_STAGES = [
   ['kb_deadlift', 'kb_sumo_deadlift'],
   ['kb_dead_stop_swing'],
   ['kb_swing_2h'],
-  ['kb_swing_1h', 'kb_clean', 'kb_snatch', 'kb_high_pull', 'kb_push_press', 'kb_clean_press', 'kb_jerk'],
+  ['kb_swing_1h', 'kb_clean', 'kb_snatch', 'kb_high_pull', 'kb_push_press', 'kb_clean_press', 'kb_jerk', 'kb_long_cycle'],
 ];
 const START_STAGE: Record<Level, number> = { beginner: 1, intermediate: 2, advanced: 3 };
 const SESSIONS_TO_ADVANCE = 2;
