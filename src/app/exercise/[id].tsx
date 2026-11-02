@@ -8,6 +8,7 @@ import { EXERCISES_BY_ID } from '@/data/exercises.seed';
 import { EQUIPMENT, MUSCLES, RESTRICTION_FLAGS } from '@/domain/catalog';
 import { BLOCK_LABELS, GRIP_LABELS } from '@/domain/labels';
 import type { Exercise } from '@/domain/schema';
+import { sideLabel } from '@/domain/sides';
 import { colors, radius, spacing } from '@/theme';
 
 export default function ExerciseDetail() {
@@ -50,7 +51,7 @@ export default function ExerciseDetail() {
       <View style={styles.statsRow}>
         <Stat label="Series" value={String(e.prescription.sets)} />
         <Stat
-          label={e.prescription.mode === 'time' ? 'Tiempo' : 'Reps'}
+          label={[e.prescription.mode === 'time' ? 'Tiempo' : 'Reps', sideLabel(e.id)].filter(Boolean).join(' ')}
           value={
             e.prescription.mode === 'time'
               ? `${e.prescription.durationSec}s`

@@ -1,3 +1,4 @@
+import { markLabel, markScore } from './finisher';
 import type { Exercise, SetLog, WorkoutSession } from './schema';
 import { painOf } from './schema';
 import { strengthRole } from './strength';
@@ -17,6 +18,8 @@ export type ExerciseProgress = {
   sessions: number;
 };
 
+export type AmrapProgress = { id: string; name: string; first: string; last: string; improved: boolean; times: number };
+
 export type PainNote = { id: string; name: string; level: number; date: Date };
 
 export type ProgressSummary = {
@@ -26,6 +29,7 @@ export type ProgressSummary = {
   weeksInARow: number;
   exercises: ExerciseProgress[];
   pains: PainNote[];
+  amrap: AmrapProgress[];
 };
 
 // El mejor esfuerzo de un ejercicio en una sesión: primero el peso, luego reps o segundos.
@@ -66,7 +70,7 @@ export function progressSummary(history: WorkoutSession[], exercises: Exercise[]
   for (const s of sessions) {
     const done = s.sets.filter((l) => {
       const e = byId.get(l.exerciseId);
-      return e?.blockTypes.includes('main_strength') && strengthRole(e) && (l.repsDone || l.durationSec);
+      return e?.blockTypes.includes('main_strength') && strengthRole(e) && !l.format && (l.repsDone || l.durationSec);
     });
     for (const id of new Set(done.map((l) => l.exerciseId))) {
       const best = bestSet(done.filter((l) => l.exerciseId === id));
@@ -99,6 +103,26 @@ export function progressSummary(history: WorkoutSession[], exercises: Exercise[]
     }
   }
 
+  // Cada desafío se compara consigo mismo: mismos ejercicios y mismos minutos.
+  const challenges = new Map<string, WorkoutSession['amrap'][]>();
+  for (const s of sessions) {
+    if (!s.amrap) continue;
+    const key = `${s.amrap.minutes}:${s.amrap.exerciseIds.join(',')}`;
+    challenges.set(key, [...(challenges.get(key) ?? []), s.amrap]);
+  }
+  const amrap = [...challenges.entries()].map(([id, marks]) => {
+    const first = marks[0]!;
+    const last = marks[marks.length - 1]!;
+    return {
+      id,
+      name: `${last.minutes} min: ${last.exerciseIds.map((e) => byId.get(e)?.name.es ?? e).join(', ')}`,
+      first: markLabel(first),
+      last: markLabel(last),
+      improved: markScore(last) > markScore(first),
+      times: marks.length,
+    };
+  });
+
   return {
     sessions: sessions.length,
     minutes: Math.round(
@@ -108,5 +132,6 @@ export function progressSummary(history: WorkoutSession[], exercises: Exercise[]
     weeksInARow: weekStreak(mondays, now),
     exercises: list.sort((a, b) => Number(b.improved) - Number(a.improved) || b.sessions - a.sessions),
     pains,
+    amrap,
   };
 }

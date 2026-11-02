@@ -22,7 +22,13 @@ export const DEFAULT_TABATA: TabataConfig = {
 };
 
 export type PhaseKind = 'prep' | 'work' | 'rest' | 'roundRest' | 'cool';
-export type Phase = { kind: PhaseKind; durationSec: number; round?: number; exercise?: number };
+export type Phase = {
+  kind: PhaseKind;
+  durationSec: number;
+  round?: number;
+  exercise?: number;
+  quiet?: boolean; // sin tic-tac: solo la cuenta final (AMRAP)
+};
 
 export function buildTabata(c: TabataConfig): Phase[] {
   const p: Phase[] = [];

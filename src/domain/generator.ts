@@ -1,6 +1,6 @@
 import { equipmentAt, MEDICAL_CONDITIONS, type MuscleGroupId } from './catalog';
 import { type CycleInfo, cycleInfo, previousBlockExercises } from './cycle';
-import { filterExercisesForUser } from './filter';
+import { filterExercisesForUser, weightsFor } from './filter';
 import type {
   DayConfig,
   DayPlan,
@@ -93,7 +93,7 @@ function prescribe(e: Exercise, profile: LocalProfile, rationale: string | null)
 // entre los que el usuario tiene; si todos son más pesados, el más liviano.
 export function pickWeight(e: Exercise, profile: LocalProfile): number | null {
   const guide = e.kettlebellGuide;
-  const owned = profile.kettlebellWeightsKg;
+  const owned = weightsFor(e, profile);
   if (!guide || !e.equipment.required.includes('kettlebell') || owned.length === 0) return null;
   const target = guide.suggestedWeightKg[profile.level];
   const below = owned.filter((w) => w <= target);
@@ -392,7 +392,7 @@ export const hadPain = (id: string, history: WorkoutSession[]) => {
 };
 
 export const lastWeightOf = (id: string, history: WorkoutSession[]) =>
-  history.flatMap((s) => s.sets).find((l) => l.exerciseId === id && l.weightKg != null)?.weightKg ?? null;
+  history.flatMap((s) => s.sets).find((l) => l.exerciseId === id && l.weightKg != null && !l.format)?.weightKg ?? null;
 
 // Avanzado: el remate rota su forma de densidad en cada bloque, y la semana de máxima intensidad la duplica.
 function densityFinisher(slot: ExerciseSlot, e: Exercise, cycle: CycleInfo): ExerciseSlot {
@@ -448,7 +448,7 @@ function applyCycleWeek(
   if (profile.level === 'advanced' && slot.role === 'C' && e.complexityLevel <= DENSITY_MAX_COMPLEXITY) {
     return densityFinisher(slot, e, cycle);
   }
-  const heavier =profile.kettlebellWeightsKg.filter((w) => w > (slot.weightKg ?? Infinity)).sort((a, b) => a - b)[0];
+  const heavier = weightsFor(e, profile).filter((w) => w > (slot.weightKg ?? Infinity)).sort((a, b) => a - b)[0];
   const minReps = e.prescription.repRange?.min ?? 1;
   if (cycle.week === 3) {
     // Principiante: la semana de máxima intensidad es técnica, nunca más peso (ni el que subiría por progresión).

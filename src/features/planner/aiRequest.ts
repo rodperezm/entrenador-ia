@@ -86,6 +86,8 @@ export function buildAiRequest(
       complexity: e.complexityLevel,
       kettlebell: e.equipment.required.includes('kettlebell'),
       equipment: e.equipment.required,
+      laterality: e.laterality,
+      kettlebells: e.kettlebellCount,
       chain: e.progression.chainId,
       defaults: {
         sets: e.prescription.sets,
@@ -125,6 +127,8 @@ export function buildAiRequest(
           // Cómo respondió el usuario (según el tipo de ejercicio), además del RPE.
           effort: effortNote(kindOf(id), l.rpe).replace(' · ', '') || null,
           pain: ['nada', 'leve', 'moderado', 'fuerte'][painOf(l)],
+          ...(l.format ? { format: l.format } : {}),
+          ...(l.painSide ? { painSide: { left: 'izquierdo', right: 'derecho', both: 'ambos' }[l.painSide] } : {}),
         })),
     }));
   });
@@ -154,6 +158,7 @@ export function buildAiRequest(
       heightCm: profile.heightCm,
       equipment: profile.equipment,
       kettlebellWeightsKg: profile.kettlebellWeightsKg,
+      kettlebellPairsKg: profile.kettlebellPairsKg,
       conditions: profile.conditions.map((c) => ({
         name: MEDICAL_CONDITIONS.find((m) => m.id === c.conditionId)?.name ?? c.conditionId,
         avoid: c.activeFlags.map((f) => RESTRICTION_FLAGS[f]),
@@ -175,6 +180,11 @@ export function buildAiRequest(
       })),
     candidates,
     history: lastByExercise,
+    // Cierres recientes, para variar y no repetir AMRAP en la semana.
+    recentFinishers: history.slice(0, HISTORY_SESSIONS).flatMap((s) => {
+      const format = s.sets.find((l) => l.format)?.format;
+      return format ? [{ date: s.finishedAt.slice(0, 10), format }] : [];
+    }),
     body,
   };
 }

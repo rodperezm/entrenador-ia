@@ -1,5 +1,6 @@
 import type { CycleInfo } from './cycle';
 import type { DayConfig, ExerciseSlot, LocalProfile, PlannedBlock } from './schema';
+import { isPerSide } from './sides';
 import type { Intensity } from './strength';
 import { DAY_PARTS, type DayPart, GENTLE_MAX } from './week';
 
@@ -34,11 +35,13 @@ const GENTLE_MIN_SETS = 2;
 const MAX_SETS = { warmup: 2, prehab: 3, cooldown: 3 };
 const MAX_HOLD_SEC = { warmup: 45, prehab: 45, cooldown: 60 };
 const HOLD_STEP_SEC = 15;
+const SIDE_CHANGE_SEC = 5;
 
 // Duración aproximada de un ejercicio prescrito (unos 4 s por repetición y
-// 30 s para cambiar de ejercicio).
+// 30 s para cambiar de ejercicio). A un lado, cada serie se hace dos veces.
 export const slotSeconds = (s: ExerciseSlot) => {
-  const perSet = s.durationSec ?? (s.reps ? s.reps * 4 : 45);
+  const perSide = s.durationSec ?? (s.reps ? s.reps * 4 : 45);
+  const perSet = isPerSide(s.exerciseId) ? perSide * 2 + SIDE_CHANGE_SEC : perSide;
   return s.sets * perSet + (s.sets - 1) * s.restSec + 30;
 };
 

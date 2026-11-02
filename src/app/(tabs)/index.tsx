@@ -1,10 +1,12 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Link, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { AppState, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui';
 import { cycleInfo } from '@/domain/cycle';
-import { EXERCISES_BY_ID } from '@/data/exercises.seed';
+import { EXERCISES, EXERCISES_BY_ID } from '@/data/exercises.seed';
+import { finisherOffer } from '@/domain/finisher';
 import { strongPainIds } from '@/domain/generator';
 import { dayMinutes } from '@/domain/timeBudget';
 import { DAY_LONG, isFromPastWeek, isToday, staleDays } from '@/domain/week';
@@ -139,6 +141,8 @@ function TodayCard({ generating, onGenerate }: { generating: boolean; onGenerate
   let title = `Hoy, ${DAY_LONG[cfg.day].toLowerCase()}`;
   let detail = describeDayConfig(cfg, profile.conditions.length > 0);
   let action: { label: string; onPress: () => void; ghost?: boolean } | null = null;
+  let tooLong = false;
+  let closingNote: string | null = null;
 
   const weekMissing = !plan?.days.length || pendingWeek;
   // Sin semana armada, el recuadro semanal es el que lleva la acción.
@@ -164,7 +168,30 @@ function TodayCard({ generating, onGenerate }: { generating: boolean; onGenerate
     detail = `Marcaste dolor fuerte en ${painfulToday.join(', ')}. Rehaz este día para cambiarlo por uno más suave.`;
     action = { label: 'Revisar la rutina de hoy', onPress: openDay };
   } else {
-    detail = `${countExercises(dayPlan)} ejercicios · ≈ ${dayMinutes(dayPlan.blocks)} min`;
+    const minutes = dayMinutes(dayPlan.blocks);
+    detail = `${countExercises(dayPlan)} ejercicios · ≈ ${minutes} min`;
+    tooLong = minutes > cfg.availableMinutes && !dayPlan.timeNoticeDismissed;
+    const closing = finisherOffer({
+      slots: dayPlan.blocks
+        .filter((b) => b.type === 'main_strength')
+        .flatMap((b) => b.slots.map((slot, i) => ({ key: `c${i}`, slot })))
+        .filter((s) => s.slot.role === 'C'),
+      dayExerciseIds: dayPlan.blocks.flatMap((b) => b.slots.map((s) => s.exerciseId)),
+      location: dayPlan.location,
+      profile,
+      exercises: EXERCISES,
+      history: sessions,
+      cycle,
+      advice: dayPlan.finisher,
+    });
+    if (closing) {
+      closingNote =
+        closing.suggested === 'hiit'
+          ? `Hoy te sugerimos cerrar con HIIT · ≈ ${closing.hiit.minutes} min`
+          : closing.suggested === 'amrap'
+            ? `Hoy te sugerimos cerrar con AMRAP · ${closing.amrap.minutes} min`
+            : 'Hoy puedes cerrar con HIIT o AMRAP';
+    }
     action = {
       label: 'Empezar entrenamiento',
       onPress: () => router.push({ pathname: '/workout/[day]', params: { day: cfg.day } }),
@@ -175,6 +202,20 @@ function TodayCard({ generating, onGenerate }: { generating: boolean; onGenerate
     <View style={[styles.today, waitingWeek && styles.todayQuiet]}>
       <Text style={styles.todayTitle}>{title}</Text>
       <Text style={styles.todayDetail}>{detail}</Text>
+      {tooLong && (
+        <Link href={{ pathname: '/day/[day]', params: { day: cfg.day } }} style={styles.warnLink}>
+          Dura más de tus {cfg.availableMinutes} min. Ajústala ›
+        </Link>
+      )}
+      {closingNote && (
+        <View style={styles.closing}>
+          <Ionicons name="flash-outline" size={18} color={colors.accent} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.closingText}>{closingNote}</Text>
+            <Text style={styles.closingHint}>Lo eliges al llegar al bloque C.</Text>
+          </View>
+        </View>
+      )}
       {action && (
         <Button
           label={action.label}
@@ -197,6 +238,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   todayQuiet: { borderColor: colors.border },
+  closing: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs },
+  closingText: { color: colors.text, fontSize: 14, fontWeight: '700' },
+  closingHint: { color: colors.textMuted, fontSize: 13 },
   todayTitle: { color: colors.text, fontSize: 20, fontWeight: '800' },
   todayDetail: { color: colors.textMuted, fontSize: 14, lineHeight: 20 },
   notice: { backgroundColor: colors.accentSoft, borderRadius: radius.md, padding: spacing.md, gap: spacing.xs },

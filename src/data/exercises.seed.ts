@@ -2,6 +2,7 @@ import type { RestrictionFlagId } from '@/domain/catalog';
 import { buildExercise, type ExerciseInput } from './buildExercise';
 import { EXTRA_BATCH2 } from './exercises.extra.batch2';
 import { EXTRA_COOLDOWN } from './exercises.extra.cooldown';
+import { EXTRA_DOUBLE } from './exercises.extra.double';
 import { EXTRA_KB_BATCH1 } from './exercises.extra.kb-batch1';
 import { EXTRA_STRENGTH } from './exercises.extra.strength';
 import { EXTRA_WARMUP_PREHAB } from './exercises.extra.warmup-prehab';
@@ -1274,6 +1275,7 @@ export const EXERCISES = [
   ...EXTRA_STRENGTH,
   ...EXTRA_KB_BATCH1,
   ...EXTRA_BATCH2,
+  ...EXTRA_DOUBLE,
   ...EXTRA_COOLDOWN,
 ]
   .map(withFlags)

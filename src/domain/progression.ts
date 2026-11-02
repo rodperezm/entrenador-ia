@@ -1,4 +1,5 @@
 import { effortKind } from './effort';
+import { weightsFor } from './filter';
 import {
   type Exercise,
   type ExerciseSlot,
@@ -18,7 +19,8 @@ const TIME_STEP_SEC = 5;
 
 function lastLogs(exerciseId: string, history: WorkoutSession[]): SetLog[] {
   for (const s of history) {
-    const logs = s.sets.filter((l) => l.exerciseId === exerciseId);
+    // En HIIT y AMRAP cambian el peso y la fatiga: solo importa si hubo dolor.
+    const logs = s.sets.filter((l) => l.exerciseId === exerciseId && (!l.format || painOf(l) > 0));
     if (logs.length) return logs;
   }
   return [];
@@ -48,7 +50,7 @@ export function progressSlot(
   const logs = lastLogs(e.id, history);
   if (!logs.length) return slot;
 
-  const owned = profile.kettlebellWeightsKg;
+  const owned = weightsFor(e, profile);
   const lastWeight = logs.find((l) => l.weightKg != null)?.weightKg ?? slot.weightKg;
   const rpes = logs.map((l) => l.rpe).filter((v): v is number => v != null);
   const avgRpe = rpes.length ? rpes.reduce((a, b) => a + b, 0) / rpes.length : null;

@@ -1,6 +1,7 @@
 import { equipmentAt } from './catalog';
 import { cycleInfo } from './cycle';
-import { generateDayByRules, hadPain, lastWeightOf } from './generator';
+import { isUnsafeWeight } from './filter';
+import { generateDayByRules, hadPain, lastWeightOf, pickWeight } from './generator';
 import { progressSlot, wasTooHard } from './progression';
 import type {
   BlockType,
@@ -51,10 +52,14 @@ function changedWithoutReason(day: DayPlan, cfg: DayConfig, input: GuardInput) {
   return slots.filter((s) => !fixed.includes(s.exerciseId)).length > allowedChanges;
 }
 
-function limitLoad(slot: ExerciseSlot, input: GuardInput): ExerciseSlot {
+function limitLoad(proposed: ExerciseSlot, input: GuardInput): ExerciseSlot {
   const { profile, exercises, history } = input;
-  const e = exercises.find((x) => x.id === slot.exerciseId);
-  if (!e) return slot;
+  const e = exercises.find((x) => x.id === proposed.exerciseId);
+  if (!e) return proposed;
+  // Con dos kettlebells o carga delicada, el peso debe ser uno que el ejercicio admita.
+  const slot = isUnsafeWeight(e, profile, proposed.weightKg)
+    ? { ...proposed, weightKg: pickWeight(e, profile) }
+    : proposed;
   if (hadPain(e.id, history) || wasTooHard(e.id, history)) {
     const safe = progressSlot(slot, e, profile, history);
     const limited = {

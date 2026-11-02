@@ -2,7 +2,7 @@ import { BebasNeue_400Regular, useFonts } from '@expo-google-fonts/bebas-neue';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useStayAwake } from '@/lib/useStayAwake';
 import { Link, router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BodyMap } from '@/components/BodyMap';
@@ -10,15 +10,31 @@ import { Button, CheckRow, Stepper } from '@/components/ui';
 import { EXERCISES, EXERCISES_BY_ID } from '@/data/exercises.seed';
 import { averageMet, kcalRangeLabel, latestWeight } from '@/domain/calories';
 import { equipmentAt } from '@/domain/catalog';
-import { filterExercisesForUser } from '@/domain/filter';
+import { filterExercisesForUser, weightsFor } from '@/domain/filter';
 import { isGentle } from '@/domain/generator';
+import { cycleInfo } from '@/domain/cycle';
+import { finisherOffer, type FinisherExercise, type FinisherOffer } from '@/domain/finisher';
 import { EFFORT_OPTIONS, EFFORT_QUESTION, effortKind } from '@/domain/effort';
 import { BLOCK_LABELS } from '@/domain/labels';
 import { strengthInfo } from '@/domain/strength';
-import { type BlockType, DayOfWeek, type ExerciseSlot, type PainLevel, painOf, type SetLog } from '@/domain/schema';
+import {
+  type BlockType,
+  DayOfWeek,
+  type ExerciseSlot,
+  type PainLevel,
+  type PainSide,
+  painOf,
+  type SetLog,
+  type WorkoutSession,
+} from '@/domain/schema';
 import { fmtClock } from '@/domain/session';
+import { isPerSide, kettlebellCount, sideLabel, weightLabel } from '@/domain/sides';
 import { DAY_LONG } from '@/domain/week';
 import { slotLabel } from '@/features/planner/describe';
+import { AmrapBlock, type AmrapResult } from '@/features/workout/AmrapBlock';
+import type { FinisherFeedbackResult } from '@/features/workout/FinisherFeedback';
+import { HiitBlock, type HiitResult } from '@/features/workout/HiitBlock';
+import { PAIN_OPTIONS, PainPicker, SidePicker } from '@/features/workout/PainControls';
 import { useCues } from '@/features/workout/useCues';
 import { useBody } from '@/state/body';
 import { useHistory } from '@/state/history';
@@ -26,12 +42,11 @@ import { usePlan } from '@/state/plan';
 import { useProfile } from '@/state/profile';
 import { colors, radius, spacing } from '@/theme';
 
-const PAIN_OPTIONS: { label: string; level: PainLevel }[] = [
-  { label: 'Nada', level: 0 },
-  { label: 'Leve', level: 1 },
-  { label: 'Moderado', level: 2 },
-  { label: 'Fuerte', level: 3 },
-];
+const SIDE_NOTE: Record<PainSide, string> = {
+  left: ' (lado izquierdo)',
+  right: ' (lado derecho)',
+  both: ' (ambos lados)',
+};
 const exName = (id: string) => EXERCISES_BY_ID.get(id)?.name.es ?? id;
 
 type Item = { key: string; block: BlockType; slot: ExerciseSlot };
@@ -54,7 +69,7 @@ export default function WorkoutScreen() {
   const [fontsLoaded] = useFonts({ BebasNeue_400Regular });
   const day = DayOfWeek.safeParse(useLocalSearchParams<{ day: string }>().day).data;
   const { plan } = usePlan();
-  const { addSession } = useHistory();
+  const { sessions, addSession } = useHistory();
   const { profile } = useProfile();
   const { records } = useBody();
   const dayPlan = plan?.days.find((d) => d.day === day);
@@ -75,10 +90,13 @@ export default function WorkoutScreen() {
   const [skipped, setSkipped] = useState<string[]>([]);
   // Dolor con lesión conocida: nivel por ejercicio, hoja de opciones y ejercicios cambiados.
   const [itemPain, setItemPain] = useState<Record<string, PainLevel>>({});
+  const [painSides, setPainSides] = useState<Record<string, PainSide>>({});
   const [painSheet, setPainSheet] = useState<'levels' | PainLevel | null>(null);
   const [painAsked, setPainAsked] = useState(false);
   const [replacements, setReplacements] = useState<Record<string, Item>>({});
   const [showAll, setShowAll] = useState(false);
+  const [closing, setClosing] = useState<{ format: 'hiit' | 'amrap'; offer: FinisherOffer } | null>(null);
+  const amrapResult = useRef<WorkoutSession['amrap']>(undefined);
   const [finishedAt, setFinishedAt] = useState<number | null>(null);
   const [confirmEnd, setConfirmEnd] = useState(false);
   const lastCount = useRef<number | null>(null);
@@ -130,7 +148,9 @@ export default function WorkoutScreen() {
     // próxima rutina lo cambie o lo alivie).
     const withPain = doneLogs.map((l) => {
       const level = Math.max(l.painLevel ?? 0, itemPain[l.itemKey] ?? 0) as PainLevel;
-      return level ? { ...l, painLevel: level, painFlag: level >= 2 } : l;
+      return level
+        ? { ...l, painLevel: level, painFlag: level >= 2, painSide: painSides[l.itemKey] ?? l.painSide ?? null }
+        : l;
     });
     const painOnly = Object.entries(itemPain)
       .filter(([key, level]) => level > 0 && !withPain.some((l) => l.itemKey === key))
@@ -149,6 +169,7 @@ export default function WorkoutScreen() {
             rpe: null,
             painFlag: level >= 2,
             painLevel: level,
+            painSide: painSides[key] ?? null,
           },
         ];
       });
@@ -168,6 +189,7 @@ export default function WorkoutScreen() {
       finishedAt: new Date(end).toISOString(),
       completed: allLogs.length >= totalSets,
       sets: allLogs.map(({ itemKey: _k, ...l }) => l),
+      ...(amrapResult.current ? { amrap: amrapResult.current } : {}),
     });
   };
 
@@ -191,11 +213,14 @@ export default function WorkoutScreen() {
   const ov = overrides[item.key] ?? {};
   const reps = ov.reps ?? item.slot.reps ?? 0;
   const seconds = ov.seconds ?? item.slot.durationSec ?? 30;
-  const owned = profile?.kettlebellWeightsKg ?? [];
+  const owned = ex && profile ? weightsFor(ex, profile) : [];
   const usesKb = !!ex?.equipment.required.includes('kettlebell') && owned.length > 0;
   const weight = ov.weight !== undefined ? ov.weight : item.slot.weightKg;
   const painHere = (p: PainLevel | null) => Math.max(p ?? 0, itemPain[item.key] ?? 0) as PainLevel;
   const setOv = (patch: Override) => setOverrides((o) => ({ ...o, [item.key]: { ...o[item.key], ...patch } }));
+  const askSide = isPerSide(item.slot.exerciseId);
+  const painSide = painSides[item.key] ?? null;
+  const setPainSide = (side: PainSide) => setPainSides((s) => ({ ...s, [item.key]: side }));
 
   // Siguiente ejercicio pendiente después del actual (o el primero pendiente desde el inicio).
   const nextOpen = (from: number, closed: (it: Item) => boolean) => {
@@ -329,7 +354,8 @@ export default function WorkoutScreen() {
     const alt = findAlternative();
     if (!alt) return;
     const p = alt.prescription;
-    const lower = owned.filter((w) => w < (weight ?? Infinity)).sort((a, b) => b - a)[0] ?? owned[0] ?? null;
+    const altWeights = profile ? weightsFor(alt, profile) : [];
+    const lower = altWeights.filter((w) => w < (weight ?? Infinity)).sort((a, b) => b - a)[0] ?? altWeights[0] ?? null;
     const replacement: Item = {
       key: `${item.key}-alt`,
       block: item.block,
@@ -357,7 +383,108 @@ export default function WorkoutScreen() {
     advance(logs, nextSkipped);
   };
 
-  const target = timed ? `${seconds} s` : `${reps} reps`;
+  // Bloque C sin empezar: se puede cerrar con un circuito HIIT o un desafío AMRAP.
+  const pendingC = items.filter(
+    (it) => it.block === 'main_strength' && it.slot.role === 'C' && !isClosed(it) && setsDone(it.key) === 0,
+  );
+  const offer =
+    profile && phase === 'work' && pendingC.some((it) => it.key === item.key)
+      ? finisherOffer({
+          slots: pendingC,
+          dayExerciseIds: items.map((it) => it.slot.exerciseId),
+          location: dayPlan.location,
+          profile,
+          exercises: EXERCISES,
+          history: sessions,
+          cycle: cycleInfo(sessions, profile.level),
+          advice: dayPlan.finisher,
+        })
+      : null;
+
+  // HIIT y AMRAP se registran como series aparte: no suben cargas, pero su dolor cuenta.
+  const saveClosing = (
+    format: 'hiit' | 'amrap',
+    sets: { exercise: FinisherExercise; setNo: number; reps: number | null; seconds: number | null }[],
+    feedback: FinisherFeedbackResult,
+  ) => {
+    const newLogs = sets.map(({ exercise, setNo, reps: repsDone, seconds: durationSec }) => {
+      const hurt = exercise.exerciseId === feedback.painExerciseId;
+      const level = hurt ? (feedback.pain ?? 0) : 0;
+      return {
+        itemKey: exercise.key,
+        exerciseId: exercise.exerciseId,
+        setNo,
+        targetReps: null,
+        repsDone,
+        durationSec,
+        weightKg: exercise.weightKg,
+        rpe: feedback.rpe,
+        painFlag: level >= 2,
+        painLevel: level,
+        painSide: hurt ? feedback.painSide : null,
+        format,
+      };
+    });
+    const nextLogs = [...logs, ...newLogs];
+    const nextSkipped = [...skipped, ...(closing?.offer.hiit.exercises.map((e) => e.key) ?? [])];
+    setLogs(nextLogs);
+    setSkipped(nextSkipped);
+    setClosing(null);
+    advance(nextLogs, nextSkipped);
+  };
+
+  const finishHiit = (result: HiitResult) => {
+    const workSec = closing?.offer.hiit.config.workSec ?? null;
+    const sets = result.sets.map(({ exercise, round }) => ({ exercise, setNo: round, reps: null, seconds: workSec }));
+    saveClosing('hiit', sets, result);
+  };
+
+  const finishAmrap = (result: AmrapResult) => {
+    const amrap = closing?.offer.amrap;
+    if (!amrap) return;
+    amrapResult.current = {
+      exerciseIds: amrap.exercises.map((e) => e.exerciseId),
+      minutes: amrap.minutes,
+      rounds: result.rounds,
+      extraReps: result.extraReps,
+    };
+    // La ronda incompleta queda en la marca; en las series van las rondas completas.
+    const sets = Array.from({ length: Math.max(1, result.rounds) }, (_, i) =>
+      amrap.exercises
+        .slice(0, result.rounds ? undefined : 1)
+        .map((exercise) => ({ exercise, setNo: i + 1, reps: exercise.reps, seconds: exercise.seconds })),
+    ).flat();
+    saveClosing('amrap', sets, result);
+  };
+
+  if (closing?.format === 'hiit') {
+    return (
+      <HiitBlock
+        offer={closing.offer.hiit}
+        cues={cues}
+        onFinish={finishHiit}
+        onCancel={() => setClosing(null)}
+        topInset={insets.top}
+        bottomInset={insets.bottom}
+      />
+    );
+  }
+
+  if (closing?.format === 'amrap') {
+    return (
+      <AmrapBlock
+        offer={closing.offer.amrap}
+        cues={cues}
+        onFinish={finishAmrap}
+        onCancel={() => setClosing(null)}
+        topInset={insets.top}
+        bottomInset={insets.bottom}
+      />
+    );
+  }
+
+  const side = sideLabel(item.slot.exerciseId);
+  const target = `${timed ? `${seconds} s` : `${reps} reps`}${side ? ` ${side}` : ''}`;
   const position = items.filter(isClosed).length + 1;
   const barOpen = confirmEnd || phase === 'rest' || painSheet != null;
   const clockSize =
@@ -374,7 +501,7 @@ export default function WorkoutScreen() {
         <View style={{ alignItems: 'center' }}>
           <Text style={styles.topTitle}>{DAY_LONG[day]}</Text>
           <Text style={styles.topSub}>
-            {fmtClock((now - startedAt) / 1000)} · {logs.length}/{totalSets} series
+            {fmtClock((now - startedAt) / 1000)} · {Math.min(logs.length, totalSets)}/{totalSets} series
           </Text>
         </View>
         <View style={styles.topRight}>
@@ -458,6 +585,28 @@ export default function WorkoutScreen() {
             </View>
           )}
 
+          {offer && (
+            <View style={styles.hiitCard}>
+              <Text style={styles.panelTitle}>
+                {offer.suggested === 'normal'
+                  ? '¿Cómo quieres cerrar?'
+                  : `Hoy te sugerimos ${offer.suggested === 'hiit' ? 'HIIT' : 'AMRAP'}`}
+              </Text>
+              <Text style={styles.hint}>{offer.reason}</Text>
+              <Button
+                label={`HIIT · ${offer.hiit.config.rounds} rondas · ≈ ${offer.hiit.minutes} min`}
+                variant={offer.suggested === 'hiit' ? 'primary' : 'secondary'}
+                onPress={() => setClosing({ format: 'hiit', offer })}
+              />
+              <Button
+                label={`AMRAP · ${offer.amrap.minutes} min`}
+                variant={offer.suggested === 'amrap' ? 'primary' : 'secondary'}
+                onPress={() => setClosing({ format: 'amrap', offer })}
+              />
+              <Text style={styles.hint}>O sigue normal con el ejercicio de abajo.</Text>
+            </View>
+          )}
+
           {phase === 'feedback' ? (
             <View style={styles.panel}>
               <Text style={styles.panelTitle}>¡Listo! {EFFORT_QUESTION[kind === 'hold' ? 'hold' : 'reps']}</Text>
@@ -488,6 +637,7 @@ export default function WorkoutScreen() {
                 pain={pain}
                 onPain={setPain}
               />
+              {askSide && (pain ?? 0) > 0 && <SidePicker side={painSide} onSide={setPainSide} />}
               <Button label={upcoming == null ? 'Terminar' : 'Continuar'} onPress={() => confirmFeedback()} />
               {pain === 3 && upcoming != null && (
                 <Button label="Terminar por hoy" variant="ghost" onPress={() => confirmFeedback(true)} />
@@ -504,13 +654,19 @@ export default function WorkoutScreen() {
               </Text>
               <Text style={styles.target}>
                 {target}
-                {usesKb && weight ? ` · ${weight} kg` : ''}
+                {usesKb && weight ? ` · ${weightLabel(item.slot.exerciseId, weight)}` : ''}
               </Text>
+              {isPerSide(item.slot.exerciseId) && (
+                <Text style={styles.sideHint}>Termina un lado, cambia y marca «{kind === 'none' ? 'Hecho' : 'Hecha'}» al final.</Text>
+              )}
 
               {adjusting && (
                 <View style={{ gap: spacing.sm }}>
                   <View style={styles.logRow}>
-                    <Text style={styles.label}>{timed ? 'Segundos' : 'Repeticiones'}</Text>
+                    <Text style={styles.label}>
+                      {timed ? 'Segundos' : 'Repeticiones'}
+                      {side ? ` ${side}` : ''}
+                    </Text>
                     {timed ? (
                       <Stepper
                         value={seconds}
@@ -526,7 +682,9 @@ export default function WorkoutScreen() {
                   </View>
                   {usesKb && (
                     <View style={styles.logRow}>
-                      <Text style={styles.label}>Peso (kg)</Text>
+                      <Text style={styles.label}>
+                        {kettlebellCount(item.slot.exerciseId) === 2 ? 'Peso de cada una (kg)' : 'Peso (kg)'}
+                      </Text>
                       <View style={styles.chips}>
                         {owned.map((kg) => (
                           <Pressable
@@ -551,6 +709,7 @@ export default function WorkoutScreen() {
                   onPain={setPain}
                 />
               )}
+              {kind === 'none' && askSide && (pain ?? 0) > 0 && <SidePicker side={painSide} onSide={setPainSide} />}
 
               <Pressable onPress={markDone} style={styles.doneBtn}>
                 <Ionicons name="checkmark" size={28} color={colors.onAccent} />
@@ -599,6 +758,7 @@ export default function WorkoutScreen() {
           {painSheet != null && !confirmEnd ? (
             <PainSheet
               sheet={painSheet}
+              sidePicker={askSide ? <SidePicker side={painSide} onSide={setPainSide} /> : null}
               canSwap={findAlternative() != null}
               onLevel={choosePain}
               onLighten={lighten}
@@ -672,6 +832,7 @@ export default function WorkoutScreen() {
 // Qué hacer cuando duele, con una lesión conocida: cambiar, aliviar o parar.
 function PainSheet({
   sheet,
+  sidePicker,
   canSwap,
   onLevel,
   onLighten,
@@ -681,6 +842,7 @@ function PainSheet({
   onClose,
 }: {
   sheet: 'levels' | PainLevel;
+  sidePicker: ReactNode;
   canSwap: boolean;
   onLevel: (l: PainLevel) => void;
   onLighten: () => void;
@@ -708,6 +870,7 @@ function PainSheet({
       <>
         <Text style={styles.barTitle}>Molestia leve: anotada</Text>
         <Text style={styles.hint}>Puedes seguir con cuidado. Tu próxima semana mantendrá la carga, sin subirla.</Text>
+        {sidePicker}
         <Button label="Seguir" onPress={onClose} />
         <Button label="Hacerlo más liviano" variant="ghost" onPress={onLighten} />
       </>
@@ -717,6 +880,7 @@ function PainSheet({
       <>
         <Text style={styles.barTitle}>Cambiemos algo para que no duela</Text>
         <Text style={styles.hint}>No sigas igual: alivia el ejercicio o cámbialo por uno más suave.</Text>
+        {sidePicker}
         {canSwap && <Button label="Cambiar por uno más suave" onPress={onSwap} />}
         <Button label="Seguir más liviano" variant={canSwap ? 'ghost' : 'primary'} onPress={onLighten} />
         <Button label="Parar este ejercicio" variant="ghost" onPress={onStop} />
@@ -729,54 +893,11 @@ function PainSheet({
         Con dolor fuerte no conviene seguir. Si el dolor sigue, termina por hoy; si se repite, consulta a un
         profesional.
       </Text>
+      {sidePicker}
       <Button label="Terminar por hoy" onPress={onEndToday} />
       {canSwap && <Button label="Cambiar por uno más suave" variant="ghost" onPress={onSwap} />}
       <Button label="Parar solo este ejercicio" variant="ghost" onPress={onStop} />
     </>
-  );
-}
-
-// «¿Algo dolió?» plegado: solo se abre si el usuario lo toca.
-function PainPicker({
-  open,
-  onOpen,
-  pain,
-  onPain,
-}: {
-  open: boolean;
-  onOpen: () => void;
-  pain: PainLevel | null;
-  onPain: (p: PainLevel | null) => void;
-}) {
-  if (!open)
-    return (
-      <Pressable onPress={onOpen} hitSlop={8}>
-        <Text style={styles.smallLinkMuted}>¿Algo dolió?</Text>
-      </Pressable>
-    );
-  return (
-    <View style={{ gap: spacing.sm }}>
-      <Text style={styles.label}>¿Sentiste molestia o dolor?</Text>
-      <View style={styles.chips}>
-        {PAIN_OPTIONS.map((o) => {
-          const on = pain === o.level;
-          return (
-            <Pressable
-              key={o.level}
-              onPress={() => onPain(on ? null : o.level)}
-              style={[styles.chip, on && (o.level === 0 ? styles.chipOn : styles.painOn)]}
-            >
-              <Text style={[styles.chipText, on && { color: o.level === 0 ? colors.onAccent : colors.bg }]}>{o.label}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
-      {pain === 3 && (
-        <Text style={styles.painWarn}>
-          Si el dolor es fuerte, detén este ejercicio. Te avisaremos para cambiarlo por uno más suave.
-        </Text>
-      )}
-    </View>
   );
 }
 
@@ -791,8 +912,10 @@ function Summary({
   kcal: string | null;
   insets: { top: number; bottom: number };
 }) {
-  const totalReps = logs.reduce((n, l) => n + (l.repsDone ?? 0), 0);
-  const volume = logs.reduce((n, l) => n + (l.repsDone ?? 0) * (l.weightKg ?? 0), 0);
+  // A un lado, lo registrado es por lado: en total se hizo el doble.
+  const doneReps = (l: SetLog) => (l.repsDone ?? 0) * (isPerSide(l.exerciseId) ? 2 : 1);
+  const totalReps = logs.reduce((n, l) => n + doneReps(l), 0);
+  const volume = logs.reduce((n, l) => n + doneReps(l) * (l.weightKg ?? 0) * kettlebellCount(l.exerciseId), 0);
   // Reserva media solo de los ejercicios por repeticiones (en los de tiempo la escala es otra).
   const rpes = logs
     .filter((l) => {
@@ -802,7 +925,11 @@ function Summary({
     .map((l) => l.rpe)
     .filter((v): v is number => v != null);
   const painIn = (level: PainLevel) => [
-    ...new Set(logs.filter((l) => painOf(l) === level).map((l) => exName(l.exerciseId))),
+    ...new Set(
+      logs
+        .filter((l) => painOf(l) === level)
+        .map((l) => `${exName(l.exerciseId)}${l.painSide ? SIDE_NOTE[l.painSide] : ''}`),
+    ),
   ];
   const [mild, moderate, strong] = [painIn(1), painIn(2), painIn(3)];
 
@@ -876,6 +1003,7 @@ const styles = StyleSheet.create({
   panel: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.md },
   panelTitle: { color: colors.text, fontSize: 16, fontWeight: '800' },
   setLabel: { color: colors.textMuted, fontSize: 14, fontWeight: '700', textAlign: 'center' },
+  sideHint: { color: colors.textMuted, fontSize: 13, lineHeight: 18, textAlign: 'center' },
   target: { color: colors.text, fontSize: 34, fontWeight: '900', textAlign: 'center', fontVariant: ['tabular-nums'] },
   doneBtn: {
     backgroundColor: colors.accent,
@@ -950,6 +1078,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceAlt,
     alignItems: 'center',
   },
+  hiitCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.sm },
   chipOn: { backgroundColor: colors.accent },
   painOn: { backgroundColor: colors.warning },
   painWarn: { color: colors.warning, fontSize: 13, lineHeight: 18 },

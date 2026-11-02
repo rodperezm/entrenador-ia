@@ -53,6 +53,21 @@ export default function ProgressScreen() {
         <Text style={styles.rowDetail}>Aún no registras ejercicios de Fuerza.</Text>
       )}
 
+      {p.amrap.length > 0 && (
+        <>
+          <Text style={styles.section}>Tus desafíos AMRAP</Text>
+          {p.amrap.map((a) => (
+            <View key={a.id} style={styles.row}>
+              <View style={styles.rowText}>
+                <Text style={styles.rowTitle}>{a.name}</Text>
+                <Text style={styles.rowDetail}>{a.times === 1 ? `Primera marca: ${a.last}` : `${a.first} → ${a.last}`}</Text>
+              </View>
+              {a.improved && <Ionicons name="trending-up" size={22} color={colors.accent} />}
+            </View>
+          ))}
+        </>
+      )}
+
       {p.pains.length > 0 && (
         <>
           <Text style={styles.section}>Molestias recientes</Text>

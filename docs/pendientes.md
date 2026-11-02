@@ -26,6 +26,19 @@ Actualizada al 31-10-2026. Reemplaza la ayuda memoria del 27-10-2026, cuyos punt
 - [ ] Contador: facturación e impuestos por ventas en tiendas.
 
 ## 4. Imágenes y ejercicios
+- [x] Bloque C en HIIT dentro del entrenamiento guiado, recomendado por reglas.
+- [x] Desafío AMRAP en el bloque C, con marca, comparación y sección en Tu progreso.
+- [x] La IA sugiere cierre normal, HIIT o AMRAP; las reglas de la app ponen el límite.
+- [x] Probar con una consulta real que la IA entregue el cierre sugerido (funcionó; en un día sugirió AMRAP sin bloque C y la app no lo mostró).
+- [ ] Probar HIIT y AMRAP con sonido en iPhone.
+- [ ] Decidir la sesión completa en HIIT.
+- [x] Ejercicios a un lado: «por lado», tiempo de ambos lados y totales del resumen.
+- [ ] Subir la función `generate-plan` con las reglas de lados y de dos kettlebells.
+- [x] Marcar qué lado duele durante el entrenamiento.
+- [x] Preguntar de qué pesos tiene dos kettlebells.
+- [x] Agregar 8 ejercicios con dos kettlebells, 159 en total.
+- [ ] Ver los 8 videos de dos kettlebells y los 12 cambiados por búsqueda; se eligieron por título, sin verlos.
+- [x] Limitar el peso de 6 ejercicios delicados según el nivel; sin peso adecuado, no se ofrecen.
 - [x] Video de YouTube incrustado en la ficha de los 151 ejercicios (`src/data/youtubeVideos.ts`).
 - [ ] Revisar los videos cuyo título no calza del todo con el ejercicio.
 - [ ] Decidir si los videos de YouTube son definitivos o transitorios hasta tener videos propios.

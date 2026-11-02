@@ -45,6 +45,7 @@ export type Draft = {
   equipment: EquipmentId[];
   parkEquipment: EquipmentId[]; // lo que hay fijo en su parque
   kettlebellWeightsKg: number[];
+  kettlebellPairsKg: number[];
   conditions: LocalProfile['conditions'];
   sex: Sex | null;
   birthText: string; // como lo escribe el usuario: DD-MM-AAAA
@@ -251,7 +252,10 @@ export function EquipmentStep({ draft, update }: StepProps) {
             <Pressable
               key={kg}
               onPress={() =>
-                update({ kettlebellWeightsKg: toggle(draft.kettlebellWeightsKg, kg).sort((a, b) => a - b) })
+                update({
+                  kettlebellWeightsKg: toggle(draft.kettlebellWeightsKg, kg).sort((a, b) => a - b),
+                  kettlebellPairsKg: draft.kettlebellPairsKg.filter((w) => w !== kg),
+                })
               }
               style={[styles.weight, on && styles.weightOn]}
             >
@@ -260,6 +264,28 @@ export function EquipmentStep({ draft, update }: StepProps) {
           );
         })}
       </View>
+
+      {draft.kettlebellWeightsKg.length > 0 && (
+        <>
+          <Text style={[styles.label, { marginTop: spacing.md }]}>¿De cuál tienes dos? (opcional)</Text>
+          <Text style={styles.hint}>Con dos del mismo peso sumamos ejercicios como el paseo del granjero.</Text>
+          <View style={styles.weights}>
+            {draft.kettlebellWeightsKg.map((kg) => {
+              const on = draft.kettlebellPairsKg.includes(kg);
+              return (
+                <Pressable
+                  key={kg}
+                  onPress={() => update({ kettlebellPairsKg: toggle(draft.kettlebellPairsKg, kg).sort((a, b) => a - b) })}
+                  style={[styles.weight, on && styles.weightOn]}
+                  accessibilityLabel={`Tengo dos de ${kg} kilos`}
+                >
+                  <Text style={[styles.weightText, on && { color: colors.onAccent }]}>2 × {kg}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </>
+      )}
 
       {!showMore && (
         <Pressable onPress={() => setShowMore(true)} style={styles.moreLink}>
@@ -568,7 +594,14 @@ export function WeekStep({ draft, update }: StepProps) {
 const SUMMARY_BLOCKS: BlockType[] = ['warmup', 'prehab', 'main_strength', 'cooldown'];
 
 export function SummaryStep({ draft }: StepProps) {
-  const profile = { equipment: draft.equipment, conditions: draft.conditions, excludedExerciseIds: [] };
+  const profile = {
+    equipment: draft.equipment,
+    conditions: draft.conditions,
+    excludedExerciseIds: [],
+    level: draft.level ?? 'beginner',
+    kettlebellWeightsKg: draft.kettlebellWeightsKg,
+    kettlebellPairsKg: draft.kettlebellPairsKg,
+  };
   const avoided = [...new Set(draft.conditions.flatMap((c) => c.activeFlags))];
 
   return (
@@ -598,7 +631,12 @@ export function SummaryStep({ draft }: StepProps) {
         label="En el parque"
         value={draft.parkEquipment.map((e) => PARK_EQUIPMENT[e]).join(', ') || 'Solo lo que llevas'}
       />
-      <SummaryRow label="Kettlebells" value={draft.kettlebellWeightsKg.map((k) => `${k} kg`).join(', ')} />
+      <SummaryRow
+        label="Kettlebells"
+        value={draft.kettlebellWeightsKg
+          .map((k) => (draft.kettlebellPairsKg.includes(k) ? `2 × ${k} kg` : `${k} kg`))
+          .join(', ')}
+      />
       <SummaryRow
         label="Condiciones"
         value={

@@ -80,7 +80,7 @@ export function buildTabataWav(phases: Phase[]): Uint8Array {
     for (let k = 1; k < ph.durationSec; k++) {
       if (ph.durationSec - k <= 3) {
         addTone(buf, s + k, 700, 0.12, 0.45); // últimos 3 segundos
-      } else {
+      } else if (!ph.quiet) {
         c++;
         if (c % 2) addTone(buf, s + k, 1500, 0.07, 0.6, true);
         else addTone(buf, s + k, 950, 0.09, 0.6, true);

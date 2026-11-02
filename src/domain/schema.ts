@@ -79,6 +79,7 @@ export const ExerciseSchema = z.object({
   blockTypes: z.array(BlockType).min(1),
   muscleGroups: z.array(MuscleGroupId),
   movementPattern: MovementPattern,
+  kettlebellCount: z.number().int().min(1).max(2).default(1), // 2 = una en cada mano, del mismo peso
   mechanics: z.enum(['compound', 'isolation', 'mobility', 'stretch', 'cardio']),
   laterality: z.enum(['bilateral', 'unilateral', 'alternating']),
   complexityLevel: z.number().int().min(1).max(5),
@@ -155,6 +156,7 @@ export const UserProfile = z.object({
   // Lo que hay fijo en el parque donde entrena (barra, banca). Lo portátil lo lleva consigo.
   parkEquipment: z.array(EquipmentId).default([]),
   kettlebellWeightsKg: z.array(z.number().positive()),
+  kettlebellPairsKg: z.array(z.number().positive()).default([]), // pesos de los que tiene dos
   conditions: z.array(UserCondition),
   excludedExerciseIds: z.array(ExerciseId),
 });
@@ -232,6 +234,8 @@ export const DayPlan = z.object({
   blocks: z.array(PlannedBlock),
   // La persona ya respondió el aviso de tiempo de esta rutina: no se vuelve a insistir.
   timeNoticeDismissed: z.boolean().optional(),
+  // Cómo cerrar la sesión según la IA. Las reglas de la app deciden qué se ofrece.
+  finisher: z.object({ format: z.enum(['normal', 'hiit', 'amrap']), reason: z.string().nullable() }).optional(),
 });
 export type DayPlan = z.infer<typeof DayPlan>;
 
@@ -254,6 +258,9 @@ export type StoredWeekPlan = z.infer<typeof StoredWeekPlan>;
 
 // ---------- Historial ----------
 
+export const PainSide = z.enum(['left', 'right', 'both']);
+export type PainSide = z.infer<typeof PainSide>;
+
 export const SetLog = z.object({
   exerciseId: ExerciseId,
   setNo: z.number().int().positive(),
@@ -266,7 +273,9 @@ export const SetLog = z.object({
   painFlag: z.boolean(), // hubo dolor moderado o fuerte (se mantiene por compatibilidad)
   // 0 nada · 1 leve · 2 moderado · 3 fuerte. Registros antiguos no lo tienen.
   painLevel: z.number().int().min(0).max(3).nullable().default(null),
+  painSide: PainSide.nullable().optional(), // en ejercicios a un lado: dónde dolió
   techniqueOk: z.boolean().optional(), // bloque A: la persona confirmó que mantuvo la técnica
+  format: z.enum(['hiit', 'amrap']).optional(), // bloque C en circuito: no cuenta para subir cargas
 });
 export type SetLog = z.infer<typeof SetLog>;
 
@@ -283,5 +292,14 @@ export const WorkoutSession = z.object({
   finishedAt: z.string(),
   completed: z.boolean(), // false si se terminó antes de tiempo
   sets: z.array(SetLog),
+  // Resultado del desafío AMRAP, para compararlo cuando se repita.
+  amrap: z
+    .object({
+      exerciseIds: z.array(ExerciseId),
+      minutes: z.number().int().positive(),
+      rounds: z.number().int().nonnegative(),
+      extraReps: z.number().int().nonnegative(),
+    })
+    .optional(),
 });
 export type WorkoutSession = z.infer<typeof WorkoutSession>;

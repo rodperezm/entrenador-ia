@@ -19,6 +19,7 @@ export type ExerciseInput = {
   flags?: RestrictionFlagId[];
   required?: EquipmentId[];
   optional?: EquipmentId[];
+  kettlebells?: 2;
   primary: [MuscleId, number][];
   secondary?: [MuscleId, number][];
   rx: { sets: number; reps?: [number, number]; sec?: number; rest: number; tempo?: string };
@@ -56,6 +57,7 @@ export function buildExercise(d: ExerciseInput): Exercise {
     blockTypes: d.blocks,
     muscleGroups: d.groups,
     movementPattern: d.pattern,
+    kettlebellCount: d.kettlebells ?? 1,
     mechanics: d.mechanics,
     laterality: d.laterality ?? 'bilateral',
     complexityLevel: d.level,
