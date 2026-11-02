@@ -24,9 +24,9 @@ const buffers: Partial<Record<Sound, AudioBuffer>> = {};
 let loading = false;
 
 async function loadSounds() {
-  if (loading) return;
-  loading = true;
   const ctx = audioContext();
+  if (loading || !ctx) return;
+  loading = true;
   await Promise.all(
     (Object.keys(SOUNDS) as Sound[]).map(async (sound) => {
       const asset = await Asset.fromModule(SOUNDS[sound]).downloadAsync();
@@ -45,9 +45,9 @@ function unlock() {
 
 function playSound(sound: Sound) {
   const buffer = buffers[sound];
-  if (!buffer) return;
-  wakeAudio();
   const ctx = audioContext();
+  if (!buffer || !ctx) return;
+  wakeAudio();
   const source = ctx.createBufferSource();
   source.buffer = buffer;
   source.connect(ctx.destination);

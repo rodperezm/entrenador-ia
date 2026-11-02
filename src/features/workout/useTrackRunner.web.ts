@@ -34,9 +34,9 @@ export function useTrackRunner(phases: Phase[]) {
 
   const playFrom = useCallback(
     (offset: number) => {
-      if (!buffer.current || offset >= buffer.current.duration) return;
-      stopAudio();
       const ctx = audioContext();
+      if (!ctx || !buffer.current || offset >= buffer.current.duration) return;
+      stopAudio();
       const source = ctx.createBufferSource();
       source.buffer = buffer.current;
       source.connect(ctx.destination);
@@ -58,6 +58,7 @@ export function useTrackRunner(phases: Phase[]) {
         return;
       }
       const ctx = audioContext();
+      if (!ctx) return;
       if (ctx.state !== 'running') wakeAudio();
       else if (!audio.current || Math.abs(ctx.currentTime - audio.current.anchor - t) > MAX_DRIFT_SEC) playFrom(t);
     }, TICK_MS);
@@ -66,13 +67,20 @@ export function useTrackRunner(phases: Phase[]) {
 
   // Dentro del toque en Empezar: Safari no deja partir el sonido sin uno.
   const start = useCallback(() => {
-    wakeAudio();
-    buffer.current = trackBuffer(audioContext(), phases);
     clock.current.startedAt = performance.now();
-    // Si el audio aún no despierta, la pista parte sola en cuanto esté listo.
-    if (audioContext().state === 'running') playFrom(0);
     setElapsed(0);
     setStatus('running');
+    wakeAudio();
+    const ctx = audioContext();
+    if (!ctx) return;
+    // Si el audio falla, el reloj ya partió: se entrena sin sonido.
+    try {
+      buffer.current = trackBuffer(ctx, phases);
+      // Si el audio aún no despierta, la pista parte sola en cuanto esté listo.
+      if (ctx.state === 'running') playFrom(0);
+    } catch {
+      buffer.current = null;
+    }
   }, [phases, playFrom]);
 
   const pause = useCallback(() => {
