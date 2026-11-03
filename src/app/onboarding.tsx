@@ -4,6 +4,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } fr
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardDoneBar } from '@/components/KeyboardDoneBar';
 import { Button } from '@/components/ui';
+import { BackupSetup, type Mode } from '@/features/account/BackupSetup';
 import {
   AboutStep,
   BASE_EQUIPMENT,
@@ -24,6 +25,7 @@ import { CLOUD_BACKUP_READY } from '@/lib/cloudSync';
 import { usePlan } from '@/state/plan';
 import { useResetAllData } from '@/state/useResetAllData';
 import { useProfile } from '@/state/profile';
+import { useSync } from '@/state/sync';
 import { colors, spacing } from '@/theme';
 
 const STEPS = [
@@ -83,13 +85,15 @@ const STEPS = [
 export default function Onboarding() {
   const { loading } = useProfile();
   const { loading: planLoading } = usePlan();
-  return loading || planLoading ? null : <OnboardingForm />;
+  const { ready } = useSync();
+  return loading || planLoading || !ready ? null : <OnboardingForm />;
 }
 
 function OnboardingForm() {
   const { profile, saveProfile } = useProfile();
   const { week, applyDayChoices, updateAllDays } = usePlan();
   const resetAll = useResetAllData();
+  const { enabled: hasAccount } = useSync();
   // Partes de cada día al abrir.
   const [initialChoices] = useState(
     () =>
@@ -130,6 +134,8 @@ function OnboardingForm() {
   const [saving, setSaving] = useState(false);
   // La portada solo aparece la primera vez, no al editar el perfil.
   const [showIntro, setShowIntro] = useState(!profile);
+  // Primera vez: después de la portada se crea la cuenta con correo, antes del paso 1.
+  const [accountMode, setAccountMode] = useState<Mode | null>(profile || hasAccount ? null : 'new');
 
   const update = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }));
   // Perfil nuevo: menos pasos; del último se pasa directo a crear la semana.
@@ -198,7 +204,38 @@ function OnboardingForm() {
     return (
       <>
         <Stack.Screen options={{ headerShown: false }} />
-        <IntroScreen onStart={() => setShowIntro(false)} />
+        <IntroScreen
+          onStart={() => {
+            if (accountMode) setAccountMode('new');
+            setShowIntro(false);
+          }}
+          onExisting={
+            accountMode
+              ? () => {
+                  setAccountMode('existing');
+                  setShowIntro(false);
+                }
+              : undefined
+          }
+        />
+      </>
+    );
+  }
+
+  if (accountMode && !hasAccount) {
+    return (
+      <>
+        <ScrollView
+          style={styles.screen}
+          contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, spacing.lg) + spacing.xl }]}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Stack.Screen options={{ headerShown: true, title: '', headerBackVisible: false }} />
+          {/* La key reinicia el formulario si se entra desde «Ya tengo cuenta». */}
+          <BackupSetup key={accountMode} initialMode={accountMode} signup onCreated={() => setAccountMode(null)} />
+          <Button label="Volver" variant="ghost" onPress={() => setShowIntro(true)} />
+        </ScrollView>
+        <KeyboardDoneBar />
       </>
     );
   }

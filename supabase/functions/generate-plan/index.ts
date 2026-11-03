@@ -16,6 +16,8 @@ import Anthropic from 'npm:@anthropic-ai/sdk';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const MODEL = Deno.env.get('CLAUDE_MODEL') ?? 'claude-opus-5-5';
+// Modelos más económicos que un pedido puede elegir para compararlos; nunca uno más caro.
+const TEST_MODELS = ['claude-sonnet-5-5', 'claude-haiku-5-5'];
 const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY') });
 
 const CORS = {
@@ -63,6 +65,7 @@ type RequestBody = {
   candidates: Candidate[];
   history: unknown[];
   body?: unknown;
+  model?: string;
 };
 
 const SYSTEM = `Eres un entrenador personal experto en kettlebell, fuerza y prevención de lesiones. Armas la rutina semanal de un usuario de una app de entrenamiento en casa y parque.
@@ -261,14 +264,15 @@ Deno.serve(async (req) => {
 // La respuesta ya empezó, así que los errores van dentro del JSON y no como estado HTTP.
 async function generatePlan(body: RequestBody) {
   try {
+    const { model: requested, ...request } = body;
     const response = await anthropic.beta.messages.create({
-      model: MODEL,
+      model: requested && TEST_MODELS.includes(requested) ? requested : MODEL,
       max_tokens: 16000,
       betas: ['server-side-fallback-2026-07-01'],
       fallbacks: 'default',
       system: SYSTEM,
       output_config: { effort: 'medium', format: { type: 'json_schema', schema: SCHEMA } },
-      messages: [{ role: 'user', content: JSON.stringify(body) }],
+      messages: [{ role: 'user', content: JSON.stringify(request) }],
     });
 
     if (response.stop_reason === 'refusal') return { error: 'refusal' };

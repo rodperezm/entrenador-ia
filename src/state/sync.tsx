@@ -1,14 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {
-  createContext,
-  type ReactNode,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { z } from 'zod';
 import { FoldRecord, TapeRecord } from '@/domain/body';
@@ -33,6 +24,8 @@ type Status = 'off' | 'syncing' | 'ok' | 'pending';
 type Sent = Record<string, string>;
 
 type SyncState = {
+  /** Ya se revisó si este teléfono tiene respaldo activo. */
+  ready: boolean;
   enabled: boolean;
   status: Status;
   email: string | null;
@@ -214,17 +207,24 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
   const exportData = useCallback(
     () =>
-      JSON.stringify(
-        { exportedAt: new Date().toISOString(), profile, week, plan, sessions, records, folds },
-        null,
-        2,
-      ),
+      JSON.stringify({ exportedAt: new Date().toISOString(), profile, week, plan, sessions, records, folds }, null, 2),
     [profile, week, plan, sessions, records, folds],
   );
 
   return (
     <SyncContext.Provider
-      value={{ enabled, status, email, lastSyncAt, enable, syncNow, signOut, removeAccount, exportData }}
+      value={{
+        ready: checked,
+        enabled,
+        status,
+        email,
+        lastSyncAt,
+        enable,
+        syncNow,
+        signOut,
+        removeAccount,
+        exportData,
+      }}
     >
       {children}
     </SyncContext.Provider>

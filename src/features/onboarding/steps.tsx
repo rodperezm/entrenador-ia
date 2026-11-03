@@ -68,7 +68,7 @@ const toggle = <T,>(list: T[], item: T) => (list.includes(item) ? list.filter((x
 
 // ---------- Portada (antes del paso 1, solo la primera vez) ----------
 
-export function IntroScreen({ onStart }: { onStart: () => void }) {
+export function IntroScreen({ onStart, onExisting }: { onStart: () => void; onExisting?: () => void }) {
   const insets = useSafeAreaInsets();
   const [fontsLoaded] = useFonts({ BebasNeue_400Regular });
   const display = fontsLoaded ? { fontFamily: 'BebasNeue_400Regular' } : styles.displayFallback;
@@ -93,7 +93,7 @@ export function IntroScreen({ onStart }: { onStart: () => void }) {
         <Button
           label="Ya tengo cuenta"
           variant="ghost"
-          onPress={() => router.push({ pathname: '/account', params: { mode: 'existing' } })}
+          onPress={onExisting ?? (() => router.push({ pathname: '/account', params: { mode: 'existing' } }))}
         />
       )}
     </View>
@@ -275,7 +275,9 @@ export function EquipmentStep({ draft, update }: StepProps) {
               return (
                 <Pressable
                   key={kg}
-                  onPress={() => update({ kettlebellPairsKg: toggle(draft.kettlebellPairsKg, kg).sort((a, b) => a - b) })}
+                  onPress={() =>
+                    update({ kettlebellPairsKg: toggle(draft.kettlebellPairsKg, kg).sort((a, b) => a - b) })
+                  }
                   style={[styles.weight, on && styles.weightOn]}
                   accessibilityLabel={`Tengo dos de ${kg} kilos`}
                 >
@@ -499,66 +501,67 @@ export function WeekStep({ draft, update }: StepProps) {
         </View>
       )}
 
-      {custom && DAYS.map((d) => {
-        const parts = draft.weekChoices[d.id];
-        const rest = parts.length === 0;
-        return (
-          <View key={d.id} style={styles.dayRow}>
-            <Text style={styles.dayName} numberOfLines={1}>
-              {d.long}
-            </Text>
-            <View style={styles.dayTypes}>
-              {DAY_TYPE_PARTS.map((p) => {
-                const on = parts.includes(p);
-                return (
-                  <Pressable
-                    key={p}
-                    onPress={() => setDay(d.id, toggleDayPart(parts, p))}
-                    style={[styles.typeChip, on && styles.typeChipOn]}
-                  >
-                    <Text style={[styles.typeChipText, on && { color: colors.onAccent }]} numberOfLines={1}>
-                      {dayPartLabel(p, hasConditions)}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-              <Pressable onPress={() => setDay(d.id, [])} style={[styles.typeChip, rest && styles.typeChipRest]}>
-                <Text style={[styles.typeChipText, rest && { color: colors.text }]} numberOfLines={1}>
-                  Descanso
-                </Text>
-              </Pressable>
-            </View>
-            {!rest && <Text style={styles.hint}>{dayIncludedNote(parts)}</Text>}
-            {hasConditions && canBeGentle(parts) && (
-              <Pressable onPress={() => toggleGentle(d.id)} style={styles.stepRow} hitSlop={6}>
-                <Text style={styles.stepLabel} numberOfLines={1}>
-                  Fuerza suave (día de lesión)
-                </Text>
-                <Ionicons
-                  name={draft.gentleDays.includes(d.id) ? 'checkbox' : 'square-outline'}
-                  size={22}
-                  color={draft.gentleDays.includes(d.id) ? colors.accent : colors.textMuted}
-                />
-              </Pressable>
-            )}
-            {!rest && (
-              <View style={styles.stepRow}>
-                <Text style={styles.stepLabel} numberOfLines={1}>
-                  Tiempo disponible
-                </Text>
-                <Stepper
-                  value={draft.weekMinutes[d.id]}
-                  min={minDayMinutes(parts)}
-                  max={120}
-                  step={5}
-                  suffix="'"
-                  onChange={(m) => update({ weekMinutes: { ...draft.weekMinutes, [d.id]: m } })}
-                />
+      {custom &&
+        DAYS.map((d) => {
+          const parts = draft.weekChoices[d.id];
+          const rest = parts.length === 0;
+          return (
+            <View key={d.id} style={styles.dayRow}>
+              <Text style={styles.dayName} numberOfLines={1}>
+                {d.long}
+              </Text>
+              <View style={styles.dayTypes}>
+                {DAY_TYPE_PARTS.map((p) => {
+                  const on = parts.includes(p);
+                  return (
+                    <Pressable
+                      key={p}
+                      onPress={() => setDay(d.id, toggleDayPart(parts, p))}
+                      style={[styles.typeChip, on && styles.typeChipOn]}
+                    >
+                      <Text style={[styles.typeChipText, on && { color: colors.onAccent }]} numberOfLines={1}>
+                        {dayPartLabel(p, hasConditions)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+                <Pressable onPress={() => setDay(d.id, [])} style={[styles.typeChip, rest && styles.typeChipRest]}>
+                  <Text style={[styles.typeChipText, rest && { color: colors.text }]} numberOfLines={1}>
+                    Descanso
+                  </Text>
+                </Pressable>
               </View>
-            )}
-          </View>
-        );
-      })}
+              {!rest && <Text style={styles.hint}>{dayIncludedNote(parts)}</Text>}
+              {hasConditions && canBeGentle(parts) && (
+                <Pressable onPress={() => toggleGentle(d.id)} style={styles.stepRow} hitSlop={6}>
+                  <Text style={styles.stepLabel} numberOfLines={1}>
+                    Fuerza suave (día de lesión)
+                  </Text>
+                  <Ionicons
+                    name={draft.gentleDays.includes(d.id) ? 'checkbox' : 'square-outline'}
+                    size={22}
+                    color={draft.gentleDays.includes(d.id) ? colors.accent : colors.textMuted}
+                  />
+                </Pressable>
+              )}
+              {!rest && (
+                <View style={styles.stepRow}>
+                  <Text style={styles.stepLabel} numberOfLines={1}>
+                    Tiempo disponible
+                  </Text>
+                  <Stepper
+                    value={draft.weekMinutes[d.id]}
+                    min={minDayMinutes(parts)}
+                    max={120}
+                    step={5}
+                    suffix="'"
+                    onChange={(m) => update({ weekMinutes: { ...draft.weekMinutes, [d.id]: m } })}
+                  />
+                </View>
+              )}
+            </View>
+          );
+        })}
 
       {mode === 'manual' && (
         <View style={styles.dayRow}>

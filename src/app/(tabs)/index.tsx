@@ -108,9 +108,10 @@ export default function TodayScreen() {
         Ver tu progreso ›
       </Link>
 
-      {CLOUD_BACKUP_READY && !syncEnabled && sessions.length > 0 && (
+      {/* Quienes empezaron antes de pedir el correo: se les invita hasta que creen su cuenta. */}
+      {CLOUD_BACKUP_READY && !syncEnabled && (
         <Link href="/account" style={styles.backup}>
-          Protege tu historial con un respaldo en la nube ›
+          Crea tu cuenta con tu correo para no perder tu avance ›
         </Link>
       )}
     </ScrollView>

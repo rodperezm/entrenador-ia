@@ -57,6 +57,8 @@ Actualizada al 31-10-2026. Reemplaza la ayuda memoria del 27-10-2026, cuyos punt
 - [ ] Publicidad pagada solo cuando la retención sea buena.
 - [ ] IA: seguir pagando el servicio, sin modelo propio.
 - [ ] Reducir costo con un modelo más económico, menos candidatos y mensaje reutilizable.
+  - [x] Producción usa Sonnet desde el 03-11-2026 (ajuste `CLAUDE_MODEL` en Supabase): ~US$0,15 por semana, cerca de la mitad que Opus.
+- [ ] Idea por decidir: elegir el modelo en el plan pagado. Sugerencia: no mostrar nombres de modelos; diferenciar planes por cantidad de consultas y funciones con IA (rehacer un día, resumen del mes, ajuste a mitad de semana), con "IA avanzada" como nombre comercial. Un plan alto con Opus solo si una prueba con las mismas personas muestra rutinas claramente mejores.
 
 ## 6. Tiendas de apps
 - [ ] Cuenta Apple Developer (US$99 al año) y Google Play (US$25, pago único).

@@ -126,5 +126,5 @@ export async function generateWeekWithAi(request: ReturnType<typeof buildAiReque
     }
   }
 
-  return { plan: parsed.data, model: (data.model as string) ?? null };
+  return { plan: parsed.data, model: (data.model as string) ?? null, usage: data.usage ?? null };
 }
