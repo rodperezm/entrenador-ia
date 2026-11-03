@@ -1,7 +1,7 @@
 import { BebasNeue_400Regular, useFonts } from '@expo-google-fonts/bebas-neue';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DateField } from '@/components/DateField';
@@ -269,26 +269,27 @@ export function EquipmentStep({ draft, update }: StepProps) {
           ))}
           <Text style={styles.label}>Opcional: ¿qué más tienes?</Text>
           {OPTIONAL_EQUIPMENT.map((id) => (
-            <OptionCard
-              key={id}
-              title={EQUIPMENT[id]}
-              selected={draft.equipment.includes(id)}
-              onPress={() => update({ equipment: toggle(draft.equipment, id) })}
-            />
-          ))}
-          {draft.equipment.includes('dumbbells') && (
-            <>
-              <Text style={[styles.label, { marginTop: spacing.md }]}>¿De qué peso son tus mancuernas? (kg)</Text>
-              <Text style={styles.hint}>Si son livianas para tu nivel, en su lugar usamos la kettlebell.</Text>
-              <OwnedWeights
-                options={DB_WEIGHTS}
-                weights={draft.dumbbellWeightsKg}
-                pairs={draft.dumbbellPairsKg}
-                pairHint="La mayoría de los ejercicios con mancuernas usan una en cada mano."
-                onChange={(dumbbellWeightsKg, dumbbellPairsKg) => update({ dumbbellWeightsKg, dumbbellPairsKg })}
+            <Fragment key={id}>
+              <OptionCard
+                title={EQUIPMENT[id]}
+                selected={draft.equipment.includes(id)}
+                onPress={() => update({ equipment: toggle(draft.equipment, id) })}
               />
-            </>
-          )}
+              {id === 'dumbbells' && draft.equipment.includes('dumbbells') && (
+                <View style={styles.nested}>
+                  <Text style={styles.label}>¿De qué peso son tus mancuernas? (kg)</Text>
+                  <Text style={styles.hint}>Si son livianas para tu nivel, en su lugar usamos la kettlebell.</Text>
+                  <OwnedWeights
+                    options={DB_WEIGHTS}
+                    weights={draft.dumbbellWeightsKg}
+                    pairs={draft.dumbbellPairsKg}
+                    pairHint="La mayoría de los ejercicios con mancuernas usan una en cada mano."
+                    onChange={(dumbbellWeightsKg, dumbbellPairsKg) => update({ dumbbellWeightsKg, dumbbellPairsKg })}
+                  />
+                </View>
+              )}
+            </Fragment>
+          ))}
 
           <Text style={[styles.label, { marginTop: spacing.md }]}>Si entrenas en un parque, ¿qué hay ahí?</Text>
           <Text style={styles.hint}>
@@ -779,6 +780,13 @@ const styles = StyleSheet.create({
   gap: { gap: spacing.md },
   label: { color: colors.text, fontSize: 15, fontWeight: '700' },
   hint: { color: colors.textMuted, fontSize: 13, lineHeight: 18 },
+  nested: {
+    gap: spacing.sm,
+    marginLeft: spacing.md,
+    paddingLeft: spacing.md,
+    borderLeftWidth: 2,
+    borderLeftColor: colors.accentSoft,
+  },
   body: { color: colors.text, fontSize: 15, lineHeight: 21 },
   input: {
     backgroundColor: colors.surface,

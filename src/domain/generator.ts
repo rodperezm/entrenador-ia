@@ -68,7 +68,7 @@ function seeded(seed: number) {
   return () => ((s = (Math.imul(s, 1103515245) + 12345) | 0), ((s >>> 0) % 10000) / 10000);
 }
 
-function prescribe(e: Exercise, profile: LocalProfile, rationale: string | null): ExerciseSlot {
+export function prescribe(e: Exercise, profile: LocalProfile, rationale: string | null): ExerciseSlot {
   const p = e.prescription;
   const level = profile.level;
   const sets = level === 'beginner' ? Math.max(1, p.sets - 1) : p.sets;

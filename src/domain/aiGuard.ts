@@ -1,7 +1,7 @@
 import { equipmentAt } from './catalog';
 import { cycleInfo } from './cycle';
-import { isUnsafeWeight } from './filter';
-import { generateDayByRules, hadPain, lastWeightOf, pickWeight } from './generator';
+import { filterExercisesForUser, isUnsafeWeight } from './filter';
+import { generateDayByRules, hadPain, lastWeightOf, pickWeight, prescribe } from './generator';
 import { progressSlot, wasTooHard } from './progression';
 import type {
   BlockType,
@@ -86,6 +86,24 @@ function limitLoad(proposed: ExerciseSlot, input: GuardInput): ExerciseSlot {
   };
 }
 
+// Con barra de activación, todo día de fuerza prepara el hombro en el calentamiento, como en
+// las reglas. Si la IA no lo puso, reemplaza el último ejercicio del calentamiento para no alargarlo.
+function ensureShoulderPrep(blocks: PlannedBlock[], cfg: DayConfig, input: GuardInput): PlannedBlock[] {
+  const warmup = blocks.find((b) => b.type === 'warmup');
+  const hasMain = blocks.some((b) => b.type === 'main_strength' && b.slots.length > 0);
+  if (!warmup?.slots.length || !hasMain) return blocks;
+  const byId = new Map(input.exercises.map((e) => [e.id, e]));
+  if (warmup.slots.some((s) => byId.get(s.exerciseId)?.tags.includes('shoulder_prep'))) return blocks;
+  const dayProfile = { ...input.profile, equipment: equipmentAt(cfg.location, input.profile) };
+  const used = new Set(blocks.flatMap((b) => b.slots.map((s) => s.exerciseId)));
+  const prep = filterExercisesForUser(input.exercises, dayProfile, 'warmup').find(
+    (e) => e.tags.includes('shoulder_prep') && !used.has(e.id),
+  );
+  if (!prep) return blocks;
+  const slots = [prescribe(prep, input.profile, null), ...warmup.slots.slice(0, -1)];
+  return blocks.map((b) => (b === warmup ? { ...b, slots } : b));
+}
+
 export function guardAiPlan(plan: GeneratedWeekPlan, input: GuardInput): GeneratedWeekPlan {
   const { days, profile, exercises, history, lockedByDay } = input;
   let restored = false;
@@ -108,6 +126,7 @@ export function guardAiPlan(plan: GeneratedWeekPlan, input: GuardInput): Generat
         .map((type) => blocks.find((b) => b.type === type) ?? rules.blocks.find((b) => b.type === type))
         .filter((b): b is PlannedBlock => !!b);
     }
+    blocks = ensureShoulderPrep(blocks, cfg, input);
     return {
       ...day,
       blocks: blocks.map((b) =>
