@@ -160,4 +160,13 @@ export const YOUTUBE_VIDEO_IDS: Record<string, string> = {
   stretch_neck_lateral: 'avsulnaglkw',
   stretch_wrist_flexors: '9vayXhqqIGk',
   stretch_wrist_extensors: 'BjLJtjcZ3KA',
+  // Barra de activación
+  bar_shoulder_dislocate: '9oQuukG7tqo',
+  bar_hip_hinge: 'PG67O49Hsso',
+  bar_overhead_squat: 'yP5I3LGlZwE',
+  bar_trunk_rotation: 'SxtjIFQ19EI',
+  bar_external_rotation: 'wNBap0IYlog',
+  bar_supine_shoulder_flexion: 'wpBOsg2FPvw',
+  stretch_bar_chest_opener: 'Epg8vkn5ySk',
+  stretch_bar_side_bend: 'MFCl9KQZQjs',
 };

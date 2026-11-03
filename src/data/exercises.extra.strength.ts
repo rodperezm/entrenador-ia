@@ -376,6 +376,7 @@ export const EXTRA_STRENGTH: ExerciseInput[] = [
     mechanics: 'compound',
     level: 2,
     required: ['dumbbells', 'mat'],
+    db: { count: 2, weights: [6, 10, 14] },
     primary: [
       ['pectoralis_major', 0.9],
       ['triceps', 0.7],
@@ -794,6 +795,7 @@ export const EXTRA_STRENGTH: ExerciseInput[] = [
     laterality: 'alternating',
     flags: ['grip_loaded'],
     required: ['dumbbells'],
+    db: { count: 2, weights: [5, 8, 12] },
     primary: [['biceps', 1]],
     secondary: [['forearms', 0.4]],
     rx: { sets: 3, reps: [10, 12], rest: 45, tempo: '1-0-3' },
@@ -865,6 +867,7 @@ export const EXTRA_STRENGTH: ExerciseInput[] = [
     level: 1,
     laterality: 'unilateral',
     required: ['dumbbells'],
+    db: { count: 1, weights: [3, 5, 8] },
     optional: ['chair'],
     primary: [['triceps', 1]],
     rx: { sets: 3, reps: [10, 15], rest: 45 },

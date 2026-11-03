@@ -47,12 +47,19 @@ export const EQUIPMENT = {
   pullup_bar: 'Barra de dominadas',
   parallel_bars: 'Barras paralelas',
   resistance_band: 'Banda elástica',
+  activation_bar: 'Barra de activación (palo de escoba, pica o barra de yoga)',
 } as const;
 export type EquipmentId = keyof typeof EQUIPMENT;
 export const EQUIPMENT_IDS = Object.keys(EQUIPMENT) as [EquipmentId, ...EquipmentId[]];
 
 // Lo que el usuario lleva consigo: sirve en casa y en el parque.
-export const PORTABLE_EQUIPMENT: EquipmentId[] = ['mat', 'kettlebell', 'dumbbells', 'resistance_band'];
+export const PORTABLE_EQUIPMENT: EquipmentId[] = [
+  'mat',
+  'kettlebell',
+  'dumbbells',
+  'resistance_band',
+  'activation_bar',
+];
 // Lo que puede haber fijo en un parque (el usuario marca qué hay en el suyo).
 export const PARK_EQUIPMENT: Partial<Record<EquipmentId, string>> = {
   pullup_bar: 'Barra de dominadas',
@@ -116,7 +123,7 @@ export const MEDICAL_CONDITIONS: MedicalCondition[] = [
     id: 'shoulder_impingement',
     name: 'Pinzamiento / dolor de hombro',
     suggestedFlags: ['overhead'],
-    prehabExerciseIds: ['wall_slide', 'band_pull_apart'],
+    prehabExerciseIds: ['wall_slide', 'band_pull_apart', 'bar_supine_shoulder_flexion'],
   },
   {
     id: 'wrist_pain',
@@ -140,7 +147,13 @@ export const MEDICAL_CONDITIONS: MedicalCondition[] = [
     id: 'rotator_cuff',
     name: 'Tendinopatía del manguito rotador',
     suggestedFlags: ['overhead', 'ballistic'],
-    prehabExerciseIds: ['band_external_rotation', 'side_lying_external_rotation', 'prone_ytw', 'wall_slide'],
+    prehabExerciseIds: [
+      'band_external_rotation',
+      'side_lying_external_rotation',
+      'prone_ytw',
+      'wall_slide',
+      'bar_external_rotation',
+    ],
   },
   {
     id: 'lateral_epicondylitis',

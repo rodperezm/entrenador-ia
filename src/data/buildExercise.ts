@@ -20,6 +20,7 @@ export type ExerciseInput = {
   required?: EquipmentId[];
   optional?: EquipmentId[];
   kettlebells?: 2;
+  db?: { count: 1 | 2; weights: [number, number, number] };
   primary: [MuscleId, number][];
   secondary?: [MuscleId, number][];
   rx: { sets: number; reps?: [number, number]; sec?: number; rest: number; tempo?: string };
@@ -105,6 +106,12 @@ export function buildExercise(d: ExerciseInput): Exercise {
           lumbarSafety: d.kb.lumbar.map(t),
           suggestedWeightKg: { beginner: d.kb.weights[0], intermediate: d.kb.weights[1], advanced: d.kb.weights[2] },
           prerequisites: d.kb.prereq ?? [],
+        }
+      : null,
+    dumbbellGuide: d.db
+      ? {
+          count: d.db.count,
+          suggestedWeightKg: { beginner: d.db.weights[0], intermediate: d.db.weights[1], advanced: d.db.weights[2] },
         }
       : null,
     safetyNotes: Object.entries(d.safety ?? {}).map(([flag, note]) => ({ flag, note: t(note as string) })),

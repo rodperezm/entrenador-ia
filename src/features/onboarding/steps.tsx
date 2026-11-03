@@ -46,6 +46,8 @@ export type Draft = {
   parkEquipment: EquipmentId[]; // lo que hay fijo en su parque
   kettlebellWeightsKg: number[];
   kettlebellPairsKg: number[];
+  dumbbellWeightsKg: number[];
+  dumbbellPairsKg: number[];
   conditions: LocalProfile['conditions'];
   sex: Sex | null;
   birthText: string; // como lo escribe el usuario: DD-MM-AAAA
@@ -61,6 +63,7 @@ type StepProps = { draft: Draft; update: (patch: Partial<Draft>) => void };
 export const BASE_EQUIPMENT: EquipmentId[] = ['mat', 'kettlebell'];
 const OPTIONAL_EQUIPMENT = (Object.keys(EQUIPMENT) as EquipmentId[]).filter((e) => !BASE_EQUIPMENT.includes(e));
 const KB_WEIGHTS = [4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 28, 32];
+const DB_WEIGHTS = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 15, 20];
 
 export const PART_MAX: Record<DayPart, number> = { warmup: 8, prehab: 6, main: 10, cooldown: 8 };
 
@@ -245,49 +248,13 @@ export function EquipmentStep({ draft, update }: StepProps) {
       {/* La kettlebell es el corazón de la app: va primero. */}
       <Text style={styles.label}>¿Qué kettlebell tienes? (kg)</Text>
       <Text style={styles.hint}>Con una basta. Marca todas las que tengas: la rutina solo usará esos pesos.</Text>
-      <View style={styles.weights}>
-        {KB_WEIGHTS.map((kg) => {
-          const on = draft.kettlebellWeightsKg.includes(kg);
-          return (
-            <Pressable
-              key={kg}
-              onPress={() =>
-                update({
-                  kettlebellWeightsKg: toggle(draft.kettlebellWeightsKg, kg).sort((a, b) => a - b),
-                  kettlebellPairsKg: draft.kettlebellPairsKg.filter((w) => w !== kg),
-                })
-              }
-              style={[styles.weight, on && styles.weightOn]}
-            >
-              <Text style={[styles.weightText, on && { color: colors.onAccent }]}>{kg}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {draft.kettlebellWeightsKg.length > 0 && (
-        <>
-          <Text style={[styles.label, { marginTop: spacing.md }]}>¿De cuál tienes dos? (opcional)</Text>
-          <Text style={styles.hint}>Con dos del mismo peso sumamos ejercicios como el paseo del granjero.</Text>
-          <View style={styles.weights}>
-            {draft.kettlebellWeightsKg.map((kg) => {
-              const on = draft.kettlebellPairsKg.includes(kg);
-              return (
-                <Pressable
-                  key={kg}
-                  onPress={() =>
-                    update({ kettlebellPairsKg: toggle(draft.kettlebellPairsKg, kg).sort((a, b) => a - b) })
-                  }
-                  style={[styles.weight, on && styles.weightOn]}
-                  accessibilityLabel={`Tengo dos de ${kg} kilos`}
-                >
-                  <Text style={[styles.weightText, on && { color: colors.onAccent }]}>2 × {kg}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </>
-      )}
+      <OwnedWeights
+        options={KB_WEIGHTS}
+        weights={draft.kettlebellWeightsKg}
+        pairs={draft.kettlebellPairsKg}
+        pairHint="Con dos del mismo peso sumamos ejercicios como el paseo del granjero."
+        onChange={(kettlebellWeightsKg, kettlebellPairsKg) => update({ kettlebellWeightsKg, kettlebellPairsKg })}
+      />
 
       {!showMore && (
         <Pressable onPress={() => setShowMore(true)} style={styles.moreLink}>
@@ -309,11 +276,24 @@ export function EquipmentStep({ draft, update }: StepProps) {
               onPress={() => update({ equipment: toggle(draft.equipment, id) })}
             />
           ))}
+          {draft.equipment.includes('dumbbells') && (
+            <>
+              <Text style={[styles.label, { marginTop: spacing.md }]}>¿De qué peso son tus mancuernas? (kg)</Text>
+              <Text style={styles.hint}>Si son livianas para tu nivel, en su lugar usamos la kettlebell.</Text>
+              <OwnedWeights
+                options={DB_WEIGHTS}
+                weights={draft.dumbbellWeightsKg}
+                pairs={draft.dumbbellPairsKg}
+                pairHint="La mayoría de los ejercicios con mancuernas usan una en cada mano."
+                onChange={(dumbbellWeightsKg, dumbbellPairsKg) => update({ dumbbellWeightsKg, dumbbellPairsKg })}
+              />
+            </>
+          )}
 
           <Text style={[styles.label, { marginTop: spacing.md }]}>Si entrenas en un parque, ¿qué hay ahí?</Text>
           <Text style={styles.hint}>
-            Al parque llevas tu colchoneta, kettlebell, mancuernas y banda. La silla y la barra de tu casa no: marca si
-            tu parque tiene algo parecido.
+            Al parque llevas tu colchoneta, kettlebell, mancuernas, banda y barra de activación. La silla y la barra de
+            dominadas de tu casa no: marca si tu parque tiene algo parecido.
           </Text>
           {PARK_EQUIPMENT_IDS.map((id) => (
             <OptionCard
@@ -326,6 +306,72 @@ export function EquipmentStep({ draft, update }: StepProps) {
         </>
       )}
     </View>
+  );
+}
+
+// Pesos que tiene y de cuáles tiene dos (kettlebells o mancuernas).
+function OwnedWeights({
+  options,
+  weights,
+  pairs,
+  pairHint,
+  onChange,
+}: {
+  options: number[];
+  weights: number[];
+  pairs: number[];
+  pairHint: string;
+  onChange: (weights: number[], pairs: number[]) => void;
+}) {
+  return (
+    <>
+      <View style={styles.weights}>
+        {options.map((kg) => {
+          const on = weights.includes(kg);
+          return (
+            <Pressable
+              key={kg}
+              onPress={() =>
+                onChange(
+                  toggle(weights, kg).sort((a, b) => a - b),
+                  pairs.filter((w) => w !== kg),
+                )
+              }
+              style={[styles.weight, on && styles.weightOn]}
+            >
+              <Text style={[styles.weightText, on && { color: colors.onAccent }]}>{kg}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {weights.length > 0 && (
+        <>
+          <Text style={[styles.label, { marginTop: spacing.md }]}>¿De cuál tienes dos? (opcional)</Text>
+          <Text style={styles.hint}>{pairHint}</Text>
+          <View style={styles.weights}>
+            {weights.map((kg) => {
+              const on = pairs.includes(kg);
+              return (
+                <Pressable
+                  key={kg}
+                  onPress={() =>
+                    onChange(
+                      weights,
+                      toggle(pairs, kg).sort((a, b) => a - b),
+                    )
+                  }
+                  style={[styles.weight, on && styles.weightOn]}
+                  accessibilityLabel={`Tengo dos de ${kg} kilos`}
+                >
+                  <Text style={[styles.weightText, on && { color: colors.onAccent }]}>2 × {kg}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </>
+      )}
+    </>
   );
 }
 
@@ -604,6 +650,8 @@ export function SummaryStep({ draft }: StepProps) {
     level: draft.level ?? 'beginner',
     kettlebellWeightsKg: draft.kettlebellWeightsKg,
     kettlebellPairsKg: draft.kettlebellPairsKg,
+    dumbbellWeightsKg: draft.dumbbellWeightsKg,
+    dumbbellPairsKg: draft.dumbbellPairsKg,
   };
   const avoided = [...new Set(draft.conditions.flatMap((c) => c.activeFlags))];
 
@@ -640,6 +688,16 @@ export function SummaryStep({ draft }: StepProps) {
           .map((k) => (draft.kettlebellPairsKg.includes(k) ? `2 × ${k} kg` : `${k} kg`))
           .join(', ')}
       />
+      {draft.equipment.includes('dumbbells') && (
+        <SummaryRow
+          label="Mancuernas"
+          value={
+            draft.dumbbellWeightsKg
+              .map((k) => (draft.dumbbellPairsKg.includes(k) ? `2 × ${k} kg` : `${k} kg`))
+              .join(', ') || 'Sin peso indicado: no las usamos en Fuerza'
+          }
+        />
+      )}
       <SummaryRow
         label="Condiciones"
         value={

@@ -58,9 +58,9 @@ function keepAliveResponse(work: Promise<unknown>) {
 
 type Quota = { used: number; weekly_limit: number | null; unlimited: boolean; resets_at: string };
 type Block = 'warmup' | 'prehab' | 'main_strength' | 'cooldown';
-type Candidate = { id: string; blocks: Block[]; kettlebell: boolean; [k: string]: unknown };
+type Candidate = { id: string; blocks: Block[]; kettlebell: boolean; dumbbells?: number; [k: string]: unknown };
 type RequestBody = {
-  profile: { kettlebellWeightsKg: number[]; [k: string]: unknown };
+  profile: { kettlebellWeightsKg: number[]; dumbbellWeightsKg?: number[]; [k: string]: unknown };
   week: { day: string; [k: string]: unknown }[];
   candidates: Candidate[];
   history: unknown[];
@@ -85,7 +85,7 @@ Reglas obligatorias:
 - HIIT y AMRAP: una serie del historial con "format" se hizo en circuito con menos peso. No la uses para subir carga, pero respeta su dolor.
 - Cierre de la sesión: cada día lleva "finisher" con "format" normal, hiit o amrap. La persona decide; tú solo sugieres para desafiar y romper la monotonía. Usa hiit o amrap solo en días con ejercicio C, "intensity" moderate o intense, sin dolor reciente, sin semana de descarga y nunca para principiantes. En semana de máxima intensidad usa normal. Sugiere hiit uno o dos días por semana y amrap máximo un día. Decide con su evolución en "recentFinishers": si un AMRAP mejoró su marca o quedó cerca, propón repetirlo; si el último cierre fue muy exigente (effortRpe 10) o tuvo dolor, prefiere normal o el formato más guiado (hiit); si aún no prueba un formato y llega bien, puedes proponerlo. Los demás días usa normal. Nunca inventes marcas que no estén en "recentFinishers". En "reason" escribe una frase corta en español de Chile, tuteando, que diga por qué ese cierre conviene ese día; con normal usa null.
 - Lados: con "laterality": "unilateral", reps o durationSec son por lado y cada serie incluye ambos, así que tarda el doble. Con "alternating", el número es el total de la serie.
-- weightKg: solo en ejercicios con kettlebell, y SOLO con pesos de "profile.kettlebellWeightsKg". En los demás, null. Si un candidato trae "kettlebells": 2, weightKg es el peso de cada una y debe estar en "profile.kettlebellPairsKg".
+- weightKg: solo en ejercicios con kettlebell, y SOLO con pesos de "profile.kettlebellWeightsKg". En los demás, null. Si un candidato trae "kettlebells": 2, weightKg es el peso de cada una y debe estar en "profile.kettlebellPairsKg". Si un candidato trae "dumbbells" (1 o 2), weightKg es el peso de cada mancuerna: con 2 debe estar en "profile.dumbbellPairsKg" y con 1 en "profile.dumbbellWeightsKg". Si ese peso queda bajo "suggestedKgByLevel", sube las repeticiones al tope y pide bajar en 3 s con pausa abajo.
 - Progresión con "history" (última vez que hizo cada ejercicio):
   * Calentamiento, movilidad, equilibrio y elongación no progresan en carga: mantén series, reps o tiempo.
   * Ejercicios por tiempo (planchas, acarreos, isometrías): con RPE ≤ 8 sube 5 s; con RPE ≥ 9 mantén.
@@ -179,6 +179,7 @@ type Plan = {
 function sanitize(plan: Plan, body: RequestBody): Plan {
   const byId = new Map(body.candidates.map((c) => [c.id, c]));
   const owned = body.profile.kettlebellWeightsKg;
+  const ownedDumbbells = body.profile.dumbbellWeightsKg ?? [];
   const days = new Set(body.week.map((d) => d.day));
   return {
     summary: plan.summary,
@@ -199,7 +200,10 @@ function sanitize(plan: Plan, body: RequestBody): Plan {
                 durationSec: s.durationSec != null ? Math.min(900, Math.max(5, s.durationSec)) : null,
                 restSec: Math.min(300, Math.max(0, s.restSec)),
                 weightKg:
-                  byId.get(s.exerciseId)!.kettlebell && s.weightKg != null && owned.includes(s.weightKg)
+                  s.weightKg != null &&
+                  (byId.get(s.exerciseId)!.dumbbells
+                    ? ownedDumbbells.includes(s.weightKg)
+                    : byId.get(s.exerciseId)!.kettlebell && owned.includes(s.weightKg))
                     ? s.weightKg
                     : null,
               })),

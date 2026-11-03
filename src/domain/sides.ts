@@ -9,8 +9,11 @@ export function sideLabel(exerciseId: string) {
   return laterality === 'unilateral' ? 'por lado' : laterality === 'alternating' ? 'alternando' : '';
 }
 
-// Con dos kettlebells se registra el peso de cada una.
-export const kettlebellCount = (exerciseId: string) => EXERCISES_BY_ID.get(exerciseId)?.kettlebellCount ?? 1;
+// Pesas que se usan a la vez (kettlebells o mancuernas): con dos se registra el peso de cada una.
+export function loadCount(exerciseId: string) {
+  const e = EXERCISES_BY_ID.get(exerciseId);
+  return e?.dumbbellGuide?.count ?? e?.kettlebellCount ?? 1;
+}
 
 export const weightLabel = (exerciseId: string, kg: number) =>
-  kettlebellCount(exerciseId) === 2 ? `2 × ${kg} kg` : `${kg} kg`;
+  loadCount(exerciseId) === 2 ? `2 × ${kg} kg` : `${kg} kg`;

@@ -60,11 +60,91 @@ Actualizada al 31-10-2026. Reemplaza la ayuda memoria del 27-10-2026, cuyos punt
   - [x] Producción usa Sonnet desde el 03-11-2026 (ajuste `CLAUDE_MODEL` en Supabase): ~US$0,15 por semana, cerca de la mitad que Opus.
 - [ ] Idea por decidir: elegir el modelo en el plan pagado. Sugerencia: no mostrar nombres de modelos; diferenciar planes por cantidad de consultas y funciones con IA (rehacer un día, resumen del mes, ajuste a mitad de semana), con "IA avanzada" como nombre comercial. Un plan alto con Opus solo si una prueba con las mismas personas muestra rutinas claramente mejores.
 
+## 5a. Idea a futuro: revisar la técnica con video e IA (consulta del 03-11-2026)
+Solo análisis, nada decidido. Posible función del plan pagado.
+- **Camino 1, imágenes a Claude:**
+  - La persona graba o sube 10 a 20 s; la app saca 10 a 15 imágenes y Claude da 2 o 3 observaciones según ejercicio, nivel y lesiones.
+  - Detecta bien posturas (espalda redonda, rodillas hacia adentro, profundidad, bloqueo del press, kettlebell lejos del cuerpo). Detecta mal la velocidad y el ritmo (golpe de cadera del swing, momento del clean).
+  - Costo estimado con Sonnet: US$0,05 a 0,10 por revisión; medirlo.
+  - Esfuerzo medio (días). Funciona en la app web.
+- **Camino 2, postura en el teléfono:**
+  - MediaPipe marca puntos del cuerpo y mide ángulos y velocidad, sin enviar el video. Permite avisos en vivo y cuesta casi nada por uso.
+  - Más difícil (semanas), con reglas por ejercicio.
+  - Combinado: enviar los ángulos a Claude como texto para que redacte la corrección.
+- **Cuidados:**
+  - No guardar el video y pedir permiso explícito.
+  - Hablar de "observaciones de técnica", nunca diagnóstico; con dolor, parar y consultar.
+  - Instrucciones de grabación: teléfono apoyado, de lado, a 2 o 3 m, cuerpo completo y buena luz.
+- **Sugerencia:** partir con el camino 1 en 3 a 5 ejercicios (swing, sentadilla goblet, peso muerto, press y remo), probado con videos reales del usuario y amigos; si funciona, sumar el camino 2.
+
+## 5b. Idea por decidir: vender nosotros, sin tiendas (análisis del 03-11-2026)
+Solo análisis, nada decidido ni programado. Las cifras son aproximadas; confirmarlas con cada proveedor antes de decidir.
+
+**A favor**
+- Sin la comisión de Apple o Google (15 % el primer millón de dólares al año, 30 % sobre eso). Una pasarela cobra cerca de 3 a 5 % por pago: a US$5 quedan unos US$4,80 en vez de US$4,25.
+- Sin revisión de las tiendas: cada cambio se publica el mismo día, como hoy.
+- Sin pagar las cuentas de desarrollador (US$99 al año Apple, US$25 Google).
+- La relación con el cliente es nuestra: correo, precio, promociones, descuentos por país y códigos de entrenadores.
+- La app web ya funciona en iPhone y Android, con guías de instalación.
+
+**En contra**
+- Nadie nos encuentra "buscando en la tienda": toda la llegada depende de la difusión propia.
+- Menos confianza al pagar: hay que dar la tarjeta en un sitio nuevo y no con Apple Pay o Google Pay de la tienda.
+- Cancelar, reembolsar y reclamar pasa por nosotros: hay que dar soporte.
+- Nosotros emitimos boleta y pagamos el IVA. En Chile, 19 % en servicios digitales; en otros países depende de cada uno, salvo que se use un "vendedor registrado" que se encargue.
+- La app web tiene límites: avisos en el iPhone más débiles, sin Apple Salud y con sonido que Safari a veces bloquea.
+- Si después entramos a las tiendas, Apple y Google exigen ofrecer la compra dentro de la app para lo que se vende ahí. Quien pagó en la web podría entrar con su cuenta, pero dentro de la app no se puede invitar a pagar afuera, salvo excepciones por país.
+
+**Lo que habría que programar si vendemos nosotros**
+1. **Medios de pago con suscripción mensual automática.**
+   - Para Chile: Mercado Pago, Flow o Webpay de Transbank.
+   - Para varios países: Mercado Pago (Latinoamérica), Stripe (revisar si acepta cuentas de Chile), o un vendedor registrado como Paddle o Lemon Squeezy, que cobra más pero se hace cargo de los impuestos de cada país.
+2. **Página de planes y pago** en kettaiapp.com, con precio en moneda local.
+3. **Pagos y cuentas conectados.**
+   - El proveedor avisa a nuestro servidor (webhook) cada pago, rechazo, renovación o cancelación. Una función de Supabase actualiza `ai_plans.weekly_limit` de esa cuenta: 1 o 2 consultas si pagó, 0 o solo reglas si no.
+   - Guardar para cada cuenta: plan, estado (activo, atrasado, cancelado) y fecha de vencimiento.
+   - Gracia de unos días si falla la tarjeta antes de bajar al plan gratis, con aviso por correo.
+   - Al cancelar, mantener el plan hasta fin del mes pagado.
+   - Revisión diaria automática por si se perdió un aviso del proveedor.
+4. **Cuenta real obligatoria para pagar.** Ya existe con correo. Falta exigir correo en la función para usar la IA, y evitar que borrar y recrear la cuenta reinicie el límite.
+5. **Pantalla "Mi plan" en la app:** plan actual, próximo cobro, cambiar o cancelar (el enlace lo da el proveedor) y boletas.
+6. **Correos automáticos:** bienvenida, pago recibido, tarjeta rechazada, plan por vencer y cancelación.
+7. **Boleta electrónica** (SII) por cada pago, o un proveedor que la emita solo.
+8. **Términos de uso, política de reembolso y precio con impuestos** visibles antes de pagar (Ley del Consumidor).
+9. **Códigos de descuento y de referido**, para entrenadores y kinesiólogos (ver difusión).
+10. **Panel simple para ti:** cuántos pagan, cuántos cancelan, ingreso del mes y gasto de IA.
+
+**Publicidad en el plan gratis: qué significaría**
+- Choca con una decisión anterior de esta lista: "Sin anuncios dentro de la app". Hay que elegir una.
+- Rinde poco con pocos usuarios: del orden de pocos dólares por cada mil anuncios vistos. Con cientos de usuarios no paga ni el dominio; sirve recién con decenas de miles.
+- Empeora la experiencia. Nunca durante un entrenamiento, el temporizador o un ejercicio con dolor; a lo más en Progreso o al terminar la sesión.
+- La app guarda datos de salud: los anuncios no pueden usarlos para segmentar, y la mayoría de las redes de anuncios rastrean. Exige aviso de cookies, consentimiento y cambios en la política de privacidad. La nueva ley chilena de datos personales (Ley 21.719, vigente desde diciembre de 2026) trata los datos de salud como sensibles.
+- En las tiendas, los anuncios cambian las etiquetas de privacidad y la revisión.
+- Alternativa sugerida: el plan gratis sin anuncios, con un aviso propio y amable para pasar al plan pagado (por ejemplo, "Esta semana la armaron las reglas; con IA se ajusta a tu evolución"). O un único espacio para un patrocinador elegido por nosotros, como una marca de kettlebells, sin rastreo.
+
+**Difusión con entrenadores, influencers y kinesiólogos**
+- **Entrenadores e influencers de kettlebell o fuerza:** código propio con descuento para su comunidad y comisión por cada persona que paga, por ejemplo 20 a 30 % durante los primeros meses. Requiere los códigos de referido del punto 9 y un reporte de cuánto trajo cada uno.
+- **Kinesiólogos:** son los más creíbles por el foco en lesiones. Se les puede dar acceso gratis para sus pacientes y un código. Más adelante, una "vista para el kinesiólogo" donde el paciente comparte su dolor por ejercicio y su avance, solo si el paciente lo autoriza.
+- **Cuidado con lo que se promete:** la app no reemplaza al profesional de salud y no debe anunciarse como tratamiento. Los avisos deben decir que son publicidad pagada.
+- **Partir chico:** 3 a 5 entrenadores o kinesiólogos de confianza, medir cuántos se quedan después de un mes y recién ahí ampliar.
+
+**Recomendación**
+1. Partir vendiendo nosotros en la web, en Chile, con Mercado Pago o Flow y un solo plan pagado. Es lo más rápido, barato y fácil de cambiar.
+2. Plan gratis sin anuncios.
+3. Difusión con pocos kinesiólogos y entrenadores, con códigos.
+4. Entrar a las tiendas cuando haya personas pagando y la retención sea buena, sumando la compra dentro de la app.
+
 ## 6. Tiendas de apps
 - [ ] Cuenta Apple Developer (US$99 al año) y Google Play (US$25, pago único).
 - [ ] Configurar la app nativa: identificadores, `eas.json`, ícono y pantallas de tienda.
 - [ ] Compra dentro de la app con Apple y Google (suscripción).
 - [ ] Funciones propias de app: notificaciones y, si conviene, Apple Salud.
+- [ ] Podómetro (`expo-sensors`, Pedometer; incluido en Expo Go). No funciona en la app web.
+  - iPhone: pasos de los últimos 7 días, aunque la app haya estado cerrada.
+  - Android: solo mientras la app está abierta; el día completo requiere Health Connect.
+  - Uso: pasos del día en Hoy y Progreso, y en la IA como señal de recuperación (por ejemplo, muchos pasos ayer → piernas más suave).
+  - Esfuerzo: mostrar pasos, fácil; IA y progreso, fácil a medio; Health Connect, medio a difícil.
+  - Alternativa para la web: anotar los pasos a mano.
 - [ ] Cuenta de prueba para los revisores de Apple.
 - [ ] Página pública para pedir el borrado de cuenta (Google la exige).
 - [ ] Etiquetas de privacidad de Apple, Data safety y declaración de salud de Google.

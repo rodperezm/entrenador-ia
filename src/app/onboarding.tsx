@@ -112,6 +112,8 @@ function OnboardingForm() {
     parkEquipment: profile?.parkEquipment ?? [],
     kettlebellWeightsKg: profile?.kettlebellWeightsKg ?? [],
     kettlebellPairsKg: profile?.kettlebellPairsKg ?? [],
+    dumbbellWeightsKg: profile?.dumbbellWeightsKg ?? [],
+    dumbbellPairsKg: profile?.dumbbellPairsKg ?? [],
     conditions: profile?.conditions ?? [],
     sex: profile?.sex ?? null,
     birthText: formatBirth(profile?.birthDate ?? null),
@@ -163,6 +165,9 @@ function OnboardingForm() {
         parkEquipment: draft.parkEquipment,
         kettlebellWeightsKg: draft.kettlebellWeightsKg,
         kettlebellPairsKg: draft.kettlebellPairsKg,
+        // Sin mancuernas marcadas no se guardan sus pesos.
+        dumbbellWeightsKg: draft.equipment.includes('dumbbells') ? draft.dumbbellWeightsKg : [],
+        dumbbellPairsKg: draft.equipment.includes('dumbbells') ? draft.dumbbellPairsKg : [],
         conditions: draft.conditions,
         sex: draft.sex,
         birthDate: parseBirth(draft.birthText),

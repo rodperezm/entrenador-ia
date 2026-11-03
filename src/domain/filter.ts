@@ -11,17 +11,30 @@ const LOAD_LIMITED_IDS = [
   'kb_turkish_get_up',
 ];
 
-type WeightProfile = Pick<UserProfile, 'level' | 'kettlebellWeightsKg' | 'kettlebellPairsKg'>;
+// Mancuernas muy livianas para el nivel no sirven en Fuerza: bajo este porcentaje del
+// peso sugerido, se usa la versión con kettlebell.
+const DUMBBELL_MIN_RATIO = 0.6;
 
-// Pesos que sirven para un ejercicio: con dos kettlebells, solo los que tiene repetidos.
-export function weightsFor(e: Pick<Exercise, 'id' | 'kettlebellCount' | 'kettlebellGuide'>, profile: WeightProfile) {
+type WeightProfile = Pick<
+  UserProfile,
+  'level' | 'kettlebellWeightsKg' | 'kettlebellPairsKg' | 'dumbbellWeightsKg' | 'dumbbellPairsKg'
+>;
+type Weighted = Pick<Exercise, 'id' | 'kettlebellCount' | 'kettlebellGuide' | 'dumbbellGuide'>;
+
+// Pesos que sirven para un ejercicio: con dos kettlebells o dos mancuernas, solo los que tiene repetidos.
+export function weightsFor(e: Weighted, profile: WeightProfile) {
+  const db = e.dumbbellGuide;
+  if (db) {
+    const owned = db.count === 2 ? profile.dumbbellPairsKg : profile.dumbbellWeightsKg;
+    return owned.filter((w) => w >= db.suggestedWeightKg[profile.level] * DUMBBELL_MIN_RATIO);
+  }
   const owned = e.kettlebellCount === 2 ? profile.kettlebellPairsKg : profile.kettlebellWeightsKg;
   const limit = e.kettlebellGuide?.suggestedWeightKg[profile.level];
   return LOAD_LIMITED_IDS.includes(e.id) && limit != null ? owned.filter((w) => w <= limit) : owned;
 }
 
-const needsCheckedWeight = (e: Pick<Exercise, 'id' | 'kettlebellCount'>) =>
-  e.kettlebellCount === 2 || LOAD_LIMITED_IDS.includes(e.id);
+const needsCheckedWeight = (e: Pick<Exercise, 'id' | 'kettlebellCount' | 'dumbbellGuide'>) =>
+  e.kettlebellCount === 2 || LOAD_LIMITED_IDS.includes(e.id) || e.dumbbellGuide != null;
 
 // Sin un peso adecuado, el ejercicio no se ofrece.
 export const hasUsableWeight = (e: Exercise, profile: WeightProfile) =>

@@ -122,6 +122,14 @@ export const ExerciseSchema = z.object({
   }),
 
   kettlebellGuide: KettlebellGuide.nullable(),
+  // Mancuernas: cuántas usa (una en cada mano o una sola) y peso sugerido de cada una por nivel.
+  dumbbellGuide: z
+    .object({
+      count: z.number().int().min(1).max(2),
+      suggestedWeightKg: z.object({ beginner: z.number(), intermediate: z.number(), advanced: z.number() }),
+    })
+    .nullable()
+    .default(null),
   safetyNotes: z.array(z.object({ flag: RestrictionFlagId, note: LocalizedText })),
   cooldownStretchIds: z.array(ExerciseId),
   tags: z.array(z.string()),
@@ -157,6 +165,8 @@ export const UserProfile = z.object({
   parkEquipment: z.array(EquipmentId).default([]),
   kettlebellWeightsKg: z.array(z.number().positive()),
   kettlebellPairsKg: z.array(z.number().positive()).default([]), // pesos de los que tiene dos
+  dumbbellWeightsKg: z.array(z.number().positive()).default([]),
+  dumbbellPairsKg: z.array(z.number().positive()).default([]), // pesos de mancuerna de los que tiene dos
   conditions: z.array(UserCondition),
   excludedExerciseIds: z.array(ExerciseId),
 });

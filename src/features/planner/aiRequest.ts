@@ -88,6 +88,7 @@ export function buildAiRequest(
       equipment: e.equipment.required,
       laterality: e.laterality,
       kettlebells: e.kettlebellCount,
+      dumbbells: e.dumbbellGuide?.count ?? 0,
       chain: e.progression.chainId,
       defaults: {
         sets: e.prescription.sets,
@@ -95,7 +96,7 @@ export function buildAiRequest(
         durationSec: e.prescription.durationSec,
         restSec: e.prescription.restSec,
       },
-      suggestedKgByLevel: e.kettlebellGuide?.suggestedWeightKg ?? null,
+      suggestedKgByLevel: e.dumbbellGuide?.suggestedWeightKg ?? e.kettlebellGuide?.suggestedWeightKg ?? null,
       cooldownStretchIds: e.cooldownStretchIds,
       forConditions: forConditions.has(e.id),
     }));
@@ -159,6 +160,8 @@ export function buildAiRequest(
       equipment: profile.equipment,
       kettlebellWeightsKg: profile.kettlebellWeightsKg,
       kettlebellPairsKg: profile.kettlebellPairsKg,
+      dumbbellWeightsKg: profile.dumbbellWeightsKg,
+      dumbbellPairsKg: profile.dumbbellPairsKg,
       conditions: profile.conditions.map((c) => ({
         name: MEDICAL_CONDITIONS.find((m) => m.id === c.conditionId)?.name ?? c.conditionId,
         avoid: c.activeFlags.map((f) => RESTRICTION_FLAGS[f]),

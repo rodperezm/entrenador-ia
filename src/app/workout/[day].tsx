@@ -28,7 +28,7 @@ import {
   type WorkoutSession,
 } from '@/domain/schema';
 import { fmtClock } from '@/domain/session';
-import { isPerSide, kettlebellCount, sideLabel, weightLabel } from '@/domain/sides';
+import { isPerSide, loadCount, sideLabel, weightLabel } from '@/domain/sides';
 import { DAY_LONG } from '@/domain/week';
 import { slotLabel } from '@/features/planner/describe';
 import { AmrapBlock, type AmrapResult } from '@/features/workout/AmrapBlock';
@@ -215,7 +215,8 @@ export default function WorkoutScreen() {
   const reps = ov.reps ?? item.slot.reps ?? 0;
   const seconds = ov.seconds ?? item.slot.durationSec ?? 30;
   const owned = ex && profile ? weightsFor(ex, profile) : [];
-  const usesKb = !!ex?.equipment.required.includes('kettlebell') && owned.length > 0;
+  // Ejercicios con kettlebell o mancuernas: se elige y registra el peso.
+  const usesKb = !!ex && (ex.equipment.required.includes('kettlebell') || ex.dumbbellGuide != null) && owned.length > 0;
   const weight = ov.weight !== undefined ? ov.weight : item.slot.weightKg;
   const painHere = (p: PainLevel | null) => Math.max(p ?? 0, itemPain[item.key] ?? 0) as PainLevel;
   const setOv = (patch: Override) => setOverrides((o) => ({ ...o, [item.key]: { ...o[item.key], ...patch } }));
@@ -588,7 +589,14 @@ export default function WorkoutScreen() {
             </View>
           )}
 
-          {offer && !closingDismissed && <ClosingCard offer={offer} byAi={!!dayPlan.finisher} onPick={pickClosing} onNormal={() => setClosingDismissed(true)} />}
+          {offer && !closingDismissed && (
+            <ClosingCard
+              offer={offer}
+              byAi={!!dayPlan.finisher}
+              onPick={pickClosing}
+              onNormal={() => setClosingDismissed(true)}
+            />
+          )}
 
           {phase === 'feedback' ? (
             <View style={styles.panel}>
@@ -640,7 +648,9 @@ export default function WorkoutScreen() {
                 {usesKb && weight ? ` · ${weightLabel(item.slot.exerciseId, weight)}` : ''}
               </Text>
               {isPerSide(item.slot.exerciseId) && (
-                <Text style={styles.sideHint}>Termina un lado, cambia y marca «{kind === 'none' ? 'Hecho' : 'Hecha'}» al final.</Text>
+                <Text style={styles.sideHint}>
+                  Termina un lado, cambia y marca «{kind === 'none' ? 'Hecho' : 'Hecha'}» al final.
+                </Text>
               )}
 
               {adjusting && (
@@ -666,7 +676,11 @@ export default function WorkoutScreen() {
                   {usesKb && (
                     <View style={styles.logRow}>
                       <Text style={styles.label}>
-                        {kettlebellCount(item.slot.exerciseId) === 2 ? 'Peso de cada una (kg)' : 'Peso (kg)'}
+                        {loadCount(item.slot.exerciseId) === 2
+                          ? ex?.dumbbellGuide
+                            ? 'Peso de cada mancuerna (kg)'
+                            : 'Peso de cada una (kg)'
+                          : 'Peso (kg)'}
                       </Text>
                       <View style={styles.chips}>
                         {owned.map((kg) => (
@@ -953,7 +967,7 @@ function Summary({
   // A un lado, lo registrado es por lado: en total se hizo el doble.
   const doneReps = (l: SetLog) => (l.repsDone ?? 0) * (isPerSide(l.exerciseId) ? 2 : 1);
   const totalReps = logs.reduce((n, l) => n + doneReps(l), 0);
-  const volume = logs.reduce((n, l) => n + doneReps(l) * (l.weightKg ?? 0) * kettlebellCount(l.exerciseId), 0);
+  const volume = logs.reduce((n, l) => n + doneReps(l) * (l.weightKg ?? 0) * loadCount(l.exerciseId), 0);
   // Reserva media solo de los ejercicios por repeticiones (en los de tiempo la escala es otra).
   const rpes = logs
     .filter((l) => {

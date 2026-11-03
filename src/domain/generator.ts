@@ -61,6 +61,7 @@ const ROLE_NOTE: Record<StrengthRole, string> = {
   B: 'Baja en 3 s y sube rápido.',
   C: 'Remate: mantén la técnica aunque canses.',
 };
+export const LIGHT_DUMBBELL_NOTE = 'Peso liviano para ti: baja en 3 s y pausa 1 s abajo.';
 // Barajado determinista (mismo resultado para la misma semana y día).
 function seeded(seed: number) {
   let s = seed || 1;
@@ -78,24 +79,33 @@ function prescribe(e: Exercise, profile: LocalProfile, rationale: string | null)
         ? p.repRange.max
         : Math.round((p.repRange.min + p.repRange.max) / 2)
     : null;
+  const weightKg = pickWeight(e, profile);
+  // Mancuernas bajo lo sugerido: se compensa con el tope de repeticiones y tempo lento.
+  const light = e.dumbbellGuide != null && weightKg != null && weightKg < e.dumbbellGuide.suggestedWeightKg[level];
   return {
     exerciseId: e.id,
     sets,
-    reps,
+    reps: light && p.repRange ? p.repRange.max : reps,
     durationSec: p.durationSec,
-    weightKg: pickWeight(e, profile),
+    weightKg,
     restSec: p.restSec,
-    rationale,
+    rationale: light ? LIGHT_DUMBBELL_NOTE : rationale,
   };
 }
 
-// Peso de kettlebell: el más cercano por debajo del sugerido para su nivel
+const suggestedKg = (e: Exercise, profile: LocalProfile) =>
+  e.dumbbellGuide
+    ? e.dumbbellGuide.suggestedWeightKg[profile.level]
+    : e.equipment.required.includes('kettlebell')
+      ? e.kettlebellGuide?.suggestedWeightKg[profile.level]
+      : undefined;
+
+// Peso de kettlebell o mancuerna: el más cercano por debajo del sugerido para su nivel
 // entre los que el usuario tiene; si todos son más pesados, el más liviano.
 export function pickWeight(e: Exercise, profile: LocalProfile): number | null {
-  const guide = e.kettlebellGuide;
+  const target = suggestedKg(e, profile);
   const owned = weightsFor(e, profile);
-  if (!guide || !e.equipment.required.includes('kettlebell') || owned.length === 0) return null;
-  const target = guide.suggestedWeightKg[profile.level];
+  if (target == null || owned.length === 0) return null;
   const below = owned.filter((w) => w <= target);
   return below.length ? Math.max(...below) : Math.min(...owned);
 }
@@ -265,7 +275,11 @@ function generateDay(
       'main',
       mainOptions.map(({ exercise, role }) => {
         const base = prescribe(exercise, profile, null);
-        const slot = { ...base, role, rationale: base.reps ? ROLE_NOTE[role] : null };
+        const slot = {
+          ...base,
+          role,
+          rationale: base.rationale === LIGHT_DUMBBELL_NOTE ? base.rationale : base.reps ? ROLE_NOTE[role] : null,
+        };
         if (role !== 'A') return slot;
         const repsMax = cycle.phase === 'power' ? POWER_REPS_FOCUS : POWER_REPS_MAX;
         return {
@@ -286,8 +300,18 @@ function generateDay(
     const gentleWarmups = warmups.filter(isGentle);
     const options = (b.main.enabled || !gentleWarmups.length ? warmups : gentleWarmups).sort(
       (x, y) =>
-        Number(!y.muscleGroups.some((g) => mainGroups.has(g))) - Number(!x.muscleGroups.some((g) => mainGroups.has(g))),
+        Number(y.muscleGroups.some((g) => mainGroups.has(g))) - Number(x.muscleGroups.some((g) => mainGroups.has(g))),
     );
+    // Con barra de activación, todo día de fuerza prepara el hombro (manguito rotador y escápulas).
+    const shoulderPrep = main.length ? options.find((e) => e.tags.includes('shoulder_prep')) : undefined;
+    if (shoulderPrep) {
+      options.splice(options.indexOf(shoulderPrep), 1);
+      options.unshift(shoulderPrep);
+    }
+    // Principiante con swing o peso muerto ese día: primero el ejercicio que enseña la bisagra.
+    if (profile.level === 'beginner' && main.some((m) => m.exercise.movementPattern === 'hinge')) {
+      options.sort((x, y) => Number(y.tags.includes('hinge_drill')) - Number(x.tags.includes('hinge_drill')));
+    }
     blocks.push({
       type: 'warmup',
       slots: fit(
@@ -448,7 +472,9 @@ function applyCycleWeek(
   if (profile.level === 'advanced' && slot.role === 'C' && e.complexityLevel <= DENSITY_MAX_COMPLEXITY) {
     return densityFinisher(slot, e, cycle);
   }
-  const heavier = weightsFor(e, profile).filter((w) => w > (slot.weightKg ?? Infinity)).sort((a, b) => a - b)[0];
+  const heavier = weightsFor(e, profile)
+    .filter((w) => w > (slot.weightKg ?? Infinity))
+    .sort((a, b) => a - b)[0];
   const minReps = e.prescription.repRange?.min ?? 1;
   if (cycle.week === 3) {
     // Principiante: la semana de máxima intensidad es técnica, nunca más peso (ni el que subiría por progresión).
@@ -477,7 +503,9 @@ function applyCycleWeek(
       ...slot,
       restSec: Math.max(MIN_REST_SEC, Math.round(slot.restSec * CHOQUE_REST)),
       rationale:
-        slot.durationSec != null ? 'Semana de máxima intensidad: descansa menos.' : 'Semana de máxima intensidad: baja en 4 s y descansa menos.',
+        slot.durationSec != null
+          ? 'Semana de máxima intensidad: descansa menos.'
+          : 'Semana de máxima intensidad: baja en 4 s y descansa menos.',
     };
   }
   // Primer peldaño del bloque nuevo: mismo ejercicio, un paso más arriba que antes.
@@ -517,7 +545,11 @@ function applyProgression(
       slots: b.slots.map((s) => {
         const e = byId.get(s.exerciseId)!;
         const progressed = progressSlot(s, e, profile, history);
-        if (b.type === 'main_strength' && !locked.includes(s.exerciseId) && swappedFamilies.includes(patternFamily(e))) {
+        if (
+          b.type === 'main_strength' &&
+          !locked.includes(s.exerciseId) &&
+          swappedFamilies.includes(patternFamily(e))
+        ) {
           return { ...progressed, rationale: 'Cambiado por el dolor fuerte que marcaste.' };
         }
         const cycled = b.type === 'main_strength' && !cfg?.gentleStrength;
