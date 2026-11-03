@@ -4,7 +4,7 @@ import { guardAiPlan } from '@/domain/aiGuard';
 import { bodyFat, calcIndices } from '@/domain/body';
 import { cycleInfo } from '@/domain/cycle';
 import { generateWeekByRules } from '@/domain/generator';
-import { configHash, dayHashes } from '@/domain/week';
+import { configHash, dayHashes, isFromPastWeek } from '@/domain/week';
 import { useBody } from '@/state/body';
 import { useHistory } from '@/state/history';
 import { usePlan } from '@/state/plan';
@@ -76,6 +76,20 @@ export function useGenerateWeek() {
       });
       await savePlan({ ...guarded, ...meta, generator: 'llm' });
     } catch (err) {
+      // Límite semanal: si ya hay una semana armada, se conserva tal como está.
+      if (err instanceof AiPlanError && err.code === 'weekly_limit') {
+        const hasCurrentWeek = !!plan?.days.length && !isFromPastWeek(plan.generatedAt);
+        if (hasCurrentWeek) {
+          setNotice('Ya armaste tu semana con IA. Tu semana sigue igual; el lunes podrás armar la siguiente.');
+          setGenerating(false);
+          return;
+        }
+        const result = generateWeekByRules(week, profile, EXERCISES, sessions, Date.now(), lockedByDay);
+        await savePlan({ ...result, ...meta, generator: 'rules' });
+        setNotice('Ya usaste tu semana con IA. Esta vez la armamos con las reglas de la app.');
+        setGenerating(false);
+        return;
+      }
       // Respaldo: reglas dentro de la app (sin conexión, sin clave, etc.).
       const result = generateWeekByRules(week, profile, EXERCISES, sessions, Date.now(), lockedByDay);
       await savePlan({ ...result, ...meta, generator: 'rules' });

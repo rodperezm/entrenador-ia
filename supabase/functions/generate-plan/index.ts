@@ -5,6 +5,9 @@
 // historial. Claude solo puede elegir entre esos candidatos; la respuesta se
 // valida aquí (y otra vez en la app) antes de devolverla.
 //
+// Cada cuenta tiene un límite de semanas con IA (migración 0003): si lo alcanzó,
+// responde 429 sin llamar a Claude, y solo las consultas exitosas se cuentan.
+//
 // Secretos (Edge Functions → Secrets):
 //   ANTHROPIC_API_KEY  (obligatorio)
 //   CLAUDE_MODEL       (opcional; por defecto claude-opus-5-5)
@@ -51,6 +54,7 @@ function keepAliveResponse(work: Promise<unknown>) {
   });
 }
 
+type Quota = { used: number; weekly_limit: number | null; unlimited: boolean; resets_at: string };
 type Block = 'warmup' | 'prehab' | 'main_strength' | 'cooldown';
 type Candidate = { id: string; blocks: Block[]; kettlebell: boolean; [k: string]: unknown };
 type RequestBody = {
@@ -217,10 +221,23 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
 
   // Solo usuarios con sesión (anónima o con correo) pueden gastar créditos.
-  const token = req.headers.get('Authorization')?.replace('Bearer ', '');
-  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, publishableKey());
+  const authorization = req.headers.get('Authorization') ?? '';
+  const token = authorization.replace('Bearer ', '');
+  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, publishableKey(), {
+    global: { headers: { Authorization: authorization } },
+  });
   const { data: auth } = await supabase.auth.getUser(token);
   if (!auth?.user) return json({ error: 'unauthorized' }, 401);
+
+  // Límite semanal antes de llamar a Claude, para no gastar la consulta.
+  const { data: quota, error: quotaError } = await supabase.rpc('ai_quota').single<Quota>();
+  if (quotaError || !quota) {
+    console.error('No se pudo leer el límite', quotaError?.message);
+    return json({ error: 'quota_unavailable' }, 503);
+  }
+  if (!quota.unlimited && quota.used >= (quota.weekly_limit ?? 0)) {
+    return json({ error: 'weekly_limit', resetsAt: quota.resets_at, limit: quota.weekly_limit }, 429);
+  }
 
   let body: RequestBody;
   try {
@@ -230,7 +247,15 @@ Deno.serve(async (req) => {
     return json({ error: 'bad_request' }, 400);
   }
 
-  return keepAliveResponse(generatePlan(body));
+  return keepAliveResponse(
+    generatePlan(body).then(async (result) => {
+      if ('plan' in result) {
+        const { error } = await supabase.rpc('record_ai_generation');
+        if (error) console.error('No se pudo registrar la consulta', error.message);
+      }
+      return result;
+    }),
+  );
 });
 
 // La respuesta ya empezó, así que los errores van dentro del JSON y no como estado HTTP.

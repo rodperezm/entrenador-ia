@@ -14,9 +14,18 @@ import { ensureSession, supabase } from '@/lib/supabase';
 
 export { buildAiRequest, type BodySnapshot } from './aiRequest';
 
-export class AiPlanError extends Error {}
+export class AiPlanError extends Error {
+  constructor(
+    message: string,
+    readonly code = '',
+  ) {
+    super(message);
+  }
+}
 
 const REASONS: Record<string, string> = {
+  weekly_limit: 'ya usaste las semanas con IA de esta semana',
+  quota_unavailable: 'no se pudo revisar tu límite semanal',
   unauthorized: 'la sesión con el servidor no es válida',
   anthropic_key_invalid: 'falta o es inválida la clave de Anthropic en Supabase',
   rate_limited: 'Claude está saturado en este momento',
@@ -38,7 +47,7 @@ export async function generateWeekWithAi(request: ReturnType<typeof buildAiReque
     if (error instanceof FunctionsHttpError) {
       code = ((await error.context.json().catch(() => ({}))) as { error?: string }).error ?? '';
     }
-    throw new AiPlanError(REASONS[code] ?? 'el servidor no respondió');
+    throw new AiPlanError(REASONS[code] ?? 'el servidor no respondió', code);
   }
 
   // La función responde en flujo para no perder la conexión, y sus errores vienen dentro del JSON.
