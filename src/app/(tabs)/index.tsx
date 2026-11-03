@@ -184,13 +184,13 @@ function TodayCard({ generating, onGenerate }: { generating: boolean; onGenerate
       cycle,
       advice: dayPlan.finisher,
     });
-    if (closing) {
+    // Solo se anuncia cuando hay una sugerencia; el cierre normal no necesita aviso.
+    if (closing && closing.suggested !== 'normal') {
+      const who = dayPlan.finisher ? 'La IA te sugiere' : 'Te sugerimos';
       closingNote =
         closing.suggested === 'hiit'
-          ? `Hoy te sugerimos cerrar con HIIT · ≈ ${closing.hiit.minutes} min`
-          : closing.suggested === 'amrap'
-            ? `Hoy te sugerimos cerrar con AMRAP · ${closing.amrap.minutes} min`
-            : 'Hoy puedes cerrar con HIIT o AMRAP';
+          ? `${who} cerrar con HIIT · ≈ ${closing.hiit.minutes} min`
+          : `${who} cerrar con AMRAP · ${closing.amrap.minutes} min`;
     }
     action = {
       label: 'Empezar entrenamiento',

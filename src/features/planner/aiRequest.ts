@@ -180,10 +180,42 @@ export function buildAiRequest(
       })),
     candidates,
     history: lastByExercise,
-    // Cierres recientes, para variar y no repetir AMRAP en la semana.
+    // Cierres recientes y cómo le fue, para elegir el de esta semana con su evolución.
     recentFinishers: history.slice(0, HISTORY_SESSIONS).flatMap((s) => {
-      const format = s.sets.find((l) => l.format)?.format;
-      return format ? [{ date: s.finishedAt.slice(0, 10), format }] : [];
+      const sets = s.sets.filter((l) => l.format);
+      const format = sets[0]?.format;
+      if (!format) return [];
+      const rpes = sets.map((l) => l.rpe).filter((v): v is number => v != null);
+      return [
+        {
+          date: s.finishedAt.slice(0, 10),
+          format,
+          effortRpe: rpes.length ? Math.max(...rpes) : null,
+          pain: ['nada', 'leve', 'moderado', 'fuerte'][Math.max(...sets.map(painOf))],
+          ...(format === 'hiit' ? { intervals: sets.length } : {}),
+          ...(s.amrap
+            ? {
+                amrap: {
+                  minutes: s.amrap.minutes,
+                  exercises: s.amrap.exerciseIds.map((id) => byId.get(id)?.name.es ?? id),
+                  rounds: s.amrap.rounds,
+                  extraReps: s.amrap.extraReps,
+                  // Mejor marca anterior del mismo desafío, para saber si mejoró.
+                  previousBest:
+                    history
+                      .filter(
+                        (o) =>
+                          o.finishedAt < s.finishedAt &&
+                          o.amrap?.minutes === s.amrap!.minutes &&
+                          o.amrap.exerciseIds.join(',') === s.amrap!.exerciseIds.join(','),
+                      )
+                      .map((o) => o.amrap!)
+                      .sort((a, b) => b.rounds * 1000 + b.extraReps - (a.rounds * 1000 + a.extraReps))[0] ?? null,
+                },
+              }
+            : {}),
+        },
+      ];
     }),
     body,
   };

@@ -96,6 +96,7 @@ export default function WorkoutScreen() {
   const [replacements, setReplacements] = useState<Record<string, Item>>({});
   const [showAll, setShowAll] = useState(false);
   const [closing, setClosing] = useState<{ format: 'hiit' | 'amrap'; offer: FinisherOffer } | null>(null);
+  const [closingDismissed, setClosingDismissed] = useState(false);
   const amrapResult = useRef<WorkoutSession['amrap']>(undefined);
   const [finishedAt, setFinishedAt] = useState<number | null>(null);
   const [confirmEnd, setConfirmEnd] = useState(false);
@@ -401,6 +402,8 @@ export default function WorkoutScreen() {
         })
       : null;
 
+  const pickClosing = (format: 'hiit' | 'amrap') => offer && setClosing({ format, offer });
+
   // HIIT y AMRAP se registran como series aparte: no suben cargas, pero su dolor cuenta.
   const saveClosing = (
     format: 'hiit' | 'amrap',
@@ -585,27 +588,7 @@ export default function WorkoutScreen() {
             </View>
           )}
 
-          {offer && (
-            <View style={styles.hiitCard}>
-              <Text style={styles.panelTitle}>
-                {offer.suggested === 'normal'
-                  ? '¿Cómo quieres cerrar?'
-                  : `Hoy te sugerimos ${offer.suggested === 'hiit' ? 'HIIT' : 'AMRAP'}`}
-              </Text>
-              <Text style={styles.hint}>{offer.reason}</Text>
-              <Button
-                label={`HIIT · ${offer.hiit.config.rounds} rondas · ≈ ${offer.hiit.minutes} min`}
-                variant={offer.suggested === 'hiit' ? 'primary' : 'secondary'}
-                onPress={() => setClosing({ format: 'hiit', offer })}
-              />
-              <Button
-                label={`AMRAP · ${offer.amrap.minutes} min`}
-                variant={offer.suggested === 'amrap' ? 'primary' : 'secondary'}
-                onPress={() => setClosing({ format: 'amrap', offer })}
-              />
-              <Text style={styles.hint}>O sigue normal con el ejercicio de abajo.</Text>
-            </View>
-          )}
+          {offer && !closingDismissed && <ClosingCard offer={offer} byAi={!!dayPlan.finisher} onPick={pickClosing} onNormal={() => setClosingDismissed(true)} />}
 
           {phase === 'feedback' ? (
             <View style={styles.panel}>
@@ -898,6 +881,61 @@ function PainSheet({
       {canSwap && <Button label="Cambiar por uno más suave" variant="ghost" onPress={onSwap} />}
       <Button label="Parar solo este ejercicio" variant="ghost" onPress={onStop} />
     </>
+  );
+}
+
+const FORMAT_NAME = { hiit: 'HIIT', amrap: 'AMRAP' } as const;
+
+// Cierre del bloque C: la sugerencia como opción principal, la otra más discreta y un
+// botón propio para seguir normal (no se confunde con «Hecha», que registra una serie).
+function ClosingCard({
+  offer,
+  byAi,
+  onPick,
+  onNormal,
+}: {
+  offer: FinisherOffer;
+  byAi: boolean;
+  onPick: (format: 'hiit' | 'amrap') => void;
+  onNormal: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const label = {
+    hiit: `Hacer HIIT · ≈ ${offer.hiit.minutes} min`,
+    amrap: `Hacer AMRAP · ${offer.amrap.minutes} min`,
+  };
+
+  if (offer.suggested === 'normal' && !open) {
+    return (
+      <Pressable onPress={() => setOpen(true)} hitSlop={8}>
+        <Text style={styles.smallLink}>Cambiar a HIIT o AMRAP ›</Text>
+      </Pressable>
+    );
+  }
+
+  const main = offer.suggested === 'normal' ? null : offer.suggested;
+  const other = main === 'hiit' ? 'amrap' : 'hiit';
+  return (
+    <View style={styles.hiitCard}>
+      <Text style={styles.panelTitle}>
+        {main ? `${byAi ? 'La IA te sugiere' : 'Te sugerimos'} ${FORMAT_NAME[main]}` : '¿Cómo quieres cerrar?'}
+      </Text>
+      {main && <Text style={styles.hint}>{offer.reason}</Text>}
+      {main ? (
+        <>
+          <Button label={label[main]} onPress={() => onPick(main)} />
+          <Pressable onPress={() => onPick(other)} hitSlop={8}>
+            <Text style={styles.smallLink}>Prefiero {FORMAT_NAME[other]}</Text>
+          </Pressable>
+        </>
+      ) : (
+        <>
+          <Button label={label.hiit} variant="secondary" onPress={() => onPick('hiit')} />
+          <Button label={label.amrap} variant="secondary" onPress={() => onPick('amrap')} />
+        </>
+      )}
+      <Button label="Seguir con mi bloque normal" variant="ghost" onPress={onNormal} />
+    </View>
   );
 }
 
