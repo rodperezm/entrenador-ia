@@ -1,5 +1,6 @@
 import { BebasNeue_400Regular, useFonts } from '@expo-google-fonts/bebas-neue';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useStayAwake } from '@/lib/useStayAwake';
 import { Link, router, Stack, useLocalSearchParams } from 'expo-router';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
@@ -61,6 +62,7 @@ const CLOCK_LARGE = 88;
 const CLOCK_MEDIUM = 64;
 const CLOCK_SMALL = 32;
 const COMPACT_HEIGHT = 720;
+const TICK_KEY = 'workout-tick.v1'; // 'off' si la persona apagó el tic-tac del descanso
 
 export default function WorkoutScreen() {
   useStayAwake('workout');
@@ -101,23 +103,40 @@ export default function WorkoutScreen() {
   const [finishedAt, setFinishedAt] = useState<number | null>(null);
   const [confirmEnd, setConfirmEnd] = useState(false);
   const lastCount = useRef<number | null>(null);
+  const [tickOn, setTickOn] = useState(true);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(id);
   }, []);
 
-  // Descanso: pitidos en los últimos 3 segundos; al terminar vuelve solo a la siguiente serie.
+  useEffect(() => {
+    AsyncStorage.getItem(TICK_KEY)
+      .then((v) => v === 'off' && setTickOn(false))
+      .catch(() => {});
+  }, []);
+  const toggleTick = () => {
+    setTickOn((on) => {
+      AsyncStorage.setItem(TICK_KEY, on ? 'off' : 'on').catch(() => {});
+      return !on;
+    });
+  };
+
+  // Descanso: tic-tac cada segundo (si está activo) y pitidos en los últimos 3; al
+  // terminar vuelve solo a la siguiente serie. El tic-tac suena solo cuando el reloj
+  // baja de a un segundo, no al empezar ni al sumar tiempo.
   const restLeft = restEndsAt ? Math.ceil((restEndsAt - now) / 1000) : null;
   useEffect(() => {
     if (restLeft == null || restLeft === lastCount.current) return;
-    const crossedZero = restLeft <= 0 && (lastCount.current ?? 1) > 0;
+    const prev = lastCount.current;
+    const crossedZero = restLeft <= 0 && (prev ?? 1) > 0;
     lastCount.current = restLeft;
     if (crossedZero) {
       cues.play('work');
       setRestEndsAt(null);
       setPhase('work');
     } else if (restLeft > 0 && restLeft <= 3) cues.play('count');
+    else if (tickOn && prev === restLeft + 1) cues.play(restLeft % 2 ? 'tock' : 'tick');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restLeft]);
 
@@ -805,6 +824,14 @@ export default function WorkoutScreen() {
                   <Text style={styles.restLabel}>Descanso · luego serie {done + 1}</Text>
                   <Text style={styles.restTime}>{fmtClock(Math.max(0, restLeft ?? 0))}</Text>
                 </View>
+                <Pressable
+                  onPress={toggleTick}
+                  style={styles.restBtn}
+                  accessibilityLabel={tickOn ? 'Apagar el tic-tac del descanso' : 'Encender el tic-tac del descanso'}
+                  hitSlop={6}
+                >
+                  <Ionicons name={tickOn ? 'volume-high' : 'volume-mute'} size={20} color={colors.text} />
+                </Pressable>
                 <Pressable onPress={() => setRestEndsAt((t) => (t ?? Date.now()) + 15000)} style={styles.restBtn}>
                   <Text style={styles.restBtnText}>+15 s</Text>
                 </Pressable>
