@@ -84,7 +84,7 @@ export default function WorkoutScreen() {
   const { height: screenHeight } = useWindowDimensions();
   const [fontsLoaded] = useFonts({ BebasNeue_400Regular });
   const day = DayOfWeek.safeParse(useLocalSearchParams<{ day: string }>().day).data;
-  const { plan } = usePlan();
+  const { week, plan } = usePlan();
   const { sessions, addSession, updateSession } = useHistory();
   const { profile } = useProfile();
   const { records } = useBody();
@@ -504,7 +504,7 @@ export default function WorkoutScreen() {
           profile,
           exercises: EXERCISES,
           history: sessions,
-          cycle: cycleInfo(sessions, profile.level),
+          cycle: cycleInfo(sessions, profile.level, week.days),
           advice: dayPlan.finisher,
         })
       : null;

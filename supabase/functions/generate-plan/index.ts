@@ -89,7 +89,7 @@ Reglas obligatorias:
 - Progresión con "history" (última vez que hizo cada ejercicio):
   * Calentamiento, movilidad, equilibrio y elongación no progresan en carga: mantén series, reps o tiempo.
   * Ejercicios por tiempo (planchas, acarreos, isometrías): con RPE ≤ 8 sube 5 s; con RPE ≥ 9 mantén.
-  * Completó todas las series con las reps objetivo y esfuerzo (RPE) ≤ 8 → sube 1-2 reps; si ya estaba en el máximo del rango, sube a la siguiente kettlebell que tenga y vuelve al mínimo del rango.
+  * Completó todas las series con las reps objetivo y esfuerzo (RPE) ≤ 8 → sube 1-2 reps; si ya estaba en el máximo del rango, sube a la siguiente kettlebell que tenga y vuelve al mínimo del rango. Si ese salto es mayor al 20 % (por ejemplo, de 12 a 16 kg) o no tiene una más pesada, antes sube peldaños: primero una serie más y la vez siguiente "baja en 4 s con pausa de 1 s abajo"; recién después sube el peso.
   * RPE ≥ 9.5 o no completó → mantén la carga.
   * "tooHard": true → quedó muy pesado (sin reserva, no completó o bajó el peso): repite la última carga y no la subas, ni siquiera en semana de máxima intensidad.
   * "pain" leve → mantén la misma carga, no subas.

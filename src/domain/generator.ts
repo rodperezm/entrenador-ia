@@ -62,6 +62,26 @@ const ROLE_NOTE: Record<StrengthRole, string> = {
   C: 'Remate: mantén la técnica aunque canses.',
 };
 export const LIGHT_DUMBBELL_NOTE = 'Peso liviano para ti: baja en 3 s y pausa 1 s abajo.';
+
+// Fuerza B según el foco del ciclo: Técnica con más repeticiones y lento, Fuerza con menos
+// repeticiones y más descanso, Potencia con subida rápida. Siempre dentro del rango del ejercicio.
+const FOCUS_B: Record<CycleInfo['phase'], { reps: number; restSec: number; note: string }> = {
+  base: { reps: 12, restSec: 90, note: 'Técnica: baja en 3 s con pausa de 1 s abajo, peso cómodo.' },
+  strength: {
+    reps: 5,
+    restSec: 150,
+    note: 'Fuerza: baja en 3 s, peso exigente; termina con 1 o 2 repeticiones en reserva.',
+  },
+  power: { reps: 7, restSec: 120, note: 'Potencia: baja controlado y sube lo más rápido que puedas.' },
+};
+
+function forFocus(slot: ExerciseSlot, e: Exercise, phase: CycleInfo['phase']): ExerciseSlot {
+  const range = e.prescription.repRange;
+  if (slot.reps == null || !range || slot.rationale === LIGHT_DUMBBELL_NOTE) return slot;
+  const focus = FOCUS_B[phase];
+  const reps = Math.min(range.max, Math.max(range.min, focus.reps));
+  return { ...slot, reps, restSec: Math.max(slot.restSec, focus.restSec), rationale: focus.note };
+}
 // Barajado determinista (mismo resultado para la misma semana y día).
 function seeded(seed: number) {
   let s = seed || 1;
@@ -281,6 +301,7 @@ function generateDay(
           rationale: base.rationale === LIGHT_DUMBBELL_NOTE ? base.rationale : base.reps ? ROLE_NOTE[role] : null,
         };
         const rested = { ...slot, restSec: Math.max(slot.restSec, MIN_REST_SEC[role]) };
+        if (role === 'B') return cfg.gentleStrength ? rested : forFocus(rested, exercise, cycle.phase);
         if (role !== 'A') return rested;
         const repsMax = cycle.phase === 'power' ? POWER_REPS_FOCUS : POWER_REPS_MAX;
         return {
@@ -583,7 +604,7 @@ export function generateDayByRules(
   for (const s of otherDays.flatMap((d) => d.blocks.filter((b) => b.type === 'main_strength').flatMap((b) => b.slots)))
     usedThisWeek.set(s.exerciseId, (usedThisWeek.get(s.exerciseId) ?? 0) + 1);
   const p = withoutPainful(profile, history);
-  const cycle = cycleInfo(history, profile.level);
+  const cycle = cycleInfo(history, profile.level, weekDays);
   const day = generateDay(cfg, p, exercises, usedThisWeek, seed, {
     cycle,
     intensity: cycle.preparation ? 'light' : dayIntensity(weekDays, cfg.day, profile.level),
@@ -603,7 +624,7 @@ export function generateWeekByRules(
   lockedByDay: Partial<Record<DayConfig['day'], string[]>> = {},
 ): GeneratedWeekPlan {
   const usedThisWeek = new Map<string, number>();
-  const cycle = cycleInfo(history, profile.level);
+  const cycle = cycleInfo(history, profile.level, week.days);
   const previousBlock = previousBlockExercises(history, cycle);
   const days = week.days
     .filter((d) => d.active)

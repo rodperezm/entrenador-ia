@@ -1,7 +1,9 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui';
+import { EXERCISES } from '@/data/exercises.seed';
 import { cycleInfo } from '@/domain/cycle';
+import { missingPatterns } from '@/domain/patterns';
 import { isFromPastWeek, nextMondayLabel } from '@/domain/week';
 import { useHistory } from '@/state/history';
 import { usePlan } from '@/state/plan';
@@ -15,7 +17,7 @@ export function WeekCard({ generating, onGenerate }: { generating: boolean; onGe
   const { sessions } = useHistory();
   if (!profile || !week.days.some((d) => d.active)) return null;
 
-  const cycle = cycleInfo(sessions, profile.level);
+  const cycle = cycleInfo(sessions, profile.level, week.days);
   const armed = !!plan?.days.length && !isFromPastWeek(plan.generatedAt);
 
   if (cycle.preparation) {
@@ -55,6 +57,7 @@ export function WeekCard({ generating, onGenerate }: { generating: boolean; onGe
   }
 
   const byAi = plan.generator === 'llm';
+  const missing = missingPatterns(plan.days, week, profile, EXERCISES);
   return (
     <View style={styles.card}>
       <View style={styles.header}>
@@ -68,6 +71,12 @@ export function WeekCard({ generating, onGenerate }: { generating: boolean; onGe
           ? `La próxima se activa el ${nextMondayLabel()}.`
           : 'Puedes volver a generarla con IA en la pestaña Semana.'}
       </Text>
+      {missing.map((m) => (
+        <View key={m.label} style={styles.missing}>
+          <Text style={styles.missingTitle}>Esta semana no hay ejercicios de {m.label}</Text>
+          <Text style={styles.detail}>{m.reason}</Text>
+        </View>
+      ))}
     </View>
   );
 }
@@ -93,4 +102,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   lockedText: { color: colors.textMuted, fontSize: 15, fontWeight: '700', textAlign: 'center' },
+  missing: { backgroundColor: colors.warningSoft, borderRadius: radius.md, padding: spacing.md, gap: 4 },
+  missingTitle: { color: colors.text, fontSize: 14, fontWeight: '800' },
 });

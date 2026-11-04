@@ -62,7 +62,7 @@ export default function TodayScreen() {
 
   const stale = !!plan && staleDays(plan, week, profile.updatedAt).size > 0;
   const activeDays = week.days.filter((d) => d.active).length;
-  const cycle = cycleInfo(sessions, profile.level);
+  const cycle = cycleInfo(sessions, profile.level, week.days);
   const pendingWeek = !!plan && activeDays > 0 && isFromPastWeek(plan.generatedAt);
   const newBlock = cycle.block > 1 && !pendingWeek && seenBlock !== null && seenBlock !== cycle.blockStart;
   const dismissNewBlock = () => {
@@ -131,7 +131,7 @@ function TodayCard({ generating, onGenerate }: { generating: boolean; onGenerate
   const dayPlan = plan?.days.find((p) => p.day === cfg.day);
   const stale = !!plan && staleDays(plan, week, profile.updatedAt).has(cfg.day);
   const trained = sessions.some((s) => new Date(s.finishedAt).toDateString() === new Date().toDateString());
-  const cycle = cycleInfo(sessions, profile.level);
+  const cycle = cycleInfo(sessions, profile.level, week.days);
   const preparing = cycle.preparation;
   const pendingWeek = !!plan && week.days.some((d) => d.active) && isFromPastWeek(plan.generatedAt);
   const painful = strongPainIds(sessions);

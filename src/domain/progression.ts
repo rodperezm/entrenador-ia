@@ -1,5 +1,6 @@
 import { effortKind } from './effort';
 import { weightsFor } from './filter';
+import { MAIN_MAX_SETS } from './timeBudget';
 import {
   type Exercise,
   type ExerciseSlot,
@@ -10,13 +11,15 @@ import {
 } from './schema';
 
 // Progresión a partir del historial: doble progresión (primero repeticiones,
-// luego la siguiente kettlebell que el usuario tenga). Con molestia leve se mantiene
+// luego la siguiente kettlebell que el usuario tenga; si el salto pasa del 20 %, antes
+// una serie más y tempo lento). Con molestia leve se mantiene
 // la carga; con dolor moderado o fuerte se baja.
 
 const EASY_RPE = 8; // esfuerzo máximo para considerar que se puede progresar
 const WANTED_MORE_RPE = 9; // con «Me quedé con ganas», hasta 1 repetición en reserva
 const TOO_HARD_RPE = 9.5;
 const TIME_STEP_SEC = 5;
+const BIG_JUMP = 1.2; // subir más de un 20 % de peso de una vez pide peldaños antes
 
 function lastSessionOf(exerciseId: string, history: WorkoutSession[]) {
   for (const s of history) {
@@ -29,6 +32,21 @@ function lastSessionOf(exerciseId: string, history: WorkoutSession[]) {
 
 const lastLogs = (exerciseId: string, history: WorkoutSession[]): SetLog[] =>
   lastSessionOf(exerciseId, history)?.logs ?? [];
+
+// Sesiones seguidas, desde la más reciente, al tope de repeticiones con el mismo peso y esfuerzo controlado.
+function topStreak(exerciseId: string, history: WorkoutSession[], weight: number | null, maxReps: number) {
+  let streak = 0;
+  for (const s of history) {
+    const logs = s.sets.filter((l) => l.exerciseId === exerciseId && !l.format);
+    if (!logs.length) continue;
+    const rpes = logs.map((l) => l.rpe).filter((v): v is number => v != null);
+    const easy = !rpes.length || rpes.reduce((a, b) => a + b, 0) / rpes.length <= EASY_RPE;
+    const atTop = logs.every((l) => (l.repsDone ?? 0) >= maxReps) && (logs[0].weightKg ?? null) === weight;
+    if (!atTop || !easy) break;
+    streak++;
+  }
+  return streak;
+}
 
 // La última vez que hizo el ejercicio dijo «Fue mucho»: no se exige más.
 export const feltTooMuch = (exerciseId: string, history: WorkoutSession[]) =>
@@ -161,7 +179,8 @@ export function progressSlot(
       };
     }
     const heavier = lastWeight != null ? nextUp(owned, lastWeight) : null;
-    if (heavier) {
+    const bigJump = heavier != null && lastWeight != null && heavier > lastWeight * BIG_JUMP;
+    if (heavier && !bigJump) {
       return {
         ...slot,
         reps: range.min,
@@ -169,11 +188,35 @@ export function progressSlot(
         rationale: `Subimos a ${heavier} kg: llegaste al tope de ${range.max} reps.`,
       };
     }
+    // Salto grande de peso o sin kettlebell más pesada: peldaños antes, una serie más y luego
+    // bajar más lento con pausa. Cada peldaño se gana con una sesión al tope de repeticiones.
+    const cap = MAIN_MAX_SETS[profile.level];
+    const streak = topStreak(e.id, history, lastWeight, range.max);
+    const withSet = Math.min(cap, slot.sets + 1);
+    const at = { ...slot, reps: range.max, weightKg: lastWeight };
+    if (streak <= 1 && slot.sets < cap) {
+      return {
+        ...at,
+        sets: withSet,
+        rationale: heavier
+          ? `Una serie más antes de subir a ${heavier} kg.`
+          : 'Una serie más: ya usas tu kettlebell más pesada.',
+      };
+    }
+    if (streak <= 2 || !heavier) {
+      return {
+        ...at,
+        sets: withSet,
+        rationale: heavier
+          ? `Baja en 4 s con pausa de 1 s abajo; después subimos a ${heavier} kg.`
+          : 'Baja en 4 s con pausa de 1 s abajo. Al cambiar de ciclo pasamos a una variante más difícil.',
+      };
+    }
     return {
       ...slot,
-      reps: range.max,
-      weightKg: lastWeight,
-      rationale: 'Ya usas tu kettlebell más pesada: mantenemos el tope de reps.',
+      reps: range.min,
+      weightKg: heavier,
+      rationale: `Subimos a ${heavier} kg: ya dominas ${lastWeight} kg con más series y tempo lento.`,
     };
   }
 

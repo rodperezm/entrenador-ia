@@ -29,7 +29,6 @@ export const A_STAGES = [
 // El nivel es declarado: nadie parte en el swing libre sin haber confirmado antes la técnica en la app.
 const START_STAGE: Record<Level, number> = { beginner: 1, intermediate: 2, advanced: 2 };
 const SESSIONS_TO_ADVANCE = 2;
-const BLOCK_MS = 28 * 24 * 3600 * 1000;
 
 const FINISHER_IDS = ['kb_swing_finisher', 'kb_complex'];
 const B_PATTERNS: Pattern[] = [
@@ -88,21 +87,25 @@ export function sessionNeeds(power: boolean, dayIndex: number): SessionNeed[] {
 
 // Etapa del bloque A según el nivel y lo logrado en las sesiones anteriores. Se avanza solo al
 // cambiar de bloque, una etapa cada vez, para mantener los ejercicios fijos; el dolor retrocede al tiro.
-export function techniqueStage(history: WorkoutSession[], level: Level, blockStart: number) {
+// `blockStarts` son los lunes en que empezó cada bloque, del primero al actual.
+export function techniqueStage(history: WorkoutSession[], level: Level, blockStarts: number[]) {
   let stage = START_STAGE[level];
   const oldestFirst = [...history].sort((a, b) => a.finishedAt.localeCompare(b.finishedAt));
+  const current = blockStarts.length - 1;
+  // -1 = antes del primer bloque (preparación), que también cuenta como bloque cerrado.
+  const blockOf = (t: number) => blockStarts.filter((s) => s <= t).length - 1;
   let good = 0;
   let hurt = false;
   let block: number | null = null;
   const closeBlock = () => {
-    if (block != null && block >= 0 && !hurt && good >= SESSIONS_TO_ADVANCE) {
+    if (block != null && block !== current && !hurt && good >= SESSIONS_TO_ADVANCE) {
       stage = Math.min(A_STAGES.length, stage + 1);
     }
     good = 0;
     hurt = false;
   };
   for (const session of oldestFirst) {
-    const sessionBlock = Math.floor((blockStart - Date.parse(session.finishedAt)) / BLOCK_MS);
+    const sessionBlock = blockOf(Date.parse(session.finishedAt));
     if (sessionBlock !== block) {
       closeBlock();
       block = sessionBlock;

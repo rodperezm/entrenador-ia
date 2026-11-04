@@ -25,7 +25,7 @@ export default function WeekScreen() {
   const staleSet = plan ? staleDays(plan, week, profile.updatedAt) : new Set<string>();
   const stale = staleSet.size > 0;
   const activeDays = week.days.filter((d) => d.active).length;
-  const preparing = cycleInfo(sessions, profile.level).preparation;
+  const preparing = cycleInfo(sessions, profile.level, week.days).preparation;
   const hasCurrentPlan = !!plan?.days.length && !(activeDays > 0 && isFromPastWeek(plan.generatedAt));
   const hasConditions = profile.conditions.length > 0;
   const trainedOn = new Set(sessions.map((s) => new Date(s.finishedAt).toDateString()));
@@ -76,7 +76,9 @@ export default function WeekScreen() {
                   </Text>
                 )}
               </View>
-              {trainedOn.has(date.toDateString()) && <Ionicons name="checkmark-circle" size={22} color={colors.accent} />}
+              {trainedOn.has(date.toDateString()) && (
+                <Ionicons name="checkmark-circle" size={22} color={colors.accent} />
+              )}
               <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
             </Pressable>
           </Link>

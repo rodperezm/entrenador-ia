@@ -61,7 +61,7 @@ export function buildAiRequest(
     }
   }
   // En Fuerza solo entran patrones principales y los balísticos de la etapa alcanzada.
-  const cycle = cycleInfo(history, profile.level);
+  const cycle = cycleInfo(history, profile.level, week.days);
   const allowedA = A_STAGES[cycle.stage - 1].concat(
     cycle.stage === A_STAGES.length ? A_STAGES[A_STAGES.length - 1] : [],
   );

@@ -27,7 +27,7 @@ const SHORT_WARMUP_MIN = 5; // sin fuerza, el calentamiento solo prepara: corto
 const LEAD_ORDER: DayPart[] = ['main', 'prehab', 'cooldown', 'warmup'];
 
 const MAX_COUNT: Record<DayPart, number> = { warmup: 8, prehab: 6, main: 10, cooldown: 8 };
-const MAIN_MAX_SETS: Record<Level, number> = { beginner: 3, intermediate: 4, advanced: 5 };
+export const MAIN_MAX_SETS: Record<Level, number> = { beginner: 3, intermediate: 4, advanced: 5 };
 const FINISHER_MAX_SETS = 2;
 const DELOAD_TIME = 0.6; // la descarga acorta la fuerza aunque sobren minutos
 const LIGHT_MAX_SETS = 2;

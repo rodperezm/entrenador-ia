@@ -29,7 +29,7 @@ export function useGenerateWeek() {
       generatedAt: new Date().toISOString(),
       configHash: configHash(week, profile.updatedAt),
       dayHashes: dayHashes(week, profile.updatedAt),
-      cycleBlock: cycleInfo(sessions, profile.level).blockStart,
+      cycleBlock: cycleInfo(sessions, profile.level, week.days).blockStart,
     };
     // Mismo bloque: la Fuerza de cada día se conserva al volver a generar.
     const lockedByDay =
@@ -42,7 +42,7 @@ export function useGenerateWeek() {
           )
         : {};
     // La preparación previa al lunes es técnica: la arman las reglas, sin gastar IA.
-    if (cycleInfo(sessions, profile.level).preparation) {
+    if (cycleInfo(sessions, profile.level, week.days).preparation) {
       const result = generateWeekByRules(week, profile, EXERCISES, sessions, Date.now(), lockedByDay);
       await savePlan({ ...result, ...meta, generator: 'rules' });
       setGenerating(false);

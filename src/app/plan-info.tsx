@@ -12,7 +12,11 @@ const WEEKS = [
 const BEGINNER_PEAK = 'Si estás empezando, la intensidad está en la técnica: usas el mismo peso, con más control.';
 
 const BLOCKS = [
-  { letter: 'A', title: 'Potencia', body: 'Movimientos explosivos o técnica de bisagra, con pocas repeticiones de calidad.' },
+  {
+    letter: 'A',
+    title: 'Potencia',
+    body: 'Movimientos explosivos o técnica de bisagra, con pocas repeticiones de calidad.',
+  },
   { letter: 'B', title: 'Fuerza', body: 'Empuje, tirón y sentadilla con control: baja en 3 s y sube rápido.' },
   { letter: 'C', title: 'Remate', body: 'Un cierre opcional de acarreo o core, si te queda tiempo y energía.' },
 ];
@@ -54,11 +58,16 @@ export default function PlanInfoScreen() {
         Repites los ejercicios de Fuerza durante el ciclo para medir tu progreso. Cambian antes solo si hay dolor o no
         tienes el equipamiento. La semana 1 puede traer más ejercicios porque tiene menos series.
       </Text>
+      <Text style={styles.body}>
+        Avanzas de semana cuando la cumples: con al menos la mitad de tus días de fuerza entrenados. Si una semana no
+        alcanzas, la repites, así nunca llegas a la más exigente sin haber hecho la anterior.
+      </Text>
 
       <Text style={styles.section}>Cada semana</Text>
       <Text style={styles.body}>
         Al empezar la semana, la app te avisa para armarla. Así tu rutina se ajusta con lo que registraste: avanzas si
-        te fue bien y mantienes el peso si quedó muy pesado o marcaste molestias. Con dolor fuerte, el ejercicio se cambia.
+        te fue bien y mantienes el peso si quedó muy pesado o marcaste molestias. Con dolor fuerte, el ejercicio se
+        cambia.
       </Text>
 
       <Text style={styles.section}>Tu sesión de Fuerza</Text>
@@ -73,8 +82,8 @@ export default function PlanInfoScreen() {
 
       <Text style={styles.section}>Cuando termina un ciclo</Text>
       <Text style={styles.body}>
-        Mantenemos tus patrones y cambiamos ejercicios para darle un nuevo estímulo a tu cuerpo. Subes un peldaño con más
-        peso, una variante más difícil, más tensión o menos descanso.
+        Mantenemos tus patrones y cambiamos ejercicios para darle un nuevo estímulo a tu cuerpo. Subes un peldaño con
+        más peso, una variante más difícil, más tensión o menos descanso.
       </Text>
     </ScrollView>
   );
