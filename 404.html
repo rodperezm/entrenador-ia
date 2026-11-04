@@ -1,7 +1,9 @@
 <!doctype html>
-<html lang="en">
+<!-- La app está en español: sin esto Chrome la "traduce" al español y cambia palabras. -->
+<html lang="es" translate="no">
   <head>
     <meta charset="utf-8" />
+    <meta name="google" content="notranslate" />
     <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
     <!-- viewport-fit=cover entrega los márgenes del iPhone (notch y barra de gestos) a la app. -->
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover" />
@@ -33,6 +35,18 @@
         },
         true,
       );
+
+      // Navegadores antiguos (p. ej. tablets Android) no conocen 100dvh y con 100vh la
+      // parte de abajo queda tapada por la barra del navegador: se usa el alto visible real.
+      if (!(window.CSS && CSS.supports && CSS.supports('height', '100dvh'))) {
+        var setAppHeight = function () {
+          document.documentElement.style.setProperty('--app-height', window.innerHeight + 'px');
+        };
+        document.documentElement.className += ' no-dvh';
+        setAppHeight();
+        window.addEventListener('resize', setAppHeight);
+        window.addEventListener('orientationchange', setAppHeight);
+      }
     </script>
     <style id="expo-reset">
       /* These styles make the body full-height */
@@ -59,6 +73,9 @@
         height: 100dvh;
         box-sizing: border-box;
         padding-top: env(safe-area-inset-top);
+      }
+      html.no-dvh #root {
+        height: var(--app-height, 100vh);
       }
     </style>
   <link rel="icon" href="/entrenador-ia/favicon.ico"/></head>
