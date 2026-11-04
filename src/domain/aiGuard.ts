@@ -164,7 +164,7 @@ export function guardAiPlan(plan: GeneratedWeekPlan, input: GuardInput): Generat
       return b.type === 'main_strength' ? { ...b, slots: slots.map((s) => limitLoad(s, input)) } : { ...b, slots };
     });
     // Al final, cada parte se ajusta a sus minutos como en las reglas: series y, si sobra, ejercicios.
-    const intensity = cycle.preparation ? 'light' : dayIntensity(days, day.day);
+    const intensity = cycle.preparation ? 'light' : dayIntensity(days, day.day, profile.level);
     blocks = blocks.map((b) => {
       const part = PARTS.find(([type]) => type === b.type)![1];
       const slots = part === 'main' ? sortByRole(b.slots) : b.slots;

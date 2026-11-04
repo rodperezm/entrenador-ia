@@ -331,7 +331,9 @@ function generateDay(
     const options = pool('prehab').sort((x, y) => Number(fromConditions.has(y.id)) - Number(fromConditions.has(x.id)));
     const prehabSlots = fit(
       'prehab',
-      options.map((e) => prescribe(e, profile, fromConditions.has(e.id) ? 'Preventivo para tu condición.' : null)),
+      options.map((e) =>
+        prescribe(e, profile, fromConditions.has(e.id) ? 'Para cuidar tu lesión. No reemplaza un tratamiento.' : null),
+      ),
     );
     prehabChosen = options.filter((e) => prehabSlots.some((s) => s.exerciseId === e.id));
     blocks.push({ type: 'prehab', slots: prehabSlots });
@@ -584,7 +586,7 @@ export function generateDayByRules(
   const cycle = cycleInfo(history, profile.level);
   const day = generateDay(cfg, p, exercises, usedThisWeek, seed, {
     cycle,
-    intensity: cycle.preparation ? 'light' : dayIntensity(weekDays, cfg.day),
+    intensity: cycle.preparation ? 'light' : dayIntensity(weekDays, cfg.day, profile.level),
     previousBlock: previousBlockExercises(history, cycle),
     history,
     locked: new Set(lockedIds),
@@ -608,7 +610,7 @@ export function generateWeekByRules(
     .map((d, i) =>
       generateDay(d, withoutPainful(profile, history), exercises, usedThisWeek, seed + i * 7919, {
         cycle,
-        intensity: cycle.preparation ? 'light' : dayIntensity(week.days, d.day),
+        intensity: cycle.preparation ? 'light' : dayIntensity(week.days, d.day, profile.level),
         previousBlock,
         history,
         locked: new Set(lockedByDay[d.day]),

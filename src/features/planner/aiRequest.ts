@@ -173,7 +173,7 @@ export function buildAiRequest(
       .map(({ active: _active, ...d }) => ({
         ...d,
         availableEquipment: equipmentAt(d.location, profile),
-        intensity: dayIntensity(week.days, d.day),
+        intensity: dayIntensity(week.days, d.day, profile.level),
         leadPart: leadPart({ ...d, active: true }),
         minutesByPart: Object.fromEntries(
           Object.entries(partBudgets({ ...d, active: true }, profile.level)).map(([part, sec]) => [

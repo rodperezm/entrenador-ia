@@ -130,9 +130,20 @@ const WEEK_INTENSITY: Partial<Record<number, Intensity[]>> = {
   7: ['intense', 'moderate', 'light', 'intense', 'moderate', 'moderate', 'light'],
 };
 
-export function dayIntensity(days: DayConfig[], day: DayConfig['day']): Intensity {
+const BEGINNER_FULL_DAYS = 3; // el principiante entrena fuerte hasta 3 días; los demás son de técnica
+const DAY_ORDER: DayConfig['day'][] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+
+export function dayIntensity(days: DayConfig[], day: DayConfig['day'], level: Level): Intensity {
   const strengthDays = days.filter((d) => d.active && d.blocks.main.enabled && !d.gentleStrength);
-  return WEEK_INTENSITY[strengthDays.length]?.[strengthDays.findIndex((d) => d.day === day)] ?? 'intense';
+  const i = strengthDays.findIndex((d) => d.day === day);
+  if (level === 'beginner' && i >= BEGINNER_FULL_DAYS) return 'light';
+  const intensity = WEEK_INTENSITY[strengthDays.length]?.[i] ?? 'intense';
+  // Nunca dos días intensos seguidos en el calendario: el segundo pasa a moderado.
+  const prev = strengthDays.at(i - 1);
+  if (intensity === 'intense' && i > 0 && prev && DAY_ORDER.indexOf(day) - DAY_ORDER.indexOf(prev.day) === 1) {
+    return dayIntensity(days, prev.day, level) === 'intense' ? 'moderate' : intensity;
+  }
+  return intensity;
 }
 
 // ---------- Información al usuario ----------
