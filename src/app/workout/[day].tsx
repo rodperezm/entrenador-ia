@@ -20,7 +20,9 @@ import { BLOCK_LABELS } from '@/domain/labels';
 import { strengthInfo } from '@/domain/strength';
 import {
   type BlockType,
+  type CheckIn,
   DayOfWeek,
+  type Feeling,
   type ExerciseSlot,
   type PainLevel,
   type PainSide,
@@ -32,7 +34,9 @@ import { fmtClock } from '@/domain/session';
 import { isPerSide, loadCount, sideLabel, weightLabel } from '@/domain/sides';
 import { DAY_LONG } from '@/domain/week';
 import { slotLabel } from '@/features/planner/describe';
+import { adjustForCheckIn, allowsFinisher } from '@/domain/checkIn';
 import { AmrapBlock, type AmrapResult } from '@/features/workout/AmrapBlock';
+import { AfterWarmupQuestion, ArrivalQuestion, checkInMessage } from '@/features/workout/CheckInPanel';
 import type { FinisherFeedbackResult } from '@/features/workout/FinisherFeedback';
 import { HiitBlock, type HiitResult } from '@/features/workout/HiitBlock';
 import { PAIN_OPTIONS, PainPicker, SidePicker } from '@/features/workout/PainControls';
@@ -49,6 +53,16 @@ const SIDE_NOTE: Record<PainSide, string> = {
   both: ' (ambos lados)',
 };
 const exName = (id: string) => EXERCISES_BY_ID.get(id)?.name.es ?? id;
+const FEELING_OPTIONS: { id: Feeling; label: string }[] = [
+  { id: 'wanted_more', label: 'Me quedé con ganas' },
+  { id: 'right', label: 'Justo' },
+  { id: 'too_much', label: 'Fue mucho' },
+];
+const FEELING_NOTE: Record<Feeling, string> = {
+  wanted_more: 'Anotado: la próxima vez podemos subir.',
+  right: 'Anotado: seguimos con tu progresión.',
+  too_much: 'Anotado: la próxima vez no subimos nada.',
+};
 
 type Item = { key: string; block: BlockType; slot: ExerciseSlot };
 type Phase = 'work' | 'rest' | 'feedback';
@@ -71,7 +85,7 @@ export default function WorkoutScreen() {
   const [fontsLoaded] = useFonts({ BebasNeue_400Regular });
   const day = DayOfWeek.safeParse(useLocalSearchParams<{ day: string }>().day).data;
   const { plan } = usePlan();
-  const { sessions, addSession } = useHistory();
+  const { sessions, addSession, updateSession } = useHistory();
   const { profile } = useProfile();
   const { records } = useBody();
   const dayPlan = plan?.days.find((d) => d.day === day);
@@ -104,6 +118,8 @@ export default function WorkoutScreen() {
   const [confirmEnd, setConfirmEnd] = useState(false);
   const lastCount = useRef<number | null>(null);
   const [tickOn, setTickOn] = useState(true);
+  const [checkIn, setCheckIn] = useState<CheckIn | null>(null);
+  const [note, setNote] = useState<string | null>(null);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 250);
@@ -149,13 +165,19 @@ export default function WorkoutScreen() {
     );
   }
 
-  const items: Item[] = dayPlan.blocks.flatMap((b) =>
-    b.slots.flatMap((slot, i) => {
-      const it = { key: `${b.type}-${i}`, block: b.type, slot };
-      // Un ejercicio cambiado por dolor queda cerrado y su reemplazo va justo después.
-      return replacements[it.key] ? [it, replacements[it.key]] : [it];
-    }),
-  );
+  // La sesión de hoy según cómo llegó la persona; el plan guardado no cambia.
+  const planFor = (c: CheckIn | null) =>
+    profile ? adjustForCheckIn(dayPlan, c ?? undefined, { profile, exercises: EXERCISES }) : dayPlan;
+  const itemsOf = (plan: typeof dayPlan): Item[] =>
+    plan.blocks.flatMap((b) =>
+      b.slots.flatMap((slot, i) => {
+        const it = { key: `${b.type}-${i}`, block: b.type, slot };
+        // Un ejercicio cambiado por dolor queda cerrado y su reemplazo va justo después.
+        return replacements[it.key] ? [it, replacements[it.key]] : [it];
+      }),
+    );
+  const todayPlan = planFor(checkIn);
+  const items = itemsOf(todayPlan);
   const hasConditions = (profile?.conditions.length ?? 0) > 0;
   const totalSets = items.reduce((n, it) => n + it.slot.sets, 0);
   const setsDone = (key: string) => logs.filter((l) => l.itemKey === key).length;
@@ -210,8 +232,10 @@ export default function WorkoutScreen() {
       completed: allLogs.length >= totalSets,
       sets: allLogs.map(({ itemKey: _k, ...l }) => l),
       ...(amrapResult.current ? { amrap: amrapResult.current } : {}),
+      ...(checkIn ? { checkIn } : {}),
     });
   };
+  const sessionId = `s${startedAt.toString(36)}`;
 
   if (finishedAt != null) {
     const minutes = Math.round((finishedAt - startedAt) / 60000);
@@ -221,10 +245,72 @@ export default function WorkoutScreen() {
       weightKg && dayPlan && minutes > 0
         ? kcalRangeLabel(averageMet(dayPlan.blocks, EXERCISES_BY_ID), weightKg, minutes)
         : null;
-    return <Summary logs={logs} minutes={minutes} kcal={kcal} insets={insets} />;
+    const completed = logs.length >= totalSets;
+    return (
+      <Summary
+        logs={logs}
+        minutes={minutes}
+        kcal={kcal}
+        insets={insets}
+        feeling={sessions.find((s) => s.id === sessionId)?.feeling ?? null}
+        onFeeling={(feeling) => updateSession(sessionId, { feeling })}
+        cameTired={checkIn?.arrival === 'tired' && completed}
+      />
+    );
   }
 
-  const item = items[idx];
+  // Antes del primer ejercicio: cómo llega la persona.
+  if (!checkIn) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false, gestureEnabled: true }} />
+        <ArrivalQuestion
+          insetTop={insets.top}
+          onAnswer={(c) => {
+            setCheckIn(c);
+            setNote(checkInMessage(c));
+            setIdx(0);
+          }}
+        />
+      </>
+    );
+  }
+
+  // Llegó cansado: al terminar el calentamiento se vuelve a preguntar.
+  const warmupItems = items.filter((it) => it.block === 'warmup');
+  const askAgain =
+    checkIn.arrival === 'tired' && !checkIn.afterWarmup && warmupItems.length > 0 && warmupItems.every(isClosed);
+  if (askAgain) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
+        <AfterWarmupQuestion
+          insetTop={insets.top}
+          onAnswer={(afterWarmup) => {
+            const next = { ...checkIn, afterWarmup };
+            const nextItems = itemsOf(planFor(next));
+            setCheckIn(next);
+            setNote(checkInMessage(next));
+            const open = nextItems.findIndex((it) => it.block !== 'warmup' && !isClosed(it));
+            if (open < 0) finish();
+            else setIdx(open);
+          }}
+        />
+      </>
+    );
+  }
+
+  if (!items.length) {
+    return (
+      <View style={[styles.center, { paddingTop: insets.top }]}>
+        <Stack.Screen options={{ headerShown: false, gestureEnabled: true }} />
+        <Text style={styles.text}>{note ?? 'Hoy no hay ejercicios que hacer con esa molestia.'}</Text>
+        <Button label="Volver" onPress={() => router.back()} />
+      </View>
+    );
+  }
+
+  const item = items[Math.min(idx, items.length - 1)];
   const ex = EXERCISES_BY_ID.get(item.slot.exerciseId);
   // En calentamiento y elongación todo va de un toque, sin pregunta de esfuerzo.
   const kind = item.block === 'warmup' || item.block === 'cooldown' || !ex ? 'none' : effortKind(ex);
@@ -255,6 +341,7 @@ export default function WorkoutScreen() {
 
   const goTo = (j: number) => {
     setIdx(j);
+    setNote(null);
     setPhase('work');
     setRestEndsAt(null);
     setAdjusting(false);
@@ -409,7 +496,7 @@ export default function WorkoutScreen() {
     (it) => it.block === 'main_strength' && it.slot.role === 'C' && !isClosed(it) && setsDone(it.key) === 0,
   );
   const offer =
-    profile && phase === 'work' && pendingC.some((it) => it.key === item.key)
+    profile && phase === 'work' && allowsFinisher(checkIn) && pendingC.some((it) => it.key === item.key)
       ? finisherOffer({
           slots: pendingC,
           dayExerciseIds: items.map((it) => it.slot.exerciseId),
@@ -542,7 +629,7 @@ export default function WorkoutScreen() {
       {showAll ? (
         <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 120 }]}>
           <Text style={styles.hint}>Toca un ejercicio para hacerlo ahora.</Text>
-          {dayPlan.blocks.map((block) => (
+          {todayPlan.blocks.map((block) => (
             <View key={block.type} style={{ gap: spacing.sm }}>
               <Text style={styles.blockTitle}>{BLOCK_LABELS[block.type]}</Text>
               {items
@@ -591,6 +678,7 @@ export default function WorkoutScreen() {
           </Text>
           <Text style={styles.exName}>{ex?.name.es ?? item.slot.exerciseId}</Text>
           {ex && item.block === 'main_strength' && <Text style={styles.hint}>{strengthInfo(ex)}</Text>}
+          {note && <Text style={styles.checkInNote}>{note}</Text>}
 
           {ex && (
             <View style={styles.mapRow}>
@@ -985,11 +1073,17 @@ function Summary({
   minutes,
   kcal,
   insets,
+  feeling,
+  onFeeling,
+  cameTired,
 }: {
   logs: SetLog[];
   minutes: number;
   kcal: string | null;
   insets: { top: number; bottom: number };
+  feeling: Feeling | null;
+  onFeeling: (f: Feeling) => void;
+  cameTired: boolean;
 }) {
   // A un lado, lo registrado es por lado: en total se hizo el doble.
   const doneReps = (l: SetLog) => (l.repsDone ?? 0) * (isPerSide(l.exerciseId) ? 2 : 1);
@@ -1019,6 +1113,24 @@ function Summary({
     >
       <Stack.Screen options={{ headerShown: false, gestureEnabled: true }} />
       <Text style={styles.summaryTitle}>{logs.length ? '¡Lo lograste! 💪' : 'Entrenamiento terminado'}</Text>
+      {cameTired && <Text style={styles.text}>Llegaste cansado y lo hiciste igual. Bien hecho.</Text>}
+      {logs.length > 0 && (
+        <View style={styles.panel}>
+          <Text style={styles.panelTitle}>¿Cómo estuvo hoy?</Text>
+          <View style={styles.chips}>
+            {FEELING_OPTIONS.map((o) => (
+              <Pressable
+                key={o.id}
+                onPress={() => onFeeling(o.id)}
+                style={[styles.chip, feeling === o.id && styles.chipOn]}
+              >
+                <Text style={[styles.chipText, feeling === o.id && { color: colors.onAccent }]}>{o.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+          {feeling && <Text style={styles.hint}>{FEELING_NOTE[feeling]}</Text>}
+        </View>
+      )}
       {logs.length > 0 && (
         <View style={styles.statsGrid}>
           <Stat label="Minutos" value={String(minutes)} />
@@ -1188,6 +1300,7 @@ const styles = StyleSheet.create({
   restBtnText: { color: colors.text, fontWeight: '700' },
   summary: { padding: spacing.xl, gap: spacing.lg },
   summaryTitle: { color: colors.text, fontSize: 32, fontWeight: '900', textAlign: 'center' },
+  checkInNote: { color: colors.accent, fontSize: 15, fontWeight: '700', lineHeight: 21 },
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'center' },
   stat: {
     width: '30%',

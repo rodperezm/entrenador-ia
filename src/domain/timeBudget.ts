@@ -78,10 +78,7 @@ export function partBudgets(cfg: DayConfig, level: Level): Partial<Record<DayPar
   }
 
   const scale = supportMax > 0 ? supportSec() / supportMax : 0;
-  return Object.fromEntries([
-    [lead, leadSec],
-    ...support.map((p) => [p, partMax(p) * 60 * scale] as const),
-  ]);
+  return Object.fromEntries([[lead, leadSec], ...support.map((p) => [p, partMax(p) * 60 * scale] as const)]);
 }
 
 // Tope de series de Fuerza según la semana del bloque.
@@ -101,8 +98,8 @@ export function maxCount(part: DayPart, cfg: DayConfig) {
 
 // Ajusta una parte a sus minutos. `candidates` va por preferencia: los primeros
 // son la base y el resto queda de reserva. Si sobra, quita ejercicios y luego
-// vueltas; si falta, sube vueltas, duración y al final agrega ejercicios.
-// Con cantidad fija solo se tocan vueltas y duración.
+// vueltas (en Fuerza, solo si la persona pidió ajustarla); si falta, sube vueltas,
+// duración y al final agrega ejercicios. Con cantidad fija solo se tocan vueltas y duración.
 export function fitPart(
   part: DayPart,
   candidates: ExerciseSlot[],
@@ -133,10 +130,17 @@ export function fitPart(
     }
   };
 
-  // Fuerza suave: mejor dos ejercicios con pocas vueltas que uno solo con muchas.
-  if (part === 'main' && cfg.gentleStrength) dropSets(GENTLE_MIN_SETS);
-  while (!fixed && out.length > 1 && total() > budget) reserve.unshift(out.pop()!);
-  dropSets(1);
+  // Fuerza va completa aunque no quepa: no se bajan series ni se quitan A y B, solo el remate C,
+  // que es opcional. La app avisa que toma más tiempo; si la persona pide ajustarla, se recorta.
+  const keepFull = part === 'main' && !cfg.gentleStrength && !cfg.fitToTime;
+  if (keepFull) {
+    while (out.length > 1 && total() > budget && out.at(-1)!.role === 'C') reserve.unshift(out.pop()!);
+  } else {
+    // Fuerza suave: mejor dos ejercicios con pocas vueltas que uno solo con muchas.
+    if (part === 'main' && cfg.gentleStrength) dropSets(GENTLE_MIN_SETS);
+    while (!fixed && out.length > 1 && total() > budget) reserve.unshift(out.pop()!);
+    dropSets(1);
+  }
 
   const setLimit = (s: ExerciseSlot) => (s.role === 'C' ? Math.min(maxSets, FINISHER_MAX_SETS) : maxSets);
   const maxHold = part === 'main' ? null : MAX_HOLD_SEC[part];

@@ -13,13 +13,15 @@ import type {
   WorkoutSession,
 } from './schema';
 import { painOf } from './schema';
-import { progressSlot, wasTooHard } from './progression';
+import { feltTooMuch, progressSlot, wasTooHard } from './progression';
 import {
   A_STAGES,
   dayIntensity,
   type Intensity,
   type SessionNeed,
   sessionNeeds,
+  MIN_REST_SEC,
+  POWER_REPS_MAX,
   slotRole,
   sortByRole,
   strengthRole,
@@ -45,14 +47,12 @@ type DayStrengthPlan = {
 const MAX_COMPLEXITY: Record<Level, number> = { beginner: 2, intermediate: 3, advanced: 5 };
 const TARGET_COMPLEXITY: Record<Level, number> = { beginner: 1, intermediate: 2, advanced: 3 };
 
-const POWER_REPS_MAX = 10;
 const POWER_REPS_FOCUS = 6;
-const POWER_REST_SEC = 120;
 const POWER_MIN_SETS = 3;
 const CHOQUE_REPS_DOWN = 2;
 const CHOQUE_REST = 0.75;
-const MIN_REST_SEC = 45;
 const LADDER_REST_DOWN = 15;
+const minRest = (slot: ExerciseSlot) => MIN_REST_SEC[slot.role ?? 'B'];
 const DENSITY_REPS_UP = 2;
 const DENSITY_SEC_UP = 10;
 const DENSITY_MAX_COMPLEXITY = 3; // los levantamientos muy técnicos no se apuran con fatiga
@@ -280,13 +280,13 @@ function generateDay(
           role,
           rationale: base.rationale === LIGHT_DUMBBELL_NOTE ? base.rationale : base.reps ? ROLE_NOTE[role] : null,
         };
-        if (role !== 'A') return slot;
+        const rested = { ...slot, restSec: Math.max(slot.restSec, MIN_REST_SEC[role]) };
+        if (role !== 'A') return rested;
         const repsMax = cycle.phase === 'power' ? POWER_REPS_FOCUS : POWER_REPS_MAX;
         return {
-          ...slot,
+          ...rested,
           sets: Math.max(slot.sets, POWER_MIN_SETS),
           reps: slot.reps && Math.min(slot.reps, repsMax),
-          restSec: Math.max(slot.restSec, POWER_REST_SEC),
         };
       }),
     ),
@@ -378,21 +378,27 @@ const GENTLE_FLAGS = ['ballistic', 'jumping', 'high_impact'] as const;
 export const isGentle = (e: Exercise) =>
   e.complexityLevel <= 2 && !e.restrictionFlags.some((f) => (GENTLE_FLAGS as readonly string[]).includes(f));
 
-// Ejercicios en los que la última vez (en las 2 últimas semanas) hubo dolor fuerte:
-// se cambian por otros. Pasado ese plazo vuelven, más suaves (ver progressSlot).
+// Ejercicios que se cambian por otros (en las 2 últimas semanas): dolor fuerte la última vez,
+// dolor moderado que al día siguiente estaba peor, o dolor moderado las dos últimas veces,
+// porque bajar la carga no bastó. Pasado ese plazo
+// vuelven, más suaves (ver progressSlot).
 export function strongPainIds(history: WorkoutSession[], now = Date.now()): string[] {
-  const seen = new Set<string>();
-  const painful: string[] = [];
+  const levels = new Map<string, number[]>(); // dolor máximo por sesión, de la más reciente hacia atrás
   const since = now - 14 * 24 * 3600 * 1000;
   for (const s of history) {
     if (Date.parse(s.finishedAt) < since) continue;
     for (const id of new Set(s.sets.map((l) => l.exerciseId))) {
-      if (seen.has(id)) continue;
-      seen.add(id);
-      if (s.sets.some((l) => l.exerciseId === id && painOf(l) === 3)) painful.push(id);
+      const seen = levels.get(id) ?? [];
+      if (seen.length >= 2) continue;
+      const pain = Math.max(...s.sets.filter((l) => l.exerciseId === id).map(painOf));
+      // Si al día siguiente la molestia estaba peor, cuenta como dolor fuerte.
+      seen.push(pain >= 2 && s.painFollowUp === 'worse' ? 3 : pain);
+      levels.set(id, seen);
     }
   }
-  return painful;
+  return [...levels]
+    .filter(([, [last, before]]) => last === 3 || (last >= 2 && before != null && before >= 2))
+    .map(([id]) => id);
 }
 
 // Dolor fuerte en un ejercicio de piernas: toda la semana siguiente, Fuerza va sin sentadillas
@@ -421,7 +427,7 @@ export const lastWeightOf = (id: string, history: WorkoutSession[]) =>
 // Avanzado: el remate rota su forma de densidad en cada bloque, y la semana de máxima intensidad la duplica.
 function densityFinisher(slot: ExerciseSlot, e: Exercise, cycle: CycleInfo): ExerciseSlot {
   const steps = cycle.week === 3 ? 2 : 1;
-  const lessRest = Math.max(MIN_REST_SEC, slot.restSec - LADDER_REST_DOWN * steps);
+  const lessRest = Math.max(minRest(slot), slot.restSec - LADDER_REST_DOWN * steps);
   const format = (cycle.block - 1) % 3;
   const reps = slot.reps && Math.min(e.prescription.repRange?.max ?? Infinity, slot.reps + DENSITY_REPS_UP * steps);
   const canAddWork = slot.durationSec != null || reps !== slot.reps;
@@ -467,8 +473,8 @@ function applyCycleWeek(
         : 'Semana de descarga: menos volumen para recuperarte.',
     };
   }
-  // Con dolor o si quedó muy pesado, la semana del bloque no exige más.
-  if (pain || wasTooHard(e.id, history)) return slot;
+  // Con dolor, si quedó muy pesado o si le pareció mucho, la semana del bloque no exige más.
+  if (pain || wasTooHard(e.id, history) || feltTooMuch(e.id, history)) return slot;
   if (profile.level === 'advanced' && slot.role === 'C' && e.complexityLevel <= DENSITY_MAX_COMPLEXITY) {
     return densityFinisher(slot, e, cycle);
   }
@@ -501,7 +507,7 @@ function applyCycleWeek(
     if (slot.role === 'A') return { ...slot, rationale: 'Semana de máxima intensidad: máxima calidad y velocidad.' };
     return {
       ...slot,
-      restSec: Math.max(MIN_REST_SEC, Math.round(slot.restSec * CHOQUE_REST)),
+      restSec: Math.max(minRest(slot), Math.round(slot.restSec * CHOQUE_REST)),
       rationale:
         slot.durationSec != null
           ? 'Semana de máxima intensidad: descansa menos.'
@@ -515,7 +521,7 @@ function applyCycleWeek(
     if (cycle.block % 2 || slot.durationSec != null) {
       return {
         ...slot,
-        restSec: Math.max(MIN_REST_SEC, slot.restSec - LADDER_REST_DOWN),
+        restSec: Math.max(minRest(slot), slot.restSec - LADDER_REST_DOWN),
         rationale: `Nuevo ciclo: ${same} con menos descanso.`,
       };
     }
@@ -550,7 +556,7 @@ function applyProgression(
           !locked.includes(s.exerciseId) &&
           swappedFamilies.includes(patternFamily(e))
         ) {
-          return { ...progressed, rationale: 'Cambiado por el dolor fuerte que marcaste.' };
+          return { ...progressed, rationale: 'Cambiado por el dolor que marcaste.' };
         }
         const cycled = b.type === 'main_strength' && !cfg?.gentleStrength;
         return cycled ? applyCycleWeek(progressed, s, e, profile, cycle, history, previousBlock) : progressed;

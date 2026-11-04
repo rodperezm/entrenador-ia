@@ -184,7 +184,8 @@ export default function DayScreen() {
             dayPlan={dayPlan}
             cfg={cfg}
             weightKg={latestWeight(records)}
-            onFit={() => rebuild(withAutoCounts(cfg))}
+            onFit={() => rebuild({ ...withAutoCounts(cfg), fitToTime: true })}
+            onFull={() => rebuild({ ...cfg, fitToTime: undefined })}
             onAddGentle={() => rebuild(withGentleStrength(cfg))}
             onDismiss={dismissTimeNotice}
           />
@@ -254,6 +255,7 @@ function TimeNotice({
   cfg,
   weightKg,
   onFit,
+  onFull,
   onAddGentle,
   onDismiss,
 }: {
@@ -261,6 +263,7 @@ function TimeNotice({
   cfg: DayConfig;
   weightKg: number | null;
   onFit: () => void;
+  onFull: () => void;
   onAddGentle: () => void;
   onDismiss: () => void;
 }) {
@@ -292,15 +295,22 @@ function TimeNotice({
           <Button label="No, gracias" variant="ghost" onPress={onDismiss} />
         </>
       )}
-      {over && !dismissed && (
+      {over && !dismissed && !cfg.fitToTime && (
         <>
           <Text style={styles.stale}>
-            {state === 'over'
-              ? `Esta sesión dura ≈ ${minutes} min, ${minutes - available} más de los que tienes.`
-              : `Con esta cantidad de ejercicios serían ≈ ${minutes} min. Te recomendamos ajustarla.`}
+            Para que tu entrenamiento sea efectivo, tu sesión completa dura ≈ {minutes} min: {minutes - available} más
+            de los {available} que tienes. Te recomendamos hacerla completa; si hoy no te alcanza, la ajustamos.
           </Text>
-          <Button label={`Ajustar a ${available} min`} onPress={onFit} />
-          <Button label="Dejarla así" variant="ghost" onPress={onDismiss} />
+          <Button label="Hacerla completa" onPress={onDismiss} />
+          <Button label={`Ajustar a ${available} min`} variant="ghost" onPress={onFit} />
+        </>
+      )}
+      {cfg.fitToTime && cfg.blocks.main.enabled && (
+        <>
+          <Text style={styles.muted}>
+            Ajustamos la fuerza a tus {available} min, con menos series o ejercicios que la sesión completa.
+          </Text>
+          <Button label="Volver a la sesión completa" variant="ghost" onPress={onFull} />
         </>
       )}
     </>

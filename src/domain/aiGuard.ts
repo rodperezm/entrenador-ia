@@ -1,8 +1,10 @@
 import { equipmentAt } from './catalog';
-import { cycleInfo } from './cycle';
+import { type CycleInfo, cycleInfo } from './cycle';
 import { filterExercisesForUser, isUnsafeWeight } from './filter';
-import { generateDayByRules, hadPain, lastWeightOf, pickWeight, prescribe } from './generator';
-import { progressSlot, wasTooHard } from './progression';
+import { generateDayByRules, hadPain, isGentle, lastWeightOf, pickWeight, prescribe } from './generator';
+import { feltTooMuch, progressSlot, wasTooHard } from './progression';
+import { dayIntensity, MIN_REST_SEC, POWER_REPS_MAX, slotRole, sortByRole } from './strength';
+import { fitPart } from './timeBudget';
 import type {
   BlockType,
   DayConfig,
@@ -17,7 +19,9 @@ import type {
 import type { DayPart } from './week';
 
 // Última revisión de lo que entrega la IA. Ella elige, pero aquí se asegura lo que no
-// puede quedar a su criterio: ejercicios fijos del bloque y no subir carga cuando no corresponde.
+// puede quedar a su criterio: ejercicios fijos del bloque, partes y orden del día, fuerza
+// suave, dosis (series, repeticiones y descansos), no subir carga cuando no corresponde y
+// que cada parte quepa en sus minutos.
 
 type GuardInput = {
   days: DayConfig[];
@@ -60,7 +64,7 @@ function limitLoad(proposed: ExerciseSlot, input: GuardInput): ExerciseSlot {
   const slot = isUnsafeWeight(e, profile, proposed.weightKg)
     ? { ...proposed, weightKg: pickWeight(e, profile) }
     : proposed;
-  if (hadPain(e.id, history) || wasTooHard(e.id, history)) {
+  if (hadPain(e.id, history) || wasTooHard(e.id, history) || feltTooMuch(e.id, history)) {
     const safe = progressSlot(slot, e, profile, history);
     const limited = {
       ...slot,
@@ -104,8 +108,37 @@ function ensureShoulderPrep(blocks: PlannedBlock[], cfg: DayConfig, input: Guard
   return blocks.map((b) => (b === warmup ? { ...b, slots } : b));
 }
 
+// Día de fuerza suave (lesión): solo ejercicios sencillos, sin balísticos ni saltos. Si la IA no
+// dejó ninguno que cumpla, Fuerza de ese día se arma por reglas.
+function keepGentle(blocks: PlannedBlock[], cfg: DayConfig, input: GuardInput, byRules: () => DayPlan) {
+  if (!cfg.gentleStrength) return blocks;
+  const byId = new Map(input.exercises.map((e) => [e.id, e]));
+  return blocks.map((b) => {
+    if (b.type !== 'main_strength') return b;
+    const slots = b.slots.filter((s) => {
+      const e = byId.get(s.exerciseId);
+      return !!e && isGentle(e);
+    });
+    if (slots.length) return { ...b, slots };
+    return byRules().blocks.find((r) => r.type === 'main_strength') ?? { ...b, slots };
+  });
+}
+
+// Dosis dentro de los márgenes de las reglas: repeticiones hasta el tope del ejercicio
+// (10 en potencia), descanso mínimo según el rol y el rol A/B/C marcado en Fuerza.
+function withinLimits(slot: ExerciseSlot, block: BlockType, input: GuardInput, cycle: CycleInfo): ExerciseSlot {
+  const e = input.exercises.find((x) => x.id === slot.exerciseId);
+  if (!e) return slot;
+  const role = block === 'main_strength' ? slotRole(e, cycle.stage) : null;
+  const maxReps = role === 'A' ? POWER_REPS_MAX : e.prescription.repRange?.max;
+  const reps = slot.reps != null && maxReps != null ? Math.min(slot.reps, maxReps) : slot.reps;
+  if (!role) return { ...slot, reps };
+  return { ...slot, reps, role, restSec: Math.max(slot.restSec, MIN_REST_SEC[role]) };
+}
+
 export function guardAiPlan(plan: GeneratedWeekPlan, input: GuardInput): GeneratedWeekPlan {
   const { days, profile, exercises, history, lockedByDay } = input;
+  const cycle = cycleInfo(history, profile.level);
   let restored = false;
   const guarded = plan.days.map((day) => {
     const cfg = days.find((d) => d.day === day.day);
@@ -118,21 +151,26 @@ export function guardAiPlan(plan: GeneratedWeekPlan, input: GuardInput): Generat
       const main = byRules().blocks.find((b) => b.type === 'main_strength');
       blocks = main ? blocks.map((b) => (b.type === 'main_strength' ? main : b)) : blocks;
     }
-    // Cada día lleva exactamente sus partes: si la IA omitió una, se arma por reglas.
+    // Cada día lleva exactamente sus partes y en su orden: si la IA omitió una, se arma por reglas.
     const wanted = PARTS.filter(([, part]) => cfg.blocks[part].enabled).map(([type]) => type);
-    if (wanted.length !== blocks.length || wanted.some((type) => !blocks.some((b) => b.type === type))) {
-      const rules = byRules();
-      blocks = wanted
-        .map((type) => blocks.find((b) => b.type === type) ?? rules.blocks.find((b) => b.type === type))
-        .filter((b): b is PlannedBlock => !!b);
-    }
+    const rules = wanted.some((type) => !blocks.some((b) => b.type === type)) ? byRules() : null;
+    blocks = wanted
+      .map((type) => blocks.find((b) => b.type === type) ?? rules?.blocks.find((b) => b.type === type))
+      .filter((b): b is PlannedBlock => !!b);
+    blocks = keepGentle(blocks, cfg, input, byRules);
     blocks = ensureShoulderPrep(blocks, cfg, input);
-    return {
-      ...day,
-      blocks: blocks.map((b) =>
-        b.type === 'main_strength' ? { ...b, slots: b.slots.map((s) => limitLoad(s, input)) } : b,
-      ),
-    };
+    blocks = blocks.map((b) => {
+      const slots = b.slots.map((s) => withinLimits(s, b.type, input, cycle));
+      return b.type === 'main_strength' ? { ...b, slots: slots.map((s) => limitLoad(s, input)) } : { ...b, slots };
+    });
+    // Al final, cada parte se ajusta a sus minutos como en las reglas: series y, si sobra, ejercicios.
+    const intensity = cycle.preparation ? 'light' : dayIntensity(days, day.day);
+    blocks = blocks.map((b) => {
+      const part = PARTS.find(([type]) => type === b.type)![1];
+      const slots = part === 'main' ? sortByRole(b.slots) : b.slots;
+      return { ...b, slots: fitPart(part, slots, cfg, profile.level, cycle, intensity) };
+    });
+    return { ...day, blocks };
   });
   return { ...plan, days: guarded, summary: restored ? FIXED_KEPT_SUMMARY : plan.summary };
 }

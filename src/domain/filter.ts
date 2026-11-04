@@ -36,9 +36,20 @@ export function weightsFor(e: Weighted, profile: WeightProfile) {
 const needsCheckedWeight = (e: Pick<Exercise, 'id' | 'kettlebellCount' | 'dumbbellGuide'>) =>
   e.kettlebellCount === 2 || LOAD_LIMITED_IDS.includes(e.id) || e.dumbbellGuide != null;
 
+// Si hasta la kettlebell más liviana pasa este múltiplo del peso sugerido para el nivel,
+// el ejercicio no se ofrece: mejor otro sin esa carga que empezar con un peso excesivo.
+const TOO_HEAVY_RATIO = 1.5;
+
+const tooHeavy = (e: Exercise, profile: WeightProfile) => {
+  const limit = e.kettlebellGuide?.suggestedWeightKg[profile.level];
+  if (e.dumbbellGuide || limit == null || !e.equipment.required.includes('kettlebell')) return false;
+  const owned = weightsFor(e, profile);
+  return owned.length > 0 && Math.min(...owned) > limit * TOO_HEAVY_RATIO;
+};
+
 // Sin un peso adecuado, el ejercicio no se ofrece.
 export const hasUsableWeight = (e: Exercise, profile: WeightProfile) =>
-  !needsCheckedWeight(e) || weightsFor(e, profile).length > 0;
+  (!needsCheckedWeight(e) || weightsFor(e, profile).length > 0) && !tooHeavy(e, profile);
 
 // Un peso propuesto por la IA que este ejercicio no admite.
 export const isUnsafeWeight = (e: Exercise, profile: WeightProfile, weightKg: number | null) =>

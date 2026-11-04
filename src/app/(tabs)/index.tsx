@@ -14,6 +14,7 @@ import { countExercises, describeDayConfig } from '@/features/planner/describe';
 import { useGenerateWeek } from '@/features/planner/useGenerateWeek';
 import { WeekCard } from '@/features/planner/WeekCard';
 import { WeekStrip } from '@/features/planner/WeekStrip';
+import { PainFollowUpCard } from '@/features/workout/PainFollowUpCard';
 import { CLOUD_BACKUP_READY } from '@/lib/cloudSync';
 import { useHistory } from '@/state/history';
 import { usePlan } from '@/state/plan';
@@ -88,6 +89,7 @@ export default function TodayScreen() {
         </View>
       )}
 
+      <PainFollowUpCard />
       <TodayCard generating={generating} onGenerate={generate} />
       <WeekCard generating={generating} onGenerate={generate} />
 
@@ -171,7 +173,7 @@ function TodayCard({ generating, onGenerate }: { generating: boolean; onGenerate
   } else {
     const minutes = dayMinutes(dayPlan.blocks);
     detail = `${countExercises(dayPlan)} ejercicios · ≈ ${minutes} min`;
-    tooLong = minutes > cfg.availableMinutes && !dayPlan.timeNoticeDismissed;
+    tooLong = minutes > cfg.availableMinutes && !dayPlan.timeNoticeDismissed && !cfg.fitToTime;
     const closing = finisherOffer({
       slots: dayPlan.blocks
         .filter((b) => b.type === 'main_strength')
@@ -205,7 +207,7 @@ function TodayCard({ generating, onGenerate }: { generating: boolean; onGenerate
       <Text style={styles.todayDetail}>{detail}</Text>
       {tooLong && (
         <Link href={{ pathname: '/day/[day]', params: { day: cfg.day } }} style={styles.warnLink}>
-          Dura más de tus {cfg.availableMinutes} min. Ajústala ›
+          Completa toma más de tus {cfg.availableMinutes} min. Revísala ›
         </Link>
       )}
       {closingNote && (

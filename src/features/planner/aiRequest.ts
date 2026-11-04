@@ -1,4 +1,5 @@
 import { equipmentAt, MEDICAL_CONDITIONS, RESTRICTION_FLAGS } from '@/domain/catalog';
+import { zoneLabel } from '@/domain/checkIn';
 import { cycleGuide, cycleInfo, previousBlockExercises } from '@/domain/cycle';
 import { effortKind, effortNote } from '@/domain/effort';
 import { filterExercisesForUser } from '@/domain/filter';
@@ -183,6 +184,23 @@ export function buildAiRequest(
       })),
     candidates,
     history: lastByExercise,
+    // Lo que dijo la persona: cómo llegó, cómo se sintió tras calentar, cómo estuvo y cómo amaneció.
+    recentFeelings: history.slice(0, HISTORY_SESSIONS).flatMap((s) =>
+      s.checkIn || s.feeling || s.painFollowUp
+        ? [
+            {
+              date: s.finishedAt.slice(0, 10),
+              arrival: s.checkIn?.arrival ?? null,
+              painZone: s.checkIn?.painZone ? zoneLabel(s.checkIn.painZone) : null,
+              painAtArrival: s.checkIn?.painLevel ? ['', 'leve', 'moderado', 'fuerte'][s.checkIn.painLevel] : null,
+              afterWarmup: s.checkIn?.afterWarmup ?? null,
+              feeling: s.feeling ?? null,
+              painNextDay: s.painFollowUp ?? null,
+              completed: s.completed,
+            },
+          ]
+        : [],
+    ),
     // Cierres recientes y cómo le fue, para elegir el de esta semana con su evolución.
     recentFinishers: history.slice(0, HISTORY_SESSIONS).flatMap((s) => {
       const sets = s.sets.filter((l) => l.format);

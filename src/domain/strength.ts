@@ -26,7 +26,8 @@ export const A_STAGES = [
     'kb_double_swing',
   ],
 ];
-const START_STAGE: Record<Level, number> = { beginner: 1, intermediate: 2, advanced: 3 };
+// El nivel es declarado: nadie parte en el swing libre sin haber confirmado antes la técnica en la app.
+const START_STAGE: Record<Level, number> = { beginner: 1, intermediate: 2, advanced: 2 };
 const SESSIONS_TO_ADVANCE = 2;
 const BLOCK_MS = 28 * 24 * 3600 * 1000;
 
@@ -53,6 +54,10 @@ export function strengthRole(e: Exercise): StrengthRole | null {
 export function slotRole(e: Exercise, stage: number): StrengthRole | null {
   return stage === 1 && A_STAGES[0].includes(e.id) ? 'A' : strengthRole(e);
 }
+
+// Descanso mínimo entre series: los compuestos pesados necesitan recuperar para mantener la técnica.
+export const MIN_REST_SEC: Record<StrengthRole, number> = { A: 120, B: 90, C: 45 };
+export const POWER_REPS_MAX = 10;
 
 const ROLE_ORDER: StrengthRole[] = ['A', 'B', 'C'];
 export const sortByRole = (slots: ExerciseSlot[]) =>

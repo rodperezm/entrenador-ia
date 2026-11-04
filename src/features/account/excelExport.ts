@@ -1,7 +1,8 @@
 import { EXERCISES_BY_ID } from '@/data/exercises.seed';
 import { bodyFat, FOLD_SITES, type FoldRecord, type TapeRecord } from '@/domain/body';
 import { EQUIPMENT, MEDICAL_CONDITIONS, PARK_EQUIPMENT } from '@/domain/catalog';
-import type { LocalProfile, SetLog, WorkoutSession } from '@/domain/schema';
+import { ARRIVAL_OPTIONS, zoneLabel } from '@/domain/checkIn';
+import type { CheckIn, LocalProfile, SetLog, WorkoutSession } from '@/domain/schema';
 import { DAY_LONG } from '@/domain/week';
 import { buildXlsx, type Cell, type Sheet } from '@/lib/xlsx';
 
@@ -19,6 +20,14 @@ const PLACE = { home: 'Casa', park: 'Parque' };
 const PAIN = ['Nada', 'Leve', 'Moderado', 'Fuerte'];
 const SIDE = { left: 'Izquierdo', right: 'Derecho', both: 'Ambos' };
 const FORMAT = { hiit: 'HIIT', amrap: 'AMRAP' };
+const AFTER_WARMUP = { activated: 'Me activé', tired: 'Sigo cansado', very_tired: 'Muy cansado' };
+const FEELING = { wanted_more: 'Me quedé con ganas', right: 'Justo', too_much: 'Fue mucho' };
+const NEXT_DAY = { better: 'Mejor', same: 'Igual', worse: 'Peor' };
+const arrivalText = (c: CheckIn | undefined) => {
+  if (!c) return null;
+  const label = ARRIVAL_OPTIONS.find((o) => o.id === c.arrival)?.label ?? c.arrival;
+  return c.painZone ? `${label}: ${zoneLabel(c.painZone)}, ${PAIN[c.painLevel ?? 0].toLowerCase()}` : label;
+};
 
 const date = (iso: string) => iso.slice(0, 10);
 const time = (iso: string) => new Date(iso).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
@@ -51,7 +60,23 @@ function profileSheet(p: LocalProfile | null): Sheet {
 }
 
 function sessionsSheet(sessions: WorkoutSession[]): Sheet {
-  const rows: Cell[][] = [['Fecha', 'Día', 'Lugar', 'Inicio', 'Minutos', 'Completa', 'Ejercicios', 'Series', 'AMRAP']];
+  const rows: Cell[][] = [
+    [
+      'Fecha',
+      'Día',
+      'Lugar',
+      'Inicio',
+      'Minutos',
+      'Completa',
+      'Ejercicios',
+      'Series',
+      'AMRAP',
+      'Cómo llegó',
+      'Tras calentar',
+      'Cómo estuvo',
+      'Al día siguiente',
+    ],
+  ];
   for (const s of sessions) {
     const minutes = Math.round((Date.parse(s.finishedAt) - Date.parse(s.startedAt)) / 60000);
     const amrap = s.amrap ? `${s.amrap.rounds} vueltas + ${s.amrap.extraReps} reps en ${s.amrap.minutes} min` : null;
@@ -65,6 +90,10 @@ function sessionsSheet(sessions: WorkoutSession[]): Sheet {
       new Set(s.sets.map((l) => l.exerciseId)).size,
       s.sets.length,
       amrap,
+      arrivalText(s.checkIn),
+      s.checkIn?.afterWarmup ? AFTER_WARMUP[s.checkIn.afterWarmup] : null,
+      s.feeling ? FEELING[s.feeling] : null,
+      s.painFollowUp ? NEXT_DAY[s.painFollowUp] : null,
     ]);
   }
   return { name: 'Sesiones', rows };

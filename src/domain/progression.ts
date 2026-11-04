@@ -14,17 +14,29 @@ import {
 // la carga; con dolor moderado o fuerte se baja.
 
 const EASY_RPE = 8; // esfuerzo máximo para considerar que se puede progresar
+const WANTED_MORE_RPE = 9; // con «Me quedé con ganas», hasta 1 repetición en reserva
 const TOO_HARD_RPE = 9.5;
 const TIME_STEP_SEC = 5;
 
-function lastLogs(exerciseId: string, history: WorkoutSession[]): SetLog[] {
+function lastSessionOf(exerciseId: string, history: WorkoutSession[]) {
   for (const s of history) {
     // En HIIT y AMRAP cambian el peso y la fatiga: solo importa si hubo dolor.
     const logs = s.sets.filter((l) => l.exerciseId === exerciseId && (!l.format || painOf(l) > 0));
-    if (logs.length) return logs;
+    if (logs.length) return { session: s, logs };
   }
-  return [];
+  return null;
 }
+
+const lastLogs = (exerciseId: string, history: WorkoutSession[]): SetLog[] =>
+  lastSessionOf(exerciseId, history)?.logs ?? [];
+
+// La última vez que hizo el ejercicio dijo «Fue mucho»: no se exige más.
+export const feltTooMuch = (exerciseId: string, history: WorkoutSession[]) =>
+  lastSessionOf(exerciseId, history)?.session.feeling === 'too_much';
+
+// «Fue mucho» en las dos últimas sesiones: se baja una serie.
+const tooMuchTwice = (history: WorkoutSession[]) =>
+  history.length >= 2 && history.slice(0, 2).every((s) => s.feeling === 'too_much');
 
 // Quedó muy pesado: sin repeticiones de reserva, sin completarlas o bajando el peso planificado.
 export function wasTooHard(exerciseId: string, history: WorkoutSession[]) {
@@ -47,8 +59,10 @@ export function progressSlot(
   profile: LocalProfile,
   history: WorkoutSession[],
 ): ExerciseSlot {
-  const logs = lastLogs(e.id, history);
-  if (!logs.length) return slot;
+  const last = lastSessionOf(e.id, history);
+  if (!last) return slot;
+  const { logs } = last;
+  const feeling = last.session.feeling;
 
   const owned = weightsFor(e, profile);
   const lastWeight = logs.find((l) => l.weightKg != null)?.weightKg ?? slot.weightKg;
@@ -87,8 +101,25 @@ export function progressSlot(
   // Calentamiento, movilidad, equilibrio y elongación no progresan en carga: se mantienen.
   if (effortKind(e) === 'none') return slot;
 
+  // «Fue mucho»: la próxima vez no sube nada; dos veces seguidas, una serie menos.
+  if (feeling === 'too_much') {
+    const lastTarget = logs[0].targetReps ?? slot.reps;
+    return {
+      ...slot,
+      sets: tooMuchTwice(history) ? Math.max(1, slot.sets - 1) : slot.sets,
+      reps: slot.durationSec != null ? slot.reps : (lastTarget ?? slot.reps),
+      durationSec:
+        slot.durationSec != null ? Math.max(...logs.map((l) => l.durationSec ?? 0)) || slot.durationSec : null,
+      weightKg: lastWeight,
+      rationale: tooMuchTwice(history)
+        ? 'Una serie menos: las dos últimas veces te pareció mucho.'
+        : 'Mantenemos la carga: la última vez te pareció mucho.',
+    };
+  }
+
   const completed = logs.length >= slot.sets;
-  const easy = avgRpe == null || avgRpe <= EASY_RPE;
+  // «Me quedé con ganas» permite subir aunque el esfuerzo marcado haya sido algo alto.
+  const easy = avgRpe == null || avgRpe <= (feeling === 'wanted_more' ? WANTED_MORE_RPE : EASY_RPE);
 
   // Ejercicios por tiempo: +5 s si se completó con holgura.
   if (slot.durationSec != null) {

@@ -196,6 +196,9 @@ export const DayConfig = z.object({
   availableMinutes: z.number().int().min(10).max(120).default(45), // tiempo que tiene ese día
   // Día de lesión con fuerza suave: pocos ejercicios, sin balísticos ni saltos.
   gentleStrength: z.boolean().default(false),
+  // La persona pidió ajustar Fuerza a sus minutos. Sin esto, Fuerza va completa aunque tome
+  // más tiempo y se le avisa; la elección queda guardada y la recibe también la IA.
+  fitToTime: z.boolean().optional(),
   blocks: z.object({
     warmup: z.object({
       enabled: z.boolean(),
@@ -294,6 +297,24 @@ export type PainLevel = 0 | 1 | 2 | 3;
 export const painOf = (l: Pick<SetLog, 'painFlag' | 'painLevel'>): PainLevel =>
   (l.painLevel ?? (l.painFlag ? 2 : 0)) as PainLevel;
 
+// Zonas para «¿Cómo llegas hoy?» cuando la persona llega con dolor.
+export const BodyZone = z.enum(['shoulder', 'elbow_wrist', 'neck', 'low_back', 'hip', 'knee', 'ankle_foot']);
+export type BodyZone = z.infer<typeof BodyZone>;
+
+// Lo que la persona dice de cómo llega y cómo le fue. Manda sobre el plan del día y
+// sobre la progresión siguiente, y se le envía a la IA.
+export const CheckIn = z.object({
+  arrival: z.enum(['energized', 'normal', 'tired', 'pain']),
+  painZone: BodyZone.optional(),
+  painLevel: z.number().int().min(1).max(3).optional(),
+  afterWarmup: z.enum(['activated', 'tired', 'very_tired']).optional(),
+});
+export type CheckIn = z.infer<typeof CheckIn>;
+export const Feeling = z.enum(['wanted_more', 'right', 'too_much']);
+export type Feeling = z.infer<typeof Feeling>;
+export const PainFollowUp = z.enum(['better', 'same', 'worse']);
+export type PainFollowUp = z.infer<typeof PainFollowUp>;
+
 export const WorkoutSession = z.object({
   id: z.string(),
   day: DayOfWeek,
@@ -311,5 +332,8 @@ export const WorkoutSession = z.object({
       extraReps: z.number().int().nonnegative(),
     })
     .optional(),
+  checkIn: CheckIn.optional(),
+  feeling: Feeling.optional(), // «¿Cómo estuvo hoy?» al terminar
+  painFollowUp: PainFollowUp.optional(), // al día siguiente, si hubo dolor moderado o fuerte
 });
 export type WorkoutSession = z.infer<typeof WorkoutSession>;
