@@ -5,8 +5,23 @@ import { Alert, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View }
 import { KeyboardDoneBar } from '@/components/KeyboardDoneBar';
 import { Button } from '@/components/ui';
 import { BackupSetup } from '@/features/account/BackupSetup';
+import { buildDataWorkbook } from '@/features/account/excelExport';
+import { useBody } from '@/state/body';
+import { useHistory } from '@/state/history';
+import { useProfile } from '@/state/profile';
 import { useSync } from '@/state/sync';
 import { colors, radius, spacing } from '@/theme';
+
+const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+// Solo web: descarga el archivo con un enlace temporal.
+function saveFile(blob: Blob, name: string) {
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = name;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
 
 function confirmAction(title: string, message: string, label: string, onConfirm: () => void) {
   if (Platform.OS === 'web') {
@@ -55,6 +70,9 @@ function ActionRow({
 
 function BackupActive() {
   const { status, email, lastSyncAt, syncNow, signOut, removeAccount, exportData } = useSync();
+  const { profile } = useProfile();
+  const { sessions } = useHistory();
+  const { records, folds } = useBody();
   const [error, setError] = useState<string | null>(null);
 
   const pending = status === 'pending';
@@ -71,14 +89,15 @@ function BackupActive() {
   const download = async () => {
     const json = exportData();
     if (Platform.OS === 'web') {
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
-      link.download = 'mis-datos-kettai.json';
-      link.click();
-      URL.revokeObjectURL(link.href);
+      saveFile(new Blob([json], { type: 'application/json' }), 'mis-datos-kettai.json');
       return;
     }
     await Share.share({ title: 'Mis datos de KETTAI', message: json });
+  };
+
+  const downloadExcel = () => {
+    const bytes = buildDataWorkbook({ profile, sessions, records, folds });
+    saveFile(new Blob([bytes as BlobPart], { type: XLSX_TYPE }), 'mis-datos-kettai.xlsx');
   };
 
   const askSignOut = () =>
@@ -121,7 +140,13 @@ function BackupActive() {
 
       <Text style={styles.section}>Tus datos</Text>
       <View style={styles.group}>
-        <ActionRow icon="download-outline" label="Descargar mis datos" onPress={download} />
+        {Platform.OS === 'web' && (
+          <>
+            <ActionRow icon="grid-outline" label="Descargar mis datos en Excel" onPress={downloadExcel} />
+            <View style={styles.rowDivider} />
+          </>
+        )}
+        <ActionRow icon="download-outline" label="Descargar respaldo completo (JSON)" onPress={download} />
         <View style={styles.rowDivider} />
         <ActionRow icon="lock-closed-outline" label="Cómo cuidamos tus datos" onPress={() => router.push('/privacy')} />
       </View>
