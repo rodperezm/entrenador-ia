@@ -1,6 +1,7 @@
 import { EXERCISES_BY_ID } from '@/data/exercises.seed';
 import { bodyFat, FOLD_SITES, type FoldRecord, type TapeRecord } from '@/domain/body';
 import { EQUIPMENT, MEDICAL_CONDITIONS, PARK_EQUIPMENT } from '@/domain/catalog';
+import { CANT_DO_OPTIONS } from '@/domain/cantDo';
 import { ARRIVAL_OPTIONS, zoneLabel } from '@/domain/checkIn';
 import type { CheckIn, LocalProfile, SetLog, WorkoutSession } from '@/domain/schema';
 import { DAY_LONG } from '@/domain/week';
@@ -75,6 +76,7 @@ function sessionsSheet(sessions: WorkoutSession[]): Sheet {
       'Tras calentar',
       'Cómo estuvo',
       'Al día siguiente',
+      'No pudo hacer',
     ],
   ];
   for (const s of sessions) {
@@ -94,6 +96,15 @@ function sessionsSheet(sessions: WorkoutSession[]): Sheet {
       s.checkIn?.afterWarmup ? AFTER_WARMUP[s.checkIn.afterWarmup] : null,
       s.feeling ? FEELING[s.feeling] : null,
       s.painFollowUp ? NEXT_DAY[s.painFollowUp] : null,
+      s.cantDo?.length
+        ? s.cantDo
+            .map(
+              (c) =>
+                `${exerciseName(c.exerciseId)} (${CANT_DO_OPTIONS.find((o) => o.id === c.reason)?.label.toLowerCase()})` +
+                (c.replacedBy ? ` → ${exerciseName(c.replacedBy)}` : ''),
+            )
+            .join('; ')
+        : null,
     ]);
   }
   return { name: 'Sesiones', rows };

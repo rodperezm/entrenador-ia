@@ -1,5 +1,6 @@
 import { effortKind } from './effort';
 import { weightsFor } from './filter';
+import { evenAlternatingReps } from './sides';
 import { MAIN_MAX_SETS } from './timeBudget';
 import {
   type Exercise,
@@ -170,7 +171,7 @@ export function progressSlot(
 
   if (completed && hitTarget && easy && range) {
     if (lastTarget < range.max) {
-      const reps = Math.min(range.max, lastTarget + 2);
+      const reps = evenAlternatingReps(e.id, Math.min(range.max, lastTarget + 2))!;
       return {
         ...slot,
         reps,

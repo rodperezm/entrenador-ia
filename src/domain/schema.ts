@@ -162,7 +162,11 @@ export const UserProfile = z.object({
   level: z.enum(['beginner', 'intermediate', 'advanced']),
   equipment: z.array(EquipmentId),
   // Lo que hay fijo en el parque donde entrena (barra, banca). Lo portátil lo lleva consigo.
-  parkEquipment: z.array(EquipmentId).default([]),
+  // Antes la banca del parque se guardaba como silla: se lee como banca.
+  parkEquipment: z
+    .array(EquipmentId)
+    .default([])
+    .transform((ids) => [...new Set(ids.map((e) => (e === 'chair' ? 'bench' : e)))] as typeof ids),
   kettlebellWeightsKg: z.array(z.number().positive()),
   kettlebellPairsKg: z.array(z.number().positive()).default([]), // pesos de los que tiene dos
   dumbbellWeightsKg: z.array(z.number().positive()).default([]),
@@ -314,6 +318,9 @@ export const Feeling = z.enum(['wanted_more', 'right', 'too_much']);
 export type Feeling = z.infer<typeof Feeling>;
 export const PainFollowUp = z.enum(['better', 'same', 'worse']);
 export type PainFollowUp = z.infer<typeof PainFollowUp>;
+// «No puedo hacerlo»: no sabe, no se siente seguro o no tiene dónde hacerlo bien.
+export const CantDoReason = z.enum(['dont_know', 'not_safe', 'no_place']);
+export type CantDoReason = z.infer<typeof CantDoReason>;
 
 export const WorkoutSession = z.object({
   id: z.string(),
@@ -335,5 +342,9 @@ export const WorkoutSession = z.object({
   checkIn: CheckIn.optional(),
   feeling: Feeling.optional(), // «¿Cómo estuvo hoy?» al terminar
   painFollowUp: PainFollowUp.optional(), // al día siguiente, si hubo dolor moderado o fuerte
+  // Ejercicios que la persona no pudo hacer: se cambiaron por uno más simple y no vuelven por un ciclo.
+  cantDo: z
+    .array(z.object({ exerciseId: ExerciseId, reason: CantDoReason, replacedBy: ExerciseId.nullable() }))
+    .optional(),
 });
 export type WorkoutSession = z.infer<typeof WorkoutSession>;

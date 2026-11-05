@@ -3,7 +3,7 @@ import { zoneLabel } from '@/domain/checkIn';
 import { cycleGuide, cycleInfo, previousBlockExercises } from '@/domain/cycle';
 import { effortKind, effortNote } from '@/domain/effort';
 import { filterExercisesForUser } from '@/domain/filter';
-import { legsRestIds, strongPainIds } from '@/domain/generator';
+import { avoidedIds, legsRestIds } from '@/domain/generator';
 import { wasTooHard } from '@/domain/progression';
 import { A_STAGES, dayIntensity, strengthRole } from '@/domain/strength';
 import { leadPart, partBudgets } from '@/domain/timeBudget';
@@ -47,11 +47,11 @@ export function buildAiRequest(
 
   // Candidatos: por cada bloque, lo que el usuario puede hacer en ese bloque, en casa o en el
   // parque (cada día dice qué equipamiento tiene disponible).
-  // Con dolor fuerte reciente el ejercicio ni siquiera se le ofrece a la IA.
+  // Con dolor fuerte reciente o si lo marcó «No puedo hacerlo», el ejercicio ni siquiera se le ofrece a la IA.
   const anywhere = {
     ...profile,
     equipment: [...new Set([...profile.equipment, ...equipmentAt('park', profile)])],
-    excludedExerciseIds: [...profile.excludedExerciseIds, ...strongPainIds(history)],
+    excludedExerciseIds: [...profile.excludedExerciseIds, ...avoidedIds(history)],
   };
   const allowed = new Map<string, Set<BlockType>>();
   for (const block of BLOCKS) {

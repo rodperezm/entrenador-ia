@@ -474,6 +474,7 @@ export const EXTRA_BATCH2: ExerciseInput[] = [
       ['rectus_abdominis', 0.3],
     ],
     rx: { sets: 3, reps: [5, 8], rest: 90 },
+    previous: ['kb_box_squat'],
     next: ['pistol_squat'],
     steps: [
       'Párate de espaldas a una silla firme, apoyado en una pierna.',

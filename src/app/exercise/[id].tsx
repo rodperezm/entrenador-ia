@@ -51,7 +51,9 @@ export default function ExerciseDetail() {
       <View style={styles.statsRow}>
         <Stat label="Series" value={String(e.prescription.sets)} />
         <Stat
-          label={[e.prescription.mode === 'time' ? 'Tiempo' : 'Reps', sideLabel(e.id)].filter(Boolean).join(' ')}
+          label={[e.prescription.mode === 'time' ? 'Tiempo' : 'Reps', sideLabel(e.id, e.prescription.mode === 'time')]
+            .filter(Boolean)
+            .join(' ')}
           value={
             e.prescription.mode === 'time'
               ? `${e.prescription.durationSec}s`

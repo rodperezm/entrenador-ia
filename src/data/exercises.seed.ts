@@ -611,6 +611,7 @@ const defs: ExerciseInput[] = [
       ['calves', 0.3],
     ],
     rx: { sets: 3, reps: [8, 12], rest: 60 },
+    previous: ['kb_split_squat'], // la zancada estática, sin el paso, es más simple
     steps: [
       'Pesa en goblet o en rack.',
       'Da un paso largo hacia atrás y baja la rodilla trasera hacia el suelo.',
@@ -707,7 +708,7 @@ const defs: ExerciseInput[] = [
     chain: ['push', 1],
     next: ['push_up'],
     steps: [
-      'Manos en el borde de una silla estable, cuerpo en línea recta.',
+      'Manos en el borde de una silla firme apoyada contra la pared, cuerpo en línea recta.',
       'Baja el pecho hacia la silla con codos a 45°.',
       'Empuja hasta extender los brazos.',
     ],
@@ -866,6 +867,7 @@ const defs: ExerciseInput[] = [
       ['rectus_abdominis', 0.3],
     ],
     rx: { sets: 3, reps: [5, 10], rest: 75 },
+    previous: ['kb_half_kneeling_press'], // con una rodilla en el suelo es más estable
     steps: [
       'Pesa en rack, codo bajo la muñeca.',
       'Empuja hacia arriba girando levemente la palma al frente.',
@@ -959,8 +961,9 @@ const defs: ExerciseInput[] = [
       ['deltoid_anterior', 0.4],
     ],
     rx: { sets: 3, reps: [8, 15], rest: 60 },
+    previous: ['push_up_incline'],
     steps: [
-      'Manos en el borde de una silla estable, dedos al frente.',
+      'Manos en el borde de una silla firme apoyada contra la pared, dedos al frente.',
       'Baja doblando los codos hasta unos 90°.',
       'Empuja hasta extender los brazos.',
     ],

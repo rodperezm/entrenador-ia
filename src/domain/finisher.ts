@@ -1,7 +1,7 @@
 import { equipmentAt } from './catalog';
 import type { CycleInfo } from './cycle';
 import { filterExercisesForUser, weightsFor } from './filter';
-import { hadPain, pickWeight, strongPainIds } from './generator';
+import { cantDoIds, hadPain, pickWeight, strongPainIds } from './generator';
 import {
   type DayPlan,
   type Exercise,
@@ -11,7 +11,7 @@ import {
   type WorkoutSession,
 } from './schema';
 import type { TabataConfig } from './session';
-import { isPerSide, sideLabel } from './sides';
+import { isPerSide, workLabel } from './sides';
 import { A_STAGES, strengthRole } from './strength';
 import { slotSeconds } from './timeBudget';
 import { dayDate } from './week';
@@ -69,10 +69,8 @@ const REASON: Record<FinisherFormat, string> = {
   amrap: 'Rompe la rutina: desafíate a sumar más rondas que la última vez.',
 };
 
-export const finisherWork = (e: Pick<FinisherExercise, 'exerciseId' | 'reps' | 'seconds'>) => {
-  const side = sideLabel(e.exerciseId);
-  return `${e.reps != null ? `${e.reps} reps` : `${e.seconds} s`}${side ? ` ${side}` : ''}`;
-};
+export const finisherWork = (e: Pick<FinisherExercise, 'exerciseId' | 'reps' | 'seconds'>) =>
+  workLabel(e.exerciseId, e.reps, e.seconds);
 
 export const markLabel = ({ rounds, extraReps }: AmrapMark) =>
   `${rounds} ${rounds === 1 ? 'ronda' : 'rondas'}${extraReps ? ` + ${extraReps} reps` : ''}`;
@@ -86,7 +84,11 @@ const recentPain = (history: WorkoutSession[], now: number) =>
 function lighterWeight(e: Exercise, profile: LocalProfile, planned: number | null) {
   const weight = planned ?? pickWeight(e, profile);
   if (weight == null) return null;
-  return weightsFor(e, profile).filter((w) => w < weight).sort((a, b) => b - a)[0] ?? weight;
+  return (
+    weightsFor(e, profile)
+      .filter((w) => w < weight)
+      .sort((a, b) => b - a)[0] ?? weight
+  );
 }
 
 function finisherExercise(key: string, e: Exercise, weightKg: number | null): FinisherExercise {
@@ -107,7 +109,7 @@ export function finisherOffer(input: OfferInput): FinisherOffer | null {
   if (level === 'beginner' || cycle.preparation || cycle.week === 4 || !slots.length) return null;
   if (recentPain(history, now)) return null;
 
-  const painful = strongPainIds(history, now);
+  const painful = [...strongPainIds(history, now), ...cantDoIds(history, now)];
   const fits = (e: Exercise) =>
     e.complexityLevel <= MAX_COMPLEXITY && !painful.includes(e.id) && !hadPain(e.id, history);
   const byId = new Map(exercises.map((e) => [e.id, e]));

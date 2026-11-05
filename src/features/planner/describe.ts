@@ -1,5 +1,5 @@
 import type { DayConfig, DayPlan } from '@/domain/schema';
-import { sideLabel, weightLabel } from '@/domain/sides';
+import { weightLabel, workLabel } from '@/domain/sides';
 
 // Lo elegido para el día: lo que va incluido siempre no se repite.
 export function dayTypeLabel(d: DayConfig, hasConditions: boolean): string {
@@ -24,7 +24,6 @@ export const slotLabel = (s: {
   durationSec: number | null;
   weightKg: number | null;
 }) => {
-  const side = sideLabel(s.exerciseId);
   const weight = s.weightKg ? ` · ${weightLabel(s.exerciseId, s.weightKg)}` : '';
-  return `${s.sets} × ${s.reps ?? `${s.durationSec}s`}${side ? ` ${side}` : ''}${weight}`;
+  return `${s.sets} × ${workLabel(s.exerciseId, s.reps, s.durationSec)}${weight}`;
 };

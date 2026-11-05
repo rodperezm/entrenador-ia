@@ -1,7 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 import { type DayConfig, type DayOfWeek, StoredWeekPlan, WeekConfig } from '@/domain/schema';
-import { applyDayChoice, type DayChoice, dayChoiceOf, defaultWeekConfig, normalizeDay, sameChoice } from '@/domain/week';
+import { withEvenAlternating } from '@/domain/sides';
+import {
+  applyDayChoice,
+  type DayChoice,
+  dayChoiceOf,
+  defaultWeekConfig,
+  normalizeDay,
+  sameChoice,
+} from '@/domain/week';
 
 const WEEK_KEY = 'week-config.v1';
 const PLAN_KEY = 'week-plan.v1';
@@ -49,7 +57,7 @@ export function PlanProvider({ children }: { children: ReactNode }) {
             AsyncStorage.setItem(WEEK_KEY, JSON.stringify(fixed)).catch(() => {});
           }
         }
-        setPlan(p);
+        setPlan(p && withEvenAlternating(p)); // la semana ya armada también
         setLoading(false);
       },
     );
@@ -84,7 +92,9 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const savePlan = useCallback(async (p: StoredWeekPlan) => {
+  // Venga de las reglas o de la IA, los alternados quedan en número par (ver evenAlternatingReps).
+  const savePlan = useCallback(async (raw: StoredWeekPlan) => {
+    const p = withEvenAlternating(raw);
     await AsyncStorage.setItem(PLAN_KEY, JSON.stringify(p));
     setPlan(p);
   }, []);

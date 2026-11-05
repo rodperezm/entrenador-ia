@@ -1,4 +1,4 @@
-import type { EquipmentId, RestrictionFlagId } from './catalog';
+import { type EquipmentId, type RestrictionFlagId, withImplied } from './catalog';
 import type { BlockType, Exercise, UserProfile } from './schema';
 
 // Peso sobre la cabeza o difícil de equilibrar: un exceso puede lesionar, así que no se pasa del sugerido.
@@ -64,7 +64,7 @@ export function filterExercisesForUser(
   block?: BlockType,
 ): Exercise[] {
   const avoided = new Set<RestrictionFlagId>(profile.conditions.flatMap((c) => c.activeFlags));
-  const owned = new Set<EquipmentId>(profile.equipment);
+  const owned = new Set<EquipmentId>(withImplied(profile.equipment));
   const excluded = new Set(profile.excludedExerciseIds);
 
   return exercises.filter(

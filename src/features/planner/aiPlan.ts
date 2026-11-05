@@ -64,11 +64,20 @@ export async function generateWeekWithAi(request: ReturnType<typeof buildAiReque
     throw new AiPlanError(data?.status ? `${reason} (código ${data.status})` : reason);
   }
 
+  return { plan: checkAiPlan(data, request, week), model: (data.model as string) ?? null, usage: data.usage ?? null };
+}
+
+// Revisión de lo que devolvió Claude, aparte de la llamada para poder probarla sin la IA.
+export function checkAiPlan(
+  data: { plan?: { summary?: unknown; days?: { day?: unknown }[] } },
+  request: ReturnType<typeof buildAiRequest>,
+  week: WeekConfig,
+) {
   // Validar contra el esquema de la app y contra los candidatos enviados.
   const locations = new Map(week.days.map((d) => [d.day, d.location]));
   const parsed = GeneratedWeekPlan.safeParse({
     summary: data?.plan?.summary,
-    days: (data?.plan?.days ?? []).map((d: { day: keyof typeof locations }) => ({
+    days: (data?.plan?.days ?? []).map((d) => ({
       ...d,
       location: locations.get(d.day as never) ?? 'home',
     })),
@@ -126,5 +135,5 @@ export async function generateWeekWithAi(request: ReturnType<typeof buildAiReque
     }
   }
 
-  return { plan: parsed.data, model: (data.model as string) ?? null, usage: data.usage ?? null };
+  return parsed.data;
 }

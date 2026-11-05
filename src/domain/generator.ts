@@ -433,9 +433,20 @@ export function legsRestIds(exercises: Exercise[], history: WorkoutSession[], no
   return strongPainIds(recent, now).some((id) => legs.includes(id)) ? legs : [];
 }
 
+// Ejercicios que la persona marcó «No puedo hacerlo» en el último ciclo (4 semanas): no se
+// proponen hasta que pase, y en su lugar entra uno más simple.
+export function cantDoIds(history: WorkoutSession[], now = Date.now()): string[] {
+  const since = now - 28 * 24 * 3600 * 1000;
+  const recent = history.filter((s) => Date.parse(s.finishedAt) >= since);
+  return [...new Set(recent.flatMap((s) => (s.cantDo ?? []).map((c) => c.exerciseId)))];
+}
+
+// Lo que no se propone por ahora: dolor fuerte o repetido y lo que no pudo hacer.
+export const avoidedIds = (history: WorkoutSession[]) => [...strongPainIds(history), ...cantDoIds(history)];
+
 const withoutPainful = (profile: LocalProfile, history: WorkoutSession[]): LocalProfile => ({
   ...profile,
-  excludedExerciseIds: [...profile.excludedExerciseIds, ...strongPainIds(history)],
+  excludedExerciseIds: [...profile.excludedExerciseIds, ...avoidedIds(history)],
 });
 
 // Última molestia registrada en el ejercicio: con dolor, la semana del bloque no exige más.

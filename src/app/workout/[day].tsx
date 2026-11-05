@@ -20,6 +20,7 @@ import { BLOCK_LABELS } from '@/domain/labels';
 import { strengthInfo } from '@/domain/strength';
 import {
   type BlockType,
+  type CantDoReason,
   type CheckIn,
   DayOfWeek,
   type Feeling,
@@ -31,9 +32,10 @@ import {
   type WorkoutSession,
 } from '@/domain/schema';
 import { fmtClock } from '@/domain/session';
-import { isPerSide, loadCount, sideLabel, weightLabel } from '@/domain/sides';
+import { alternatingSplit, isPerSide, loadCount, sideLabel, weightLabel } from '@/domain/sides';
 import { DAY_LONG } from '@/domain/week';
 import { slotLabel } from '@/features/planner/describe';
+import { CANT_DO_OPTIONS, easierAlternative, replacementSlot } from '@/domain/cantDo';
 import { adjustForCheckIn, allowsFinisher } from '@/domain/checkIn';
 import { AmrapBlock, type AmrapResult } from '@/features/workout/AmrapBlock';
 import { AfterWarmupQuestion, ArrivalQuestion, checkInMessage } from '@/features/workout/CheckInPanel';
@@ -120,6 +122,9 @@ export default function WorkoutScreen() {
   const [tickOn, setTickOn] = useState(true);
   const [checkIn, setCheckIn] = useState<CheckIn | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  // «No puedo hacerlo»: hoja abierta (con o sin motivo) y lo marcado, que se guarda en la sesión.
+  const [cantDoSheet, setCantDoSheet] = useState<CantDoReason | 'ask' | null>(null);
+  const cantDo = useRef<NonNullable<WorkoutSession['cantDo']>>([]);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 250);
@@ -171,16 +176,18 @@ export default function WorkoutScreen() {
   const itemsOf = (plan: typeof dayPlan): Item[] =>
     plan.blocks.flatMap((b) =>
       b.slots.flatMap((slot, i) => {
-        const it = { key: `${b.type}-${i}`, block: b.type, slot };
-        // Un ejercicio cambiado por dolor queda cerrado y su reemplazo va justo después.
-        return replacements[it.key] ? [it, replacements[it.key]] : [it];
+        // Un ejercicio cambiado (por dolor o porque no pudo) queda cerrado y su reemplazo va
+        // justo después; el reemplazo también puede cambiarse.
+        const chain = (it: Item): Item[] => (replacements[it.key] ? [it, ...chain(replacements[it.key])] : [it]);
+        return chain({ key: `${b.type}-${i}`, block: b.type, slot });
       }),
     );
   const todayPlan = planFor(checkIn);
   const items = itemsOf(todayPlan);
   const hasConditions = (profile?.conditions.length ?? 0) > 0;
-  const totalSets = items.reduce((n, it) => n + it.slot.sets, 0);
   const setsDone = (key: string) => logs.filter((l) => l.itemKey === key).length;
+  // Un ejercicio cambiado por otro cuenta solo lo que alcanzó a hacer; el resto lo hace el reemplazo.
+  const totalSets = items.reduce((n, it) => n + (replacements[it.key] ? setsDone(it.key) : it.slot.sets), 0);
   const isComplete = (it: Item) => setsDone(it.key) >= it.slot.sets;
   const isClosed = (it: Item) => isComplete(it) || skipped.includes(it.key);
 
@@ -233,6 +240,7 @@ export default function WorkoutScreen() {
       sets: allLogs.map(({ itemKey: _k, ...l }) => l),
       ...(amrapResult.current ? { amrap: amrapResult.current } : {}),
       ...(checkIn ? { checkIn } : {}),
+      ...(cantDo.current.length ? { cantDo: cantDo.current } : {}),
     });
   };
   const sessionId = `s${startedAt.toString(36)}`;
@@ -351,6 +359,7 @@ export default function WorkoutScreen() {
     setTechniqueOk(false);
     setPainSheet(null);
     setPainAsked(false);
+    setCantDoSheet(null);
   };
 
   const advance = (nextLogs: typeof logs, nextSkipped = skipped) => {
@@ -379,14 +388,20 @@ export default function WorkoutScreen() {
     // Tocar «Hecha» durante el descanso lo termina y registra la serie siguiente.
     setRestEndsAt(null);
     if (phase === 'rest') setPhase('work');
-    // Calentamiento, movilidad y elongación: un solo toque registra todas sus series.
+    // Calentamiento, movilidad y elongación: cada toque registra una serie, sin pregunta de
+    // esfuerzo; recién con la última pasa al ejercicio siguiente.
     if (kind === 'none') {
-      const rest = Array.from({ length: item.slot.sets - done }, (_, i) =>
-        logFor(done + i + 1, painHere(pain) || pain),
-      );
-      const nextLogs = [...logs, ...rest];
+      const nextLogs = [...logs, logFor(done + 1, painHere(pain) || pain)];
       setLogs(nextLogs);
-      advance(nextLogs);
+      if (done + 1 < item.slot.sets) {
+        setNote(`Serie ${done + 1} lista. Vamos con la ${done + 2} de ${item.slot.sets}.`);
+        if (item.slot.restSec > 0) {
+          lastCount.current = null;
+          setRestEndsAt(now + item.slot.restSec * 1000);
+          setPainAsked(true);
+          setPhase('rest');
+        }
+      } else advance(nextLogs);
       return;
     }
     const nextLogs = [...logs, logFor(done + 1, null)];
@@ -491,6 +506,39 @@ export default function WorkoutScreen() {
     advance(logs, nextSkipped);
   };
 
+  // «No puedo hacerlo»: uno parecido y más simple, que se pueda hacer aquí y que no esté ya en el día.
+  const cantDoAlt =
+    cantDoSheet && cantDoSheet !== 'ask' && ex && profile
+      ? easierAlternative(ex, item.block, {
+          profile,
+          exercises: EXERCISES,
+          location: dayPlan.location,
+          used: new Set(items.map((i) => i.slot.exerciseId)),
+          history: sessions,
+        })
+      : null;
+  const markCantDo = (reason: CantDoReason, replacedBy: string | null) => {
+    const id = item.slot.exerciseId;
+    cantDo.current = [...cantDo.current.filter((c) => c.exerciseId !== id), { exerciseId: id, reason, replacedBy }];
+  };
+  const swapCantDo = () => {
+    if (!profile || !cantDoAlt || !cantDoSheet || cantDoSheet === 'ask') return;
+    markCantDo(cantDoSheet, cantDoAlt.id);
+    const replacement: Item = {
+      key: `${item.key}-alt`,
+      block: item.block,
+      slot: replacementSlot(cantDoAlt, item.slot, item.slot.sets - done, item.block, profile),
+    };
+    setReplacements((r) => ({ ...r, [item.key]: replacement }));
+    setSkipped((sk) => [...sk, item.key]);
+    goTo(idx + 1);
+  };
+  const skipCantDo = () => {
+    if (cantDoSheet && cantDoSheet !== 'ask') markCantDo(cantDoSheet, null);
+    setCantDoSheet(null);
+    skip();
+  };
+
   // Bloque C sin empezar: se puede cerrar con un circuito HIIT o un desafío AMRAP.
   const pendingC = items.filter(
     (it) => it.block === 'main_strength' && it.slot.role === 'C' && !isClosed(it) && setsDone(it.key) === 0,
@@ -593,10 +641,12 @@ export default function WorkoutScreen() {
     );
   }
 
-  const side = sideLabel(item.slot.exerciseId);
-  const target = `${timed ? `${seconds} s` : `${reps} reps`}${side ? ` ${side}` : ''}`;
+  // A un lado: «8 con cada pierna». Alternado: «8 en total» y abajo cuánto va con cada brazo.
+  const side = sideLabel(item.slot.exerciseId, timed);
+  const split = timed ? null : alternatingSplit(item.slot.exerciseId, reps);
+  const target = timed ? `${seconds} s${side ? ` ${side}` : ''}` : side ? `${reps} ${side}` : `${reps} reps`;
   const position = items.filter(isClosed).length + 1;
-  const barOpen = confirmEnd || phase === 'rest' || painSheet != null;
+  const barOpen = confirmEnd || phase === 'rest' || painSheet != null || cantDoSheet != null;
   const clockSize =
     barOpen || phase === 'feedback' ? CLOCK_SMALL : screenHeight < COMPACT_HEIGHT ? CLOCK_MEDIUM : CLOCK_LARGE;
 
@@ -744,16 +794,25 @@ export default function WorkoutScreen() {
           ) : (
             <View style={styles.panel}>
               <Text style={styles.setLabel}>
-                {kind === 'none'
-                  ? item.slot.sets > 1
-                    ? `${item.slot.sets} series`
-                    : 'Una vez'
+                {kind === 'none' && item.slot.sets === 1
+                  ? 'Una vez'
                   : `Serie ${Math.min(done + 1, item.slot.sets)} de ${item.slot.sets}`}
               </Text>
+              {item.slot.sets > 1 && (
+                <View style={styles.setDots} accessibilityLabel={`${done} de ${item.slot.sets} series hechas`}>
+                  {Array.from({ length: item.slot.sets }, (_, i) => (
+                    <View
+                      key={i}
+                      style={[styles.setDot, i < done && styles.setDotDone, i === done && styles.setDotNow]}
+                    />
+                  ))}
+                </View>
+              )}
               <Text style={styles.target}>
                 {target}
                 {usesKb && weight ? ` · ${weightLabel(item.slot.exerciseId, weight)}` : ''}
               </Text>
+              {split && <Text style={styles.sideHint}>Alternando: {split}.</Text>}
               {isPerSide(item.slot.exerciseId) && (
                 <Text style={styles.sideHint}>
                   Termina un lado, cambia y marca «{kind === 'none' ? 'Hecho' : 'Hecha'}» al final.
@@ -777,7 +836,13 @@ export default function WorkoutScreen() {
                         onChange={(v) => setOv({ seconds: v })}
                       />
                     ) : (
-                      <Stepper value={reps} min={0} max={100} onChange={(v) => setOv({ reps: v })} />
+                      <Stepper
+                        value={reps}
+                        min={0}
+                        max={100}
+                        step={split ? 2 : 1}
+                        onChange={(v) => setOv({ reps: v })}
+                      />
                     )}
                   </View>
                   {usesKb && (
@@ -829,6 +894,15 @@ export default function WorkoutScreen() {
                     <Text style={styles.smallLinkWarn}>¿Duele?</Text>
                   </Pressable>
                 )}
+                <Pressable
+                  onPress={() => {
+                    setPainSheet(null);
+                    setCantDoSheet('ask');
+                  }}
+                  hitSlop={8}
+                >
+                  <Text style={styles.smallLink}>No puedo hacerlo</Text>
+                </Pressable>
                 <Pressable onPress={skip} hitSlop={8}>
                   <Text style={styles.smallLinkMuted}>Saltar ejercicio</Text>
                 </Pressable>
@@ -859,7 +933,16 @@ export default function WorkoutScreen() {
       {/* Barra inferior: descanso automático o confirmación de término */}
       {barOpen && (
         <View style={[styles.bottomBar, { paddingBottom: insets.bottom + spacing.md }]}>
-          {painSheet != null && !confirmEnd ? (
+          {cantDoSheet != null && !confirmEnd ? (
+            <CantDoSheet
+              reason={cantDoSheet === 'ask' ? null : cantDoSheet}
+              altName={cantDoAlt?.name.es ?? null}
+              onReason={setCantDoSheet}
+              onSwap={swapCantDo}
+              onSkip={skipCantDo}
+              onClose={() => setCantDoSheet(null)}
+            />
+          ) : painSheet != null && !confirmEnd ? (
             <PainSheet
               sheet={painSheet}
               sidePicker={askSide ? <SidePicker side={painSide} onSide={setPainSide} /> : null}
@@ -1009,6 +1092,50 @@ function PainSheet({
       <Button label="Terminar por hoy" onPress={onEndToday} />
       {canSwap && <Button label="Cambiar por uno más suave" variant="ghost" onPress={onSwap} />}
       <Button label="Parar solo este ejercicio" variant="ghost" onPress={onStop} />
+    </>
+  );
+}
+
+// «No puedo hacerlo»: primero el motivo; después, el cambio por uno más simple o saltarlo.
+function CantDoSheet({
+  reason,
+  altName,
+  onReason,
+  onSwap,
+  onSkip,
+  onClose,
+}: {
+  reason: CantDoReason | null;
+  altName: string | null;
+  onReason: (r: CantDoReason) => void;
+  onSwap: () => void;
+  onSkip: () => void;
+  onClose: () => void;
+}) {
+  if (!reason)
+    return (
+      <>
+        <Text style={styles.barTitle}>¿Qué pasa con este ejercicio?</Text>
+        <View style={styles.chips}>
+          {CANT_DO_OPTIONS.map((o) => (
+            <Pressable key={o.id} onPress={() => onReason(o.id)} style={styles.chip}>
+              <Text style={styles.chipText}>{o.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <Button label="Volver" variant="ghost" onPress={onClose} />
+      </>
+    );
+  return (
+    <>
+      <Text style={styles.barTitle}>{altName ? `Te proponemos: ${altName}` : 'Sáltalo por hoy'}</Text>
+      <Text style={styles.hint}>
+        {altName ? 'Es parecido y más simple. ' : 'Aquí no hay uno parecido y más simple que puedas hacer. '}
+        No te lo volveremos a proponer en las próximas 4 semanas.
+      </Text>
+      {altName && <Button label="Cambiarlo" onPress={onSwap} />}
+      <Button label="Saltarlo por hoy" variant={altName ? 'ghost' : 'primary'} onPress={onSkip} />
+      <Button label="Volver" variant="ghost" onPress={onClose} />
     </>
   );
 }
@@ -1194,6 +1321,10 @@ const styles = StyleSheet.create({
   panel: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.md },
   panelTitle: { color: colors.text, fontSize: 16, fontWeight: '800' },
   setLabel: { color: colors.textMuted, fontSize: 14, fontWeight: '700', textAlign: 'center' },
+  setDots: { flexDirection: 'row', justifyContent: 'center', gap: 8 },
+  setDot: { width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: colors.textMuted },
+  setDotDone: { backgroundColor: colors.accent, borderColor: colors.accent },
+  setDotNow: { borderColor: colors.accent },
   sideHint: { color: colors.textMuted, fontSize: 13, lineHeight: 18, textAlign: 'center' },
   target: { color: colors.text, fontSize: 34, fontWeight: '900', textAlign: 'center', fontVariant: ['tabular-nums'] },
   doneBtn: {

@@ -56,7 +56,8 @@ export const EXTRA_STRENGTH: ExerciseInput[] = [
     mechanics: 'compound',
     level: 2,
     laterality: 'alternating',
-    required: ['kettlebell', 'chair'],
+    // Con silla no: subirse con peso a una silla es inestable.
+    required: ['kettlebell', 'bench'],
     primary: [
       ['quadriceps', 0.9],
       ['gluteus_maximus', 0.9],
@@ -66,8 +67,9 @@ export const EXTRA_STRENGTH: ExerciseInput[] = [
       ['calves', 0.3],
     ],
     rx: { sets: 3, reps: [8, 12], rest: 60 },
+    previous: ['kb_box_squat'],
     steps: [
-      'Frente a una silla firme o escalón, pesa en goblet.',
+      'Frente a una banca firme o un escalón, pesa en goblet.',
       'Apoya todo el pie arriba y sube empujando con esa pierna.',
       'Baja controlando y alterna.',
     ],
@@ -125,15 +127,17 @@ export const EXTRA_STRENGTH: ExerciseInput[] = [
     pattern: 'hinge',
     mechanics: 'compound',
     level: 2,
-    required: ['kettlebell', 'chair'],
+    // Con silla no: al empujar con la espalda y la pesa, la silla se mueve o se vuelca.
+    required: ['kettlebell', 'bench'],
     primary: [['gluteus_maximus', 1]],
     secondary: [
       ['hamstrings', 0.5],
       ['quadriceps', 0.3],
     ],
     rx: { sets: 3, reps: [10, 15], rest: 60, tempo: '2-1-1' },
+    previous: ['glute_bridge'],
     steps: [
-      'Espalda alta apoyada en el borde de una silla firme, pesa sobre la cadera.',
+      'Espalda alta apoyada en el borde de una banca firme (que no se mueva), pesa sobre la cadera.',
       'Empuja con los talones y sube la cadera hasta alinearla con rodillas y hombros.',
       'Aprieta glúteos arriba y baja lento.',
     ],
@@ -306,7 +310,7 @@ export const EXTRA_STRENGTH: ExerciseInput[] = [
     chain: ['push', 3],
     previous: ['push_up'],
     steps: [
-      'Pies sobre una silla, manos en el suelo.',
+      'Pies sobre una silla firme apoyada contra la pared, manos en el suelo.',
       'Baja el pecho manteniendo el cuerpo rígido.',
       'Empuja hasta estirar los brazos.',
     ],
@@ -502,7 +506,8 @@ export const EXTRA_STRENGTH: ExerciseInput[] = [
     mechanics: 'compound',
     level: 3,
     flags: ['overhead', 'grip_loaded'],
-    required: ['pullup_bar', 'chair'],
+    // Con silla no: subirse una y otra vez a una silla, cansado, es riesgo de caída.
+    required: ['pullup_bar', 'bench'],
     primary: [['latissimus_dorsi', 1]],
     secondary: [
       ['biceps', 0.6],
@@ -511,9 +516,9 @@ export const EXTRA_STRENGTH: ExerciseInput[] = [
     rx: { sets: 3, reps: [3, 6], rest: 90, tempo: '5-0-0' },
     next: ['pull_up', 'chin_up'],
     steps: [
-      'Súbete a una silla y empieza con el mentón sobre la barra.',
+      'Súbete a una banca firme o un escalón y empieza con el mentón sobre la barra.',
       'Baja lo más lento que puedas (5 segundos).',
-      'Vuelve a subir con la silla y repite.',
+      'Vuelve a subir con la banca y repite.',
     ],
     stretches: ['stretch_child_pose'],
   },

@@ -42,7 +42,8 @@ export const MUSCLE_IDS = Object.keys(MUSCLES) as [MuscleId, ...MuscleId[]];
 export const EQUIPMENT = {
   mat: 'Mat / colchoneta',
   kettlebell: 'Kettlebell',
-  chair: 'Silla / banco',
+  chair: 'Silla firme',
+  bench: 'Banca firme o escalón',
   dumbbells: 'Mancuernas',
   pullup_bar: 'Barra de dominadas',
   parallel_bars: 'Barras paralelas',
@@ -64,17 +65,24 @@ export const PORTABLE_EQUIPMENT: EquipmentId[] = [
 export const PARK_EQUIPMENT: Partial<Record<EquipmentId, string>> = {
   pullup_bar: 'Barra de dominadas',
   parallel_bars: 'Barras paralelas',
-  chair: 'Banca',
+  bench: 'Banca',
 };
 export const PARK_EQUIPMENT_IDS = Object.keys(PARK_EQUIPMENT) as EquipmentId[];
+
+// Una banca firme sirve para todo lo que se hace con silla; la silla no reemplaza a la banca
+// donde hay que subirse, saltar o apoyar la espalda con carga (puede moverse o volcarse).
+export const withImplied = (equipment: EquipmentId[]): EquipmentId[] =>
+  equipment.includes('bench') && !equipment.includes('chair') ? [...equipment, 'chair'] : equipment;
 
 // Equipamiento disponible según dónde entrena ese día.
 export function equipmentAt(
   location: 'home' | 'park',
   profile: { equipment: EquipmentId[]; parkEquipment: EquipmentId[] },
 ): EquipmentId[] {
-  if (location === 'home') return profile.equipment;
-  return [...new Set([...profile.equipment.filter((e) => PORTABLE_EQUIPMENT.includes(e)), ...profile.parkEquipment])];
+  if (location === 'home') return withImplied(profile.equipment);
+  return withImplied([
+    ...new Set([...profile.equipment.filter((e) => PORTABLE_EQUIPMENT.includes(e)), ...profile.parkEquipment]),
+  ]);
 }
 
 // Banderas que describen la exigencia de un ejercicio. El usuario activa las

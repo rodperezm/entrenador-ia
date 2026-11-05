@@ -275,6 +275,12 @@ export function EquipmentStep({ draft, update }: StepProps) {
                 selected={draft.equipment.includes(id)}
                 onPress={() => update({ equipment: toggle(draft.equipment, id) })}
               />
+              {id === 'bench' && (
+                <Text style={styles.hint}>
+                  La silla sirve para sentarte o apoyar las manos. Para subirte, saltar o apoyar la espalda con peso
+                  hace falta algo que no se mueva: una banca firme o un escalón.
+                </Text>
+              )}
               {id === 'dumbbells' && draft.equipment.includes('dumbbells') && (
                 <View style={styles.nested}>
                   <Text style={styles.label}>¿De qué peso son tus mancuernas? (kg)</Text>
@@ -293,8 +299,8 @@ export function EquipmentStep({ draft, update }: StepProps) {
 
           <Text style={[styles.label, { marginTop: spacing.md }]}>Si entrenas en un parque, ¿qué hay ahí?</Text>
           <Text style={styles.hint}>
-            Al parque llevas tu colchoneta, kettlebell, mancuernas, banda y barra de activación. La silla y la barra de
-            dominadas de tu casa no: marca si tu parque tiene algo parecido.
+            Al parque llevas tu colchoneta, kettlebell, mancuernas, banda y barra de activación. La silla, la banca y la
+            barra de dominadas de tu casa no: marca si tu parque tiene algo parecido.
           </Text>
           {PARK_EQUIPMENT_IDS.map((id) => (
             <OptionCard
@@ -427,13 +433,18 @@ export function ConditionsStep({ draft, update }: StepProps) {
       {protectsKnees && (
         <>
           <Text style={styles.hint}>
-            Como evitamos sentadillas profundas, una silla firme nos permite incluir sentadilla a la silla y subida al
-            cajón para mantener fuertes tus piernas.
+            Como evitamos sentadillas profundas, una silla firme nos permite incluir sentadilla a la silla, y una banca
+            o escalón, la subida al cajón, para mantener fuertes tus piernas.
           </Text>
           <OptionCard
-            title="Tengo una silla o banco firme"
+            title="Tengo una silla firme"
             selected={draft.equipment.includes('chair')}
             onPress={() => update({ equipment: toggle(draft.equipment, 'chair') })}
+          />
+          <OptionCard
+            title="Tengo una banca firme o un escalón"
+            selected={draft.equipment.includes('bench')}
+            onPress={() => update({ equipment: toggle(draft.equipment, 'bench') })}
           />
         </>
       )}
