@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Link, router, Stack, useLocalSearchParams } from 'expo-router';
 import { Fragment, type ReactNode, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
@@ -211,10 +212,12 @@ export default function DayScreen() {
                       <Pressable style={styles.slot}>
                         <View style={{ flex: 1, gap: 2 }}>
                           <Text style={styles.slotName}>{ex.name.es}</Text>
+                          {/* Debajo del nombre y no al lado: con «8 en total (4 con cada brazo)» no cabe en una fila. */}
+                          <Text style={styles.slotRx}>{slotLabel(s)}</Text>
                           {b.type === 'main_strength' && <Text style={styles.muted}>{strengthInfo(ex)}</Text>}
                           {s.rationale && <Text style={styles.muted}>{s.rationale}</Text>}
                         </View>
-                        <Text style={styles.slotRx}>{slotLabel(s)}</Text>
+                        <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
                       </Pressable>
                     </Link>
                   </Fragment>
@@ -599,5 +602,5 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   slotName: { color: colors.text, fontSize: 15, fontWeight: '600' },
-  slotRx: { color: colors.text, fontSize: 14, fontWeight: '800' },
+  slotRx: { color: colors.accent, fontSize: 14, fontWeight: '800' },
 });
