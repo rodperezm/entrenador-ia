@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="es" translate="no">
+<head>
+<meta charset="utf-8">
+<title>KETTAI · Panel</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="google" content="notranslate">
+<link rel="icon" href="../favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;500;600;700&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
+<style>
+  /* Panel de control de KETTAI: misma marca oscura que la página, pensado para leer y decidir rápido. */
+  :root {
+    color-scheme: dark;
+    --bg: #0e0f13;
+    --surface: #1a1b22;
+    --surface-2: #272933;
+    --line: #333644;
+    --fg: #f4f4f7;
+    --muted: #a7aab8;
+    --red: #ff5040;
+    --red-ink: #1b0705;
+    --lime: #cdd63c;
+    --amber: #f5b02e;
+    --display: "Bebas Neue", "Arial Narrow", Impact, sans-serif;
+    --body: "Barlow", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.5; }
+  .wrap { max-width: 1180px; margin-inline: auto; padding: 24px max(16px, env(safe-area-inset-left, 0px)) 64px; }
+  h1, h2 { font-family: var(--display); font-weight: 400; letter-spacing: .02em; margin: 0; }
+  h1 { font-size: 40px; line-height: 1; }
+  h2 { font-size: 28px; margin: 32px 0 12px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand img { width: 40px; height: 40px; border-radius: 10px; }
+  button, input, select { font: inherit; color: inherit; }
+  button { background: var(--red); color: var(--red-ink); border: 0; border-radius: 999px; padding: 10px 18px; font-weight: 700; cursor: pointer; }
+  button.ghost { background: transparent; color: var(--fg); border: 1px solid var(--line); }
+  button:disabled { opacity: .5; cursor: default; }
+  input, select { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+  input:focus-visible, select:focus-visible, button:focus-visible { outline: 3px solid var(--lime); outline-offset: 2px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 20px; }
+  .login { max-width: 420px; margin: 10vh auto 0; display: grid; gap: 14px; }
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 4px; }
+  .tabs button { background: var(--surface); color: var(--muted); border: 1px solid var(--line); }
+  .tabs button[aria-selected="true"] { background: var(--fg); color: var(--bg); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+  .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+  .kpi b { display: block; font-family: var(--display); font-size: 38px; font-weight: 400; line-height: 1.05; letter-spacing: .02em; }
+  .kpi span { color: var(--muted); font-size: 14px; }
+  .kpi small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .kpi.good b { color: var(--lime); }
+  .kpi.warn b { color: var(--amber); }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 600; background: var(--surface); position: sticky; top: 0; }
+  tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .pill { display: inline-block; border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 700; background: var(--surface-2); color: var(--muted); }
+  .pill.pay { background: #2b3410; color: var(--lime); }
+  .pill.free { background: var(--surface-2); color: var(--muted); }
+  .pill.vip { background: #3a1410; color: var(--red); }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .chart { width: 100%; height: auto; display: block; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-top: 8px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: middle; }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 10px 18px; border-radius: 999px; font-weight: 700; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  .error { color: var(--amber); }
+  .settings { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .settings label { display: grid; gap: 6px; }
+  .hidden { display: none !important; }
+  @media (max-width: 560px) { h1 { font-size: 32px; } .kpi b { font-size: 32px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Entrar: correo y código. Solo las cuentas de administrador ven los datos. -->
+  <section id="login" class="login card hidden">
+    <div class="brand"><img src="../icon.png" alt=""><h1>Panel</h1></div>
+    <p class="muted">Escribe tu correo de administrador. Te enviaremos un código de 8 dígitos.</p>
+    <input id="email" type="email" autocomplete="email" placeholder="tu@correo.com">
+    <button id="send">Enviarme un código</button>
+    <div id="codeBox" class="hidden" style="display:grid; gap:12px">
+      <input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="Código de 8 dígitos">
+      <button id="verify">Entrar</button>
+    </div>
+    <p id="loginMsg" class="small muted"></p>
+  </section>
+
+  <section id="app" class="hidden">
+    <header>
+      <div class="brand"><img src="../icon.png" alt=""><div><h1>KETTAI · Panel</h1><div id="who" class="small muted"></div></div></div>
+      <div class="row"><button class="ghost" id="reload">Actualizar</button><button class="ghost" id="logout">Salir</button></div>
+    </header>
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="resumen" aria-selected="true">Resumen</button>
+      <button role="tab" data-tab="usuarios" aria-selected="false">Usuarios</button>
+      <button role="tab" data-tab="precios" aria-selected="false">Precios y ajustes</button>
+    </nav>
+
+    <div id="tab-resumen">
+      <h2>Crecimiento</h2>
+      <div class="grid" id="kpiGrowth"></div>
+      <h2>Uso</h2>
+      <div class="grid" id="kpiUse"></div>
+      <h2>Retención</h2>
+      <div class="grid" id="kpiRetention"></div>
+      <h2>Seguridad y sensación</h2>
+      <div class="grid" id="kpiSafety"></div>
+      <h2>IA y negocio</h2>
+      <div class="grid" id="kpiBiz"></div>
+      <h2>Últimas 8 semanas</h2>
+      <div class="card"><div id="chart"></div>
+        <div class="legend"><span><i style="background:var(--red)"></i>Activos (entrenaron)</span><span><i style="background:var(--lime)"></i>Nuevos</span><span><i style="background:var(--muted)"></i>Semanas con IA</span></div>
+      </div>
+      <h2>Planes</h2>
+      <div class="grid" id="kpiPlans"></div>
+      <p class="small muted">Las sesiones solo llegan a la nube de quienes activaron el respaldo con su correo. Los usuarios sin cuenta no aparecen en estas cifras.</p>
+    </div>
+
+    <div id="tab-usuarios" class="hidden">
+      <h2>Usuarios registrados</h2>
+      <div class="row" style="margin-bottom:12px"><input id="search" type="search" placeholder="Buscar por correo" style="flex:1; max-width:360px"><span id="count" class="small muted"></span></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Correo</th><th>Registro</th><th>Último entrenamiento</th><th class="num">Sesiones 30 días</th><th class="num">IA esta semana</th><th class="num">IA 30 días</th><th>Plan</th><th></th></tr></thead>
+        <tbody id="users"></tbody>
+      </table></div>
+      <p class="small muted">«Por defecto» sigue el valor de los ajustes. 0 es gratis: solo reglas de la app. Cada semana con IA por semana son 4 al mes.</p>
+    </div>
+
+    <div id="tab-precios" class="hidden">
+      <h2>Precio mensual de cada plan</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Plan</th><th>Semanas con IA</th><th>Precio en pesos (CLP)</th><th>Precio en dólares (USD)</th><th class="num">Costo IA al mes</th></tr></thead>
+        <tbody id="prices"></tbody>
+      </table></div>
+      <div class="row" style="margin-top:12px"><button id="savePrices">Guardar precios</button></div>
+      <h2>Ajustes</h2>
+      <div class="settings card">
+        <label>Una cuenta nueva parte con (semanas con IA por semana)
+          <select id="defaultLimit"></select></label>
+        <label>Costo de una semana armada con IA (USD)
+          <input id="aiCost" type="number" min="0" step="0.01"></label>
+        <label>Valor del dólar (CLP)
+          <input id="usdClp" type="number" min="1" step="1"></label>
+      </div>
+      <div class="row" style="margin-top:12px"><button id="saveSettings">Guardar ajustes</button></div>
+    </div>
+  </section>
+</div>
+<div id="toast" class="toast" role="status"></div>
+
+<script>
+  // Claves públicas del proyecto (las mismas que usa la app). Los datos los protege la base:
+  // cada función del panel revisa que quien la llama sea administrador.
+  const SUPABASE_URL = 'https://uzehvdheatciusnhfyjr.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_yYM3d_2uI9j80fws4tDKoQ_U5i3k7Fb';
+  const CODE_LENGTH = 8;
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storageKey: 'kettai-panel' } });
+
+  const $ = (id) => document.getElementById(id);
+  const show = (el, on) => el.classList.toggle('hidden', !on);
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const clp = (n) => n == null ? '—' : '$' + Math.round(n).toLocaleString('es-CL');
+  const usd = (n) => n == null ? '—' : 'US$' + Number(n).toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const date = (d) => d ? new Date(d).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—';
+  const pct = (n) => n == null ? '—' : n + ' %';
+  const toast = (msg) => { const t = $('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200); };
+
+  let config = null;
+  let users = [];
+
+  // ---------- Entrar ----------
+  $('send').onclick = async () => {
+    const email = $('email').value.trim().toLowerCase();
+    if (!email) return;
+    $('send').disabled = true;
+    $('loginMsg').textContent = 'Enviando…';
+    const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
+    $('send').disabled = false;
+    if (error) { $('loginMsg').textContent = 'No se pudo enviar el código. Revisa el correo.'; return; }
+    show($('codeBox'), true);
+    $('loginMsg').textContent = `Te enviamos un código a ${email}. Si no llega, revisa spam.`;
+    $('code').focus();
+  };
+  $('verify').onclick = async () => {
+    const email = $('email').value.trim().toLowerCase();
+    const token = $('code').value.trim();
+    if (token.length !== CODE_LENGTH) { $('loginMsg').textContent = `El código tiene ${CODE_LENGTH} dígitos.`; return; }
+    $('verify').disabled = true;
+    const { error } = await sb.auth.verifyOtp({ email, token, type: 'email' });
+    $('verify').disabled = false;
+    if (error) { $('loginMsg').textContent = 'Código incorrecto o vencido.'; return; }
+    start();
+  };
+  $('logout').onclick = async () => { await sb.auth.signOut(); location.reload(); };
+  $('reload').onclick = () => load();
+
+  async function start() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { show($('login'), true); show($('app'), false); return; }
+    const { data: admin } = await sb.rpc('is_admin');
+    if (!admin) {
+      await sb.auth.signOut();
+      show($('login'), true);
+      $('loginMsg').textContent = 'Esta cuenta no tiene acceso al panel.';
+      return;
+    }
+    $('who').textContent = session.user.email;
+    show($('login'), false);
+    show($('app'), true);
+    load();
+  }
+
+  // ---------- Pestañas ----------
+  document.querySelectorAll('[data-tab]').forEach((b) => b.onclick = () => {
+    document.querySelectorAll('[data-tab]').forEach((x) => x.setAttribute('aria-selected', x === b));
+    ['resumen', 'usuarios', 'precios'].forEach((t) => show($('tab-' + t), t === b.dataset.tab));
+  });
+
+  async function load() {
+    const [m, u, c] = await Promise.all([sb.rpc('admin_metrics'), sb.rpc('admin_users'), sb.rpc('admin_config')]);
+    if (m.error || u.error || c.error) { toast('No se pudieron cargar los datos'); console.error(m.error || u.error || c.error); return; }
+    config = c.data;
+    users = u.data;
+    renderMetrics(m.data);
+    renderUsers();
+    renderPrices();
+  }
+
+  const setting = (k, d) => Number(config?.settings?.[k] ?? d);
+  const priceOf = (tier) => config?.prices?.find((p) => p.weekly_limit === tier) ?? {};
+
+  // ---------- Resumen ----------
+  function kpi(label, value, note = '', tone = '') {
+    return `<div class="kpi ${tone}"><b>${value}</b><span>${label}</span>${note ? `<small>${note}</small>` : ''}</div>`;
+  }
+  function renderMetrics(m) {
+    const stick = m.active_30d ? Math.round(100 * m.active_7d / m.active_30d) : null;
+    const dec = (n) => n == null ? '—' : Number(n).toLocaleString('es-CL', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    const perActive = m.active_7d ? dec(m.sessions_7d / m.active_7d) : '—';
+    const rate = setting('usd_to_clp', 950);
+    const aiClp = m.ai_cost_usd_30d * rate;
+    const margin = Number(m.mrr_clp) - aiClp;
+    const conversion = m.users_total ? Math.round(100 * m.paying / m.users_total) : null;
+    $('kpiGrowth').innerHTML =
+      kpi('Usuarios con cuenta', m.users_total) +
+      kpi('Nuevos en 7 días', m.new_7d) +
+      kpi('Nuevos en 30 días', m.new_30d) +
+      kpi('Sin cuenta (anónimos)', m.users_anonymous, 'Usan la app sin correo');
+    $('kpiUse').innerHTML =
+      kpi('Activos en 7 días', m.active_7d, 'Entrenaron al menos una vez') +
+      kpi('Activos en 30 días', m.active_30d) +
+      kpi('Constancia', pct(stick), 'Activos 7 días ÷ activos 30 días', stick >= 50 ? 'good' : stick != null ? 'warn' : '') +
+      kpi('Sesiones por activo', perActive, 'En los últimos 7 días') +
+      kpi('Minutos por sesión', dec(m.avg_minutes_30d), 'Promedio 30 días') +
+      kpi('Sesiones completas', pct(m.completed_pct_30d), 'Últimos 30 días');
+    $('kpiRetention').innerHTML =
+      kpi('Vuelven la semana 2', pct(m.retention_w2), `De ${m.retention_cohort_w2} con al menos 2 semanas`, m.retention_w2 >= 40 ? 'good' : m.retention_w2 != null ? 'warn' : '') +
+      kpi('Vuelven la semana 4', pct(m.retention_w4), `De ${m.retention_cohort_w4} con al menos 4 semanas`, m.retention_w4 >= 25 ? 'good' : m.retention_w4 != null ? 'warn' : '');
+    const f = m.feelings_30d || {};
+    const fTotal = (f.wanted_more || 0) + (f.right || 0) + (f.too_much || 0);
+    const fp = (k) => fTotal ? Math.round(100 * (f[k] || 0) / fTotal) + ' %' : '—';
+    $('kpiSafety').innerHTML =
+      kpi('Sesiones con dolor', pct(m.pain_pct_30d), 'Moderado o fuerte, 30 días', m.pain_pct_30d > 15 ? 'warn' : '') +
+      kpi('«Fue mucho»', fp('too_much'), `De ${fTotal} respuestas`, (f.too_much || 0) / (fTotal || 1) > .25 ? 'warn' : '') +
+      kpi('«Justo»', fp('right')) +
+      kpi('«Me quedé con ganas»', fp('wanted_more'));
+    $('kpiBiz').innerHTML =
+      kpi('Semanas con IA (7 días)', m.ai_7d) +
+      kpi('Semanas con IA (30 días)', m.ai_30d) +
+      kpi('Costo IA 30 días', usd(m.ai_cost_usd_30d), clp(aiClp)) +
+      kpi('Pagando', m.paying, `Conversión ${pct(conversion)}`) +
+      kpi('Ingreso mensual estimado', clp(m.mrr_clp), usd(m.mrr_usd)) +
+      kpi('Margen sobre la IA', clp(margin), 'Ingreso menos costo IA del mes', margin >= 0 ? 'good' : 'warn');
+    const p = m.plans || {};
+    const def = setting('default_weekly_limit', 1);
+    $('kpiPlans').innerHTML =
+      [0, 1, 2, 3, 4, 5].map((n) => kpi(n === 0 ? 'Gratis' : `${n} por semana`, p[n] || 0, n === 0 ? 'Solo reglas' : `${n * 4} al mes${n === def ? ' · por defecto' : ''}`)).join('') +
+      kpi('Sin límite', p.sin_limite || 0);
+    renderChart(m.weekly || []);
+  }
+
+  function renderChart(weeks) {
+    const W = 760, H = 220, pad = 28, max = Math.max(1, ...weeks.flatMap((w) => [w.active, w.new, w.ai]));
+    const slot = (W - pad * 2) / Math.max(1, weeks.length);
+    const bw = Math.min(16, slot / 4);
+    const y = (v) => H - pad - (v / max) * (H - pad * 2);
+    const bars = weeks.map((w, i) => {
+      const x = pad + i * slot + slot / 2;
+      const bar = (v, dx, color) => `<rect x="${x + dx - bw / 2}" y="${y(v)}" width="${bw}" height="${H - pad - y(v)}" rx="3" fill="${color}"><title>${v}</title></rect>`;
+      return bar(w.active, -bw - 2, 'var(--red)') + bar(w.new, 0, 'var(--lime)') + bar(w.ai, bw + 2, 'var(--muted)') +
+        `<text x="${x}" y="${H - 8}" fill="var(--muted)" font-size="12" text-anchor="middle">${esc(w.week)}</text>`;
+    }).join('');
+    $('chart').innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Activos, nuevos y semanas con IA por semana">
+      <line x1="${pad}" x2="${W - pad}" y1="${H - pad}" y2="${H - pad}" stroke="var(--line)"/>
+      <text x="${pad}" y="14" fill="var(--muted)" font-size="12">máx. ${max}</text>${bars}</svg>`;
+  }
+
+  // ---------- Usuarios ----------
+  function planOptions(u) {
+    const def = setting('default_weekly_limit', 1);
+    const current = !u.has_plan ? 'default' : u.unlimited ? 'unlimited' : String(u.weekly_limit);
+    const opt = (v, label) => `<option value="${v}" ${v === current ? 'selected' : ''}>${label}</option>`;
+    const price = (n) => { const p = priceOf(n); return p.price_clp ? ` · ${clp(p.price_clp)}` : ''; };
+    return opt('default', `Por defecto (${def === 0 ? 'gratis' : def + '/sem'})`) +
+      opt('0', 'Gratis · 0') +
+      [1, 2, 3, 4, 5].map((n) => opt(String(n), `${n} por semana · ${n * 4} al mes${price(n)}`)).join('') +
+      opt('unlimited', 'Sin límite');
+  }
+  function pill(u) {
+    const def = setting('default_weekly_limit', 1);
+    if (u.unlimited) return '<span class="pill vip">Sin límite</span>';
+    const lim = u.has_plan ? u.weekly_limit : def;
+    return lim === 0 ? '<span class="pill free">Gratis</span>' : `<span class="pill pay">${lim}/sem</span>`;
+  }
+  function renderUsers() {
+    const q = $('search').value.trim().toLowerCase();
+    const list = users.filter((u) => !q || u.email.toLowerCase().includes(q));
+    $('count').textContent = `${list.length} de ${users.length}`;
+    const def = setting('default_weekly_limit', 1);
+    $('users').innerHTML = list.map((u) => {
+      const lim = u.unlimited ? '∞' : (u.has_plan ? u.weekly_limit : def);
+      return `<tr data-id="${u.user_id}">
+        <td>${esc(u.email)} ${u.is_admin ? '<span class="pill vip">admin</span>' : ''}</td>
+        <td>${date(u.created_at)}</td>
+        <td>${date(u.last_session)}</td>
+        <td class="num">${u.sessions_30d}</td>
+        <td class="num">${u.used_week} / ${lim}</td>
+        <td class="num">${u.used_month}</td>
+        <td>${pill(u)} <select aria-label="Plan de ${esc(u.email)}">${planOptions(u)}</select></td>
+        <td><button class="ghost" data-save>Guardar</button></td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="8" class="muted">Sin usuarios</td></tr>';
+    $('users').querySelectorAll('[data-save]').forEach((b) => b.onclick = async () => {
+      const tr = b.closest('tr');
+      const v = tr.querySelector('select').value;
+      b.disabled = true;
+      const { error } = await sb.rpc('admin_set_limit', {
+        target: tr.dataset.id,
+        new_limit: /^\d$/.test(v) ? Number(v) : null,
+        no_limit: v === 'unlimited',
+        use_default: v === 'default',
+      });
+      b.disabled = false;
+      if (error) { toast('No se pudo guardar'); console.error(error); return; }
+      toast('Plan guardado');
+      load();
+    });
+  }
+  $('search').oninput = renderUsers;
+
+  // ---------- Precios y ajustes ----------
+  function renderPrices() {
+    const cost = setting('ai_cost_usd', 0.15);
+    $('prices').innerHTML = [0, 1, 2, 3, 4, 5].map((n) => {
+      const p = priceOf(n);
+      return `<tr data-tier="${n}">
+        <td>${n === 0 ? 'Gratis' : `${n} por semana`}</td>
+        <td>${n === 0 ? 'Solo reglas' : `${n * 4} al mes`}</td>
+        <td><input type="number" min="0" step="100" data-clp value="${p.price_clp ?? ''}" ${n === 0 ? 'disabled' : ''} style="width:140px"></td>
+        <td><input type="number" min="0" step="0.5" data-usd value="${p.price_usd ?? ''}" ${n === 0 ? 'disabled' : ''} style="width:120px"></td>
+        <td class="num">${n === 0 ? '—' : usd(n * 4 * cost)}</td>
+      </tr>`;
+    }).join('');
+    const def = setting('default_weekly_limit', 1);
+    $('defaultLimit').innerHTML = [0, 1, 2, 3, 4, 5].map((n) => `<option value="${n}" ${n === def ? 'selected' : ''}>${n === 0 ? '0 · gratis' : n + ' por semana'}</option>`).join('');
+    $('aiCost').value = cost;
+    $('usdClp').value = setting('usd_to_clp', 950);
+  }
+  $('savePrices').onclick = async () => {
+    const rows = [...$('prices').querySelectorAll('tr')].filter((tr) => tr.dataset.tier !== '0');
+    for (const tr of rows) {
+      const clpV = tr.querySelector('[data-clp]').value, usdV = tr.querySelector('[data-usd]').value;
+      const { error } = await sb.rpc('admin_set_price', { tier: Number(tr.dataset.tier), clp: clpV === '' ? null : Number(clpV), usd: usdV === '' ? null : Number(usdV) });
+      if (error) { toast('No se pudo guardar'); console.error(error); return; }
+    }
+    toast('Precios guardados');
+    load();
+  };
+  $('saveSettings').onclick = async () => {
+    const pairs = [['default_weekly_limit', Number($('defaultLimit').value)], ['ai_cost_usd', Number($('aiCost').value)], ['usd_to_clp', Number($('usdClp').value)]];
+    for (const [setting_, value] of pairs) {
+      const { error } = await sb.rpc('admin_set_setting', { setting: setting_, new_value: value });
+      if (error) { toast('No se pudo guardar'); console.error(error); return; }
+    }
+    toast('Ajustes guardados');
+    load();
+  };
+
+  start();
+</script>
+</body>
+</html>
