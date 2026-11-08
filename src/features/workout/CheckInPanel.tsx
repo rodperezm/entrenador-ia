@@ -77,11 +77,18 @@ export function AfterWarmupQuestion({
 }
 
 // Mensaje corto según la respuesta, para mostrar al seguir.
-export function checkInMessage(c: CheckIn): string | null {
+// El mensaje depende de lo que tiene el día: sin calentamiento no se promete volver a preguntar
+// después de él, y un día solo de elongación no cambia por el cansancio.
+export function checkInMessage(c: CheckIn, day: { warmup: boolean; strength: boolean }): string | null {
   if (c.afterWarmup === 'activated') return 'Tu cuerpo respondió. ¡Vamos!';
   if (c.afterWarmup === 'tired') return 'Hoy una serie menos. Deja 2 o 3 repeticiones en reserva.';
   if (c.afterWarmup === 'very_tired') return 'Hoy técnica y movimiento, con peso cómodo. Cuenta igual.';
-  if (c.arrival === 'tired') return 'Hagamos el calentamiento y vemos cómo te sientes.';
+  if (c.arrival === 'tired') {
+    if (!day.strength) return 'Elongar con cansancio hace bien. Hazlo a tu ritmo, sin forzar.';
+    if (!day.warmup)
+      return 'Empieza suave y mira cómo responde tu cuerpo. Si sigues cansado, deja 2 o 3 repeticiones en reserva.';
+    return 'Hagamos el calentamiento y vemos cómo te sientes.';
+  }
   if (c.arrival === 'pain' && c.painZone) {
     const zone = ZONES.find((z) => z.id === c.painZone)!.label.toLowerCase();
     if (c.painLevel === 3) return `Hoy no cargamos tu ${zone}. Si el dolor se repite, consulta a un profesional.`;

@@ -50,8 +50,11 @@ function topStreak(exerciseId: string, history: WorkoutSession[], weight: number
 }
 
 // La última vez que hizo el ejercicio dijo «Fue mucho»: no se exige más.
-export const feltTooMuch = (exerciseId: string, history: WorkoutSession[]) =>
-  lastSessionOf(exerciseId, history)?.session.feeling === 'too_much';
+// También cuenta si la última vez lo hizo modificado («No puedo hacerlo» → más fácil): no se sube la carga.
+export const feltTooMuch = (exerciseId: string, history: WorkoutSession[]) => {
+  const session = lastSessionOf(exerciseId, history)?.session;
+  return session?.feeling === 'too_much' || !!session?.modified?.includes(exerciseId);
+};
 
 // «Fue mucho» en las dos últimas sesiones: se baja una serie.
 const tooMuchTwice = (history: WorkoutSession[]) =>
@@ -133,6 +136,16 @@ export function progressSlot(
       rationale: tooMuchTwice(history)
         ? 'Una serie menos: las dos últimas veces te pareció mucho.'
         : 'Mantenemos la carga: la última vez te pareció mucho.',
+    };
+  }
+
+  // Lo hizo modificado («No puedo hacerlo» → más fácil): se repite igual hasta que lo haga completo.
+  if (lastSessionOf(e.id, history)?.session.modified?.includes(e.id)) {
+    return {
+      ...slot,
+      reps: slot.durationSec != null ? slot.reps : (logs[0].targetReps ?? slot.reps),
+      weightKg: lastWeight,
+      rationale: 'La última vez lo hiciste modificado: repítelo igual y, si puedes, intenta la versión completa.',
     };
   }
 

@@ -96,15 +96,14 @@ function sessionsSheet(sessions: WorkoutSession[]): Sheet {
       s.checkIn?.afterWarmup ? AFTER_WARMUP[s.checkIn.afterWarmup] : null,
       s.feeling ? FEELING[s.feeling] : null,
       s.painFollowUp ? NEXT_DAY[s.painFollowUp] : null,
-      s.cantDo?.length
-        ? s.cantDo
-            .map(
-              (c) =>
-                `${exerciseName(c.exerciseId)} (${CANT_DO_OPTIONS.find((o) => o.id === c.reason)?.label.toLowerCase()})` +
-                (c.replacedBy ? ` → ${exerciseName(c.replacedBy)}` : ''),
-            )
-            .join('; ')
-        : null,
+      [
+        ...(s.cantDo ?? []).map(
+          (c) =>
+            `${exerciseName(c.exerciseId)} (${CANT_DO_OPTIONS.find((o) => o.id === c.reason)?.label.toLowerCase()})` +
+            (c.replacedBy ? ` → ${exerciseName(c.replacedBy)}` : ''),
+        ),
+        ...(s.modified ?? []).map((id) => `${exerciseName(id)} (lo hizo modificado)`),
+      ].join('; ') || null,
     ]);
   }
   return { name: 'Sesiones', rows };

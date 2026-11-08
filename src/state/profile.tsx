@@ -31,11 +31,17 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const saveProfile = useCallback(async (p: Omit<LocalProfile, 'updatedAt'>) => {
-    const next = LocalProfile.parse({ ...p, updatedAt: new Date().toISOString() });
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    setProfile(next);
-  }, []);
+  // Guardar sin cambios no cambia la fecha: la semana compara con ella para saber si quedó desactualizada.
+  const saveProfile = useCallback(
+    async (p: Omit<LocalProfile, 'updatedAt'>) => {
+      const next = LocalProfile.parse({ ...p, updatedAt: new Date().toISOString() });
+      const withoutDate = ({ updatedAt: _u, ...rest }: LocalProfile) => JSON.stringify(rest);
+      if (profile && withoutDate(profile) === withoutDate(next)) return;
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      setProfile(next);
+    },
+    [profile],
+  );
 
   const clearProfile = useCallback(async () => {
     await AsyncStorage.removeItem(STORAGE_KEY);

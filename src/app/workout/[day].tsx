@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BodyMap } from '@/components/BodyMap';
 import { Button, CheckRow, Stepper } from '@/components/ui';
 import { EXERCISES, EXERCISES_BY_ID } from '@/data/exercises.seed';
+import { modificationFor } from '@/data/modifications';
 import { averageMet, kcalRangeLabel, latestWeight } from '@/domain/calories';
 import { equipmentAt } from '@/domain/catalog';
 import { filterExercisesForUser, weightsFor } from '@/domain/filter';
@@ -79,6 +80,10 @@ const CLOCK_MEDIUM = 64;
 const CLOCK_SMALL = 32;
 const COMPACT_HEIGHT = 720;
 const TICK_KEY = 'workout-tick.v1'; // 'off' si la persona apagó el tic-tac del descanso
+// Sesión que parece hecha sin querer: menos de 5 minutos o series marcadas cada menos de 5 segundos.
+const SHORT_SESSION_MS = 5 * 60 * 1000;
+const FAST_TAP_MS = 5000;
+type SaveState = 'saved' | 'discarded' | { ask: 'short' | 'fast' };
 
 export default function WorkoutScreen() {
   useStayAwake('workout');
@@ -87,7 +92,7 @@ export default function WorkoutScreen() {
   const [fontsLoaded] = useFonts({ BebasNeue_400Regular });
   const day = DayOfWeek.safeParse(useLocalSearchParams<{ day: string }>().day).data;
   const { week, plan } = usePlan();
-  const { sessions, addSession, updateSession } = useHistory();
+  const { sessions, addSession, updateSession, removeSession } = useHistory();
   const { profile } = useProfile();
   const { records } = useBody();
   const dayPlan = plan?.days.find((d) => d.day === day);
@@ -125,6 +130,12 @@ export default function WorkoutScreen() {
   // «No puedo hacerlo»: hoja abierta (con o sin motivo) y lo marcado, que se guarda en la sesión.
   const [cantDoSheet, setCantDoSheet] = useState<CantDoReason | 'ask' | null>(null);
   const cantDo = useRef<NonNullable<WorkoutSession['cantDo']>>([]);
+  // Guardar la sesión: si parece un error se pregunta; después se puede descartar.
+  const [saveState, setSaveState] = useState<SaveState>('saved');
+  const pendingSession = useRef<WorkoutSession | null>(null);
+  const markTimes = useRef<number[]>([]); // cuándo se marcó cada serie
+  // Ejercicios que hace modificados hoy (clave del ejercicio en la sesión).
+  const [modifiedKeys, setModifiedKeys] = useState<string[]>([]);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 250);
@@ -183,6 +194,8 @@ export default function WorkoutScreen() {
       }),
     );
   const todayPlan = planFor(checkIn);
+  const has = (type: BlockType) => dayPlan.blocks.some((b) => b.type === type && b.slots.length > 0);
+  const dayParts = { warmup: has('warmup'), strength: has('main_strength') };
   const items = itemsOf(todayPlan);
   const hasConditions = (profile?.conditions.length ?? 0) > 0;
   const setsDone = (key: string) => logs.filter((l) => l.itemKey === key).length;
@@ -228,9 +241,7 @@ export default function WorkoutScreen() {
     setFinishedAt(end);
     setRestEndsAt(null);
     if (allLogs.length === 0) return;
-    cues.play('done');
-    cues.say('¡Lo lograste!');
-    addSession({
+    const session: WorkoutSession = {
       id: `s${startedAt.toString(36)}`,
       day,
       location: dayPlan.location,
@@ -241,7 +252,29 @@ export default function WorkoutScreen() {
       ...(amrapResult.current ? { amrap: amrapResult.current } : {}),
       ...(checkIn ? { checkIn } : {}),
       ...(cantDo.current.length ? { cantDo: cantDo.current } : {}),
-    });
+      ...(modifiedKeys.length
+        ? {
+            modified: [...new Set(items.filter((it) => modifiedKeys.includes(it.key)).map((it) => it.slot.exerciseId))],
+          }
+        : {}),
+    };
+    // Parece un error (muy corta o series marcadas en segundos): se pregunta antes de guardar,
+    // porque una sesión cuenta para el ciclo, la progresión y la IA.
+    const taps = markTimes.current;
+    const fastTaps = taps.length >= 4 && (taps[taps.length - 1] - taps[0]) / (taps.length - 1) < FAST_TAP_MS;
+    const tooShort = end - startedAt < SHORT_SESSION_MS;
+    if (fastTaps || tooShort) {
+      pendingSession.current = session;
+      setSaveState({ ask: tooShort ? 'short' : 'fast' });
+      return;
+    }
+    saveSession(session);
+  };
+  const saveSession = (s: WorkoutSession) => {
+    cues.play('done');
+    cues.say('¡Lo lograste!');
+    addSession(s);
+    setSaveState('saved');
   };
   const sessionId = `s${startedAt.toString(36)}`;
 
@@ -263,6 +296,12 @@ export default function WorkoutScreen() {
         feeling={sessions.find((s) => s.id === sessionId)?.feeling ?? null}
         onFeeling={(feeling) => updateSession(sessionId, { feeling })}
         cameTired={checkIn?.arrival === 'tired' && completed}
+        saveState={saveState}
+        onSave={() => pendingSession.current && saveSession(pendingSession.current)}
+        onDiscard={() => {
+          removeSession(sessionId);
+          setSaveState('discarded');
+        }}
       />
     );
   }
@@ -276,7 +315,7 @@ export default function WorkoutScreen() {
           insetTop={insets.top}
           onAnswer={(c) => {
             setCheckIn(c);
-            setNote(checkInMessage(c));
+            setNote(checkInMessage(c, dayParts));
             setIdx(0);
           }}
         />
@@ -287,7 +326,11 @@ export default function WorkoutScreen() {
   // Llegó cansado: al terminar el calentamiento se vuelve a preguntar.
   const warmupItems = items.filter((it) => it.block === 'warmup');
   const askAgain =
-    checkIn.arrival === 'tired' && !checkIn.afterWarmup && warmupItems.length > 0 && warmupItems.every(isClosed);
+    checkIn.arrival === 'tired' &&
+    !checkIn.afterWarmup &&
+    dayParts.strength && // sin Fuerza, el cansancio no cambia nada y no hay qué volver a preguntar
+    warmupItems.length > 0 &&
+    warmupItems.every(isClosed);
   if (askAgain) {
     return (
       <>
@@ -298,7 +341,7 @@ export default function WorkoutScreen() {
             const next = { ...checkIn, afterWarmup };
             const nextItems = itemsOf(planFor(next));
             setCheckIn(next);
-            setNote(checkInMessage(next));
+            setNote(checkInMessage(next, dayParts));
             const open = nextItems.findIndex((it) => it.block !== 'warmup' && !isClosed(it));
             if (open < 0) finish();
             else setIdx(open);
@@ -385,6 +428,7 @@ export default function WorkoutScreen() {
   });
 
   const markDone = () => {
+    markTimes.current.push(now);
     // Tocar «Hecha» durante el descanso lo termina y registra la serie siguiente.
     setRestEndsAt(null);
     if (phase === 'rest') setPhase('work');
@@ -532,6 +576,11 @@ export default function WorkoutScreen() {
     setReplacements((r) => ({ ...r, [item.key]: replacement }));
     setSkipped((sk) => [...sk, item.key]);
     goTo(idx + 1);
+  };
+  // Lo hace modificado: sigue el mismo ejercicio, con la indicación a la vista.
+  const modifyCantDo = () => {
+    setModifiedKeys((k) => (k.includes(item.key) ? k : [...k, item.key]));
+    setCantDoSheet(null);
   };
   const skipCantDo = () => {
     if (cantDoSheet && cantDoSheet !== 'ask') markCantDo(cantDoSheet, null);
@@ -813,6 +862,9 @@ export default function WorkoutScreen() {
                 {usesKb && weight ? ` · ${weightLabel(item.slot.exerciseId, weight)}` : ''}
               </Text>
               {split && <Text style={styles.sideHint}>Alternando: {split}.</Text>}
+              {ex && modifiedKeys.includes(item.key) && (
+                <Text style={styles.modNote}>Modificado: {modificationFor(ex)}</Text>
+              )}
               {isPerSide(item.slot.exerciseId) && (
                 <Text style={styles.sideHint}>
                   Termina un lado, cambia y marca «{kind === 'none' ? 'Hecho' : 'Hecha'}» al final.
@@ -936,8 +988,10 @@ export default function WorkoutScreen() {
           {cantDoSheet != null && !confirmEnd ? (
             <CantDoSheet
               reason={cantDoSheet === 'ask' ? null : cantDoSheet}
+              modification={ex ? modificationFor(ex) : ''}
               altName={cantDoAlt?.name.es ?? null}
               onReason={setCantDoSheet}
+              onModify={modifyCantDo}
               onSwap={swapCantDo}
               onSkip={skipCantDo}
               onClose={() => setCantDoSheet(null)}
@@ -1096,18 +1150,23 @@ function PainSheet({
   );
 }
 
-// «No puedo hacerlo»: primero el motivo; después, el cambio por uno más simple o saltarlo.
+// «No puedo hacerlo»: primero el motivo; después, hacerlo modificado (se mantiene el ejercicio),
+// cambiarlo por uno más simple o saltarlo.
 function CantDoSheet({
   reason,
+  modification,
   altName,
   onReason,
+  onModify,
   onSwap,
   onSkip,
   onClose,
 }: {
   reason: CantDoReason | null;
+  modification: string;
   altName: string | null;
   onReason: (r: CantDoReason) => void;
+  onModify: () => void;
   onSwap: () => void;
   onSkip: () => void;
   onClose: () => void;
@@ -1128,13 +1187,15 @@ function CantDoSheet({
     );
   return (
     <>
-      <Text style={styles.barTitle}>{altName ? `Te proponemos: ${altName}` : 'Sáltalo por hoy'}</Text>
+      <Text style={styles.barTitle}>Hazlo más fácil</Text>
+      <Text style={styles.modText}>{modification}</Text>
+      <Button label="Lo hago así" onPress={onModify} />
       <Text style={styles.hint}>
-        {altName ? 'Es parecido y más simple. ' : 'Aquí no hay uno parecido y más simple que puedas hacer. '}
-        No te lo volveremos a proponer en las próximas 4 semanas.
+        {altName ? `O cámbialo por ${altName}, parecido y más simple. ` : ''}
+        Si lo cambias o lo saltas, no te lo volveremos a proponer en las próximas 4 semanas.
       </Text>
-      {altName && <Button label="Cambiarlo" onPress={onSwap} />}
-      <Button label="Saltarlo por hoy" variant={altName ? 'ghost' : 'primary'} onPress={onSkip} />
+      {altName && <Button label="Cambiarlo" variant="ghost" onPress={onSwap} />}
+      <Button label="Saltarlo por hoy" variant="ghost" onPress={onSkip} />
       <Button label="Volver" variant="ghost" onPress={onClose} />
     </>
   );
@@ -1203,6 +1264,9 @@ function Summary({
   feeling,
   onFeeling,
   cameTired,
+  saveState,
+  onSave,
+  onDiscard,
 }: {
   logs: SetLog[];
   minutes: number;
@@ -1211,7 +1275,30 @@ function Summary({
   feeling: Feeling | null;
   onFeeling: (f: Feeling) => void;
   cameTired: boolean;
+  saveState: SaveState;
+  onSave: () => void;
+  onDiscard: () => void;
 }) {
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const insetsStyle = { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 24 };
+  // Parece hecha sin querer: antes de guardar, se pregunta.
+  if (typeof saveState === 'object' || saveState === 'discarded') {
+    const asking = typeof saveState === 'object';
+    return (
+      <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={[styles.summary, insetsStyle]}>
+        <Stack.Screen options={{ headerShown: false, gestureEnabled: true }} />
+        <Text style={styles.summaryTitle}>{asking ? '¿Guardamos esta sesión?' : 'No se guardó'}</Text>
+        <Text style={styles.text}>
+          {asking
+            ? `${saveState.ask === 'short' ? 'Duró menos de 5 minutos' : 'Las series se marcaron muy seguidas'}. Si fue sin querer, no la guardes: así no cambia tu próxima semana.`
+            : 'Esta sesión no cuenta para tu ciclo ni para tu próxima semana.'}
+        </Text>
+        {asking && <Button label="Sí, guardarla" onPress={onSave} />}
+        {asking && <Button label="No guardar" variant="ghost" onPress={onDiscard} />}
+        {!asking && <Button label="Volver" onPress={() => router.back()} />}
+      </ScrollView>
+    );
+  }
   // A un lado, lo registrado es por lado: en total se hizo el doble.
   const doneReps = (l: SetLog) => (l.repsDone ?? 0) * (isPerSide(l.exerciseId) ? 2 : 1);
   const totalReps = logs.reduce((n, l) => n + doneReps(l), 0);
@@ -1234,10 +1321,7 @@ function Summary({
   const [mild, moderate, strong] = [painIn(1), painIn(2), painIn(3)];
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: colors.bg }}
-      contentContainerStyle={[styles.summary, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 24 }]}
-    >
+    <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={[styles.summary, insetsStyle]}>
       <Stack.Screen options={{ headerShown: false, gestureEnabled: true }} />
       <Text style={styles.summaryTitle}>{logs.length ? '¡Lo lograste! 💪' : 'Entrenamiento terminado'}</Text>
       {cameTired && <Text style={styles.text}>Llegaste cansado y lo hiciste igual. Bien hecho.</Text>}
@@ -1301,6 +1385,20 @@ function Summary({
           : 'No se registró ninguna serie, así que no se guardó esta sesión.'}
       </Text>
       <Button label="Volver" onPress={() => router.back()} />
+      {logs.length > 0 &&
+        (confirmDiscard ? (
+          <View style={styles.panel}>
+            <Text style={styles.text}>
+              ¿Borrar esta sesión? No contará para tu ciclo ni para tu próxima semana. No se puede deshacer.
+            </Text>
+            <Button label="Sí, no guardarla" variant="ghost" onPress={onDiscard} />
+            <Button label="Mantenerla" variant="ghost" onPress={() => setConfirmDiscard(false)} />
+          </View>
+        ) : (
+          <Pressable onPress={() => setConfirmDiscard(true)} hitSlop={8} style={{ alignSelf: 'center' }}>
+            <Text style={styles.smallLinkMuted}>No guardar esta sesión</Text>
+          </Pressable>
+        ))}
     </ScrollView>
   );
 }
@@ -1359,6 +1457,8 @@ const styles = StyleSheet.create({
   center: { flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 },
   text: { color: colors.text, fontSize: 15, lineHeight: 21, textAlign: 'center' },
   hint: { color: colors.textMuted, fontSize: 13, lineHeight: 18 },
+  modText: { color: colors.text, fontSize: 15, lineHeight: 21 },
+  modNote: { color: colors.accent, fontSize: 14, lineHeight: 19, textAlign: 'center', fontWeight: '600' },
   top: {
     flexDirection: 'row',
     alignItems: 'center',

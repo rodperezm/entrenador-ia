@@ -346,5 +346,7 @@ export const WorkoutSession = z.object({
   cantDo: z
     .array(z.object({ exerciseId: ExerciseId, reason: CantDoReason, replacedBy: ExerciseId.nullable() }))
     .optional(),
+  // Ejercicios que hizo con la modificación más fácil: se mantienen, pero la próxima vez no sube la carga.
+  modified: z.array(ExerciseId).optional(),
 });
 export type WorkoutSession = z.infer<typeof WorkoutSession>;

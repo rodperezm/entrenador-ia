@@ -133,6 +133,8 @@ function OnboardingForm() {
       };
     })(),
   }));
+  // Cómo estaba todo al abrir, para guardar solo lo que cambió.
+  const [initialDraft] = useState(draft);
   const [saving, setSaving] = useState(false);
   // La portada solo aparece la primera vez, no al editar el perfil.
   const [showIntro, setShowIntro] = useState(!profile);
@@ -184,21 +186,39 @@ function OnboardingForm() {
           ]),
         ),
       );
+      // Solo lo que la persona cambió: recorrer el perfil y guardar no debe tocar la semana.
       const c = draft.partCounts;
-      updateAllDays((d) => ({
-        ...d,
-        availableMinutes: Math.max(draft.weekMinutes[d.day], minDayMinutes(dayChoiceOf(d))),
-        gentleStrength: draft.gentleDays.includes(d.day),
-        blocks: {
-          warmup: { ...d.blocks.warmup, exerciseCount: c.warmup },
-          prehab: { ...d.blocks.prehab, exerciseCount: c.prehab },
-          main: {
-            ...d.blocks.main,
-            exerciseCount: draft.gentleDays.includes(d.day) ? Math.min(c.main, GENTLE_MAX) : c.main,
-          },
-          cooldown: { ...d.blocks.cooldown, exerciseCount: c.cooldown },
-        },
-      }));
+      const countsChanged = JSON.stringify(c) !== JSON.stringify(initialDraft.partCounts);
+      updateAllDays((d) => {
+        const gentle = draft.gentleDays.includes(d.day);
+        const minutesChanged = draft.weekMinutes[d.day] !== initialDraft.weekMinutes[d.day];
+        if (!countsChanged && !minutesChanged && gentle === d.gentleStrength) {
+          // Si cambiaron las partes del día, igual debe caber lo mínimo.
+          const min = minDayMinutes(dayChoiceOf(d));
+          return d.availableMinutes >= min ? d : { ...d, availableMinutes: min };
+        }
+        return {
+          ...d,
+          availableMinutes: Math.max(draft.weekMinutes[d.day], minDayMinutes(dayChoiceOf(d))),
+          gentleStrength: gentle,
+          blocks: countsChanged
+            ? {
+                warmup: { ...d.blocks.warmup, exerciseCount: c.warmup },
+                prehab: { ...d.blocks.prehab, exerciseCount: c.prehab },
+                main: { ...d.blocks.main, exerciseCount: gentle ? Math.min(c.main, GENTLE_MAX) : c.main },
+                cooldown: { ...d.blocks.cooldown, exerciseCount: c.cooldown },
+              }
+            : {
+                ...d.blocks,
+                main: {
+                  ...d.blocks.main,
+                  exerciseCount: gentle
+                    ? Math.min(d.blocks.main.exerciseCount, GENTLE_MAX)
+                    : d.blocks.main.exerciseCount,
+                },
+              },
+        };
+      });
       router.replace(profile ? '/' : { pathname: '/', params: { generate: '1' } });
     } finally {
       setSaving(false);
