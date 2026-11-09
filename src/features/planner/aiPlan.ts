@@ -6,7 +6,7 @@ import { fitPart } from '@/domain/timeBudget';
 import { GENTLE_MAX } from '@/domain/week';
 import { GeneratedWeekPlan, type WeekConfig } from '@/domain/schema';
 import type { buildAiRequest } from './aiRequest';
-import { ensureSession, supabase } from '@/lib/supabase';
+import { ensureSession, SessionLostError, supabase } from '@/lib/supabase';
 
 // Arma la rutina con Claude a través de la Edge Function "generate-plan".
 // El LLM solo ve ejercicios ya filtrados por restricciones y equipamiento, y
@@ -37,7 +37,8 @@ const REASONS: Record<string, string> = {
 export async function generateWeekWithAi(request: ReturnType<typeof buildAiRequest>, week: WeekConfig) {
   try {
     await ensureSession();
-  } catch {
+  } catch (e) {
+    if (e instanceof SessionLostError) throw new AiPlanError(e.message, 'session_lost');
     throw new AiPlanError('no se pudo iniciar sesión en Supabase');
   }
 

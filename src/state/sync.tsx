@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { FoldRecord, TapeRecord } from '@/domain/body';
 import { LocalProfile, StoredWeekPlan, WeekConfig, WorkoutSession } from '@/domain/schema';
 import { type CloudItem, deleteAccount, itemKey, pullItems, pushItems } from '@/lib/cloudSync';
-import { ensureSession, supabase } from '@/lib/supabase';
+import { CLOUD_CONSENT_KEY, ensureSession, SessionLostError, sessionLost, supabase } from '@/lib/supabase';
 import { useBody } from './body';
 import { useHistory } from './history';
 import { usePlan } from './plan';
@@ -15,12 +15,13 @@ import { useProfile } from './profile';
 // consentimiento, y lo que no se pudo subir se reintenta en el siguiente cambio o
 // al volver a la app. Solo se envía lo que cambió desde la última vez.
 
-const CONSENT_KEY = 'cloud-consent.v1';
+const CONSENT_KEY = CLOUD_CONSENT_KEY;
 const SENT_KEY = 'cloud-sent.v1';
 const PUSH_DELAY_MS = 2000;
 
 const Consent = z.object({ acceptedAt: z.string() });
-type Status = 'off' | 'syncing' | 'ok' | 'pending';
+// signed_out: la sesión del correo se cerró; no se sube ni se trae nada hasta volver a entrar.
+type Status = 'off' | 'syncing' | 'ok' | 'pending' | 'signed_out';
 type Sent = Record<string, string>;
 
 type SyncState = {
@@ -35,6 +36,8 @@ type SyncState = {
   syncNow: () => Promise<void>;
   /** Deja de sincronizar en este teléfono; la nube y lo local no se tocan. */
   signOut: () => Promise<void>;
+  /** La sesión se perdió: deja el respaldo listo para volver a entrar con el correo. */
+  signInAgain: () => Promise<void>;
   /** Borra la cuenta y su respaldo; lo del teléfono no se toca. */
   removeAccount: () => Promise<void>;
   exportData: () => string;
@@ -92,6 +95,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     busy.current = true;
     setStatus('syncing');
     try {
+      if (await sessionLost()) {
+        setStatus('signed_out');
+        return;
+      }
       const sent: Sent = JSON.parse((await AsyncStorage.getItem(SENT_KEY)) ?? '{}');
       const current = new Map(itemsRef.current.map((i) => [itemKey(i), i]));
       const changed = [...current].filter(([key, i]) => sent[key] !== JSON.stringify(i.data)).map(([, i]) => i);
@@ -117,6 +124,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   // Trae lo que hay en la nube. El perfil, la semana y la rutina de la nube mandan;
   // sesiones y medidas se combinan para no perder nada de ningún teléfono.
   const pull = useCallback(async () => {
+    if (await sessionLost()) throw new SessionLostError();
     const cloud = await pullItems();
     const deletedIds = cloud.filter((i) => i.deleted).map((i) => i.item_id);
     importSessions(parseAll(cloud, 'session', WorkoutSession), deletedIds);
@@ -135,8 +143,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     try {
       await pull();
       await push();
-    } catch {
-      setStatus('pending');
+    } catch (e) {
+      setStatus(e instanceof SessionLostError ? 'signed_out' : 'pending');
     }
   }, [pull, push]);
 
@@ -146,6 +154,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         const user = auth?.data.user;
         if (raw && Consent.safeParse(JSON.parse(raw)).success) setEnabled(true);
         if (user && !user.is_anonymous) setEmail(user.email ?? null);
+        else if (raw) setStatus('signed_out');
       })
       .catch(() => {})
       .finally(() => setChecked(true));
@@ -199,6 +208,11 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     await ensureSession().catch(() => {});
   }, [stop]);
 
+  const signInAgain = useCallback(async () => {
+    await stop();
+    await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+  }, [stop]);
+
   const removeAccount = useCallback(async () => {
     await deleteAccount();
     await stop();
@@ -222,6 +236,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         enable,
         syncNow,
         signOut,
+        signInAgain,
         removeAccount,
         exportData,
       }}

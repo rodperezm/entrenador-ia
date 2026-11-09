@@ -69,19 +69,26 @@ function ActionRow({
 }
 
 function BackupActive() {
-  const { status, email, lastSyncAt, syncNow, signOut, removeAccount, exportData } = useSync();
+  const { status, email, lastSyncAt, syncNow, signOut, signInAgain, removeAccount, exportData } = useSync();
   const { profile } = useProfile();
   const { sessions } = useHistory();
   const { records, folds } = useBody();
   const [error, setError] = useState<string | null>(null);
 
-  const pending = status === 'pending';
+  const lost = status === 'signed_out';
+  const pending = status === 'pending' || lost;
   const statusText = {
     off: 'Respaldo apagado',
     syncing: 'Sincronizando…',
     ok: 'Todo al día',
     pending: 'Pendiente: se sube apenas haya conexión.',
+    signed_out: 'Tu sesión se cerró en este teléfono. El respaldo está en pausa: vuelve a entrar con tu correo.',
   }[status];
+  // Vuelve a la pantalla de entrar, en modo «Ya tengo cuenta». Lo del teléfono no se toca.
+  const goSignIn = async () => {
+    router.setParams({ mode: 'existing' });
+    await signInAgain();
+  };
   const lastCopy = lastSyncAt
     ? new Date(lastSyncAt).toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' })
     : null;
@@ -132,11 +139,15 @@ function BackupActive() {
         <Text style={[styles.statusText, pending && { color: colors.warning }]}>{statusText}</Text>
         {lastCopy && <Text style={styles.small}>Última copia: {lastCopy}</Text>}
       </View>
-      <Button
-        label={status === 'syncing' ? 'Sincronizando…' : 'Sincronizar ahora'}
-        onPress={syncNow}
-        disabled={status === 'syncing'}
-      />
+      {lost ? (
+        <Button label="Volver a entrar con mi correo" onPress={goSignIn} />
+      ) : (
+        <Button
+          label={status === 'syncing' ? 'Sincronizando…' : 'Sincronizar ahora'}
+          onPress={syncNow}
+          disabled={status === 'syncing'}
+        />
+      )}
 
       <Text style={styles.section}>Tus datos</Text>
       <View style={styles.group}>

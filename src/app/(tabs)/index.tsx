@@ -28,7 +28,7 @@ export default function TodayScreen() {
   const { profile } = useProfile();
   const { week, plan } = usePlan();
   const { sessions } = useHistory();
-  const { enabled: syncEnabled } = useSync();
+  const { enabled: syncEnabled, status: syncStatus } = useSync();
   const { generate, generating, notice } = useGenerateWeek();
   const { generate: generateOnOpen } = useLocalSearchParams<{ generate?: string }>();
   const generatedOnOpen = useRef(false);
@@ -111,6 +111,11 @@ export default function TodayScreen() {
       </Link>
 
       {/* Quienes empezaron antes de pedir el correo: se les invita hasta que creen su cuenta. */}
+      {syncEnabled && syncStatus === 'signed_out' && (
+        <Link href="/account" style={styles.backup}>
+          Tu sesión se cerró: vuelve a entrar con tu correo para seguir respaldando ›
+        </Link>
+      )}
       {CLOUD_BACKUP_READY && !syncEnabled && (
         <Link href="/account" style={styles.backup}>
           Crea tu cuenta con tu correo para no perder tu avance ›

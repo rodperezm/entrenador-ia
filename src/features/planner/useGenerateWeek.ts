@@ -70,6 +70,21 @@ export function useGenerateWeek() {
       });
       await savePlan({ ...guarded, ...meta, generator: 'llm' });
     } catch (err) {
+      // Sesión cerrada: se avisa para volver a entrar, sin gastar la semana con IA de otra cuenta.
+      if (err instanceof AiPlanError && err.code === 'session_lost') {
+        const hasCurrentWeek = !!plan?.days.length && !isFromPastWeek(plan.generatedAt);
+        if (!hasCurrentWeek) {
+          const result = generateWeekByRules(week, profile, EXERCISES, sessions, Date.now(), lockedByDay, rotate);
+          await savePlan({ ...result, ...meta, generator: 'rules' });
+        }
+        setNotice(
+          `Tu sesión se cerró en este teléfono. Vuelve a entrar con tu correo en «Cuenta y respaldo» para armar tu semana con IA.${
+            hasCurrentWeek ? ' Tu semana sigue igual.' : ' Por ahora la armamos con las reglas de la app.'
+          }`,
+        );
+        setGenerating(false);
+        return;
+      }
       // Límite semanal: si ya hay una semana armada, se conserva tal como está.
       if (err instanceof AiPlanError && err.code === 'weekly_limit') {
         const hasCurrentWeek = !!plan?.days.length && !isFromPastWeek(plan.generatedAt);
