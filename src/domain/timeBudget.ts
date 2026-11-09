@@ -105,6 +105,16 @@ export function partCount(part: DayPart, cfg: DayConfig, level: Level) {
   return Math.max(Math.min(MIN_COUNT[part], max), Math.min(max, Math.round(budget / per)));
 }
 
+// Asegura al menos `n` ejercicios en una parte (sin pasar de 6), salvo que la persona haya fijado la
+// cantidad. Se usa para que la elongación tenga un estiramiento por cada músculo clave de la Fuerza.
+export function withMinCount(cfg: DayConfig, part: DayPart, n: number, level: Level): DayConfig {
+  if (cfg.blocks[part].fixedCount || n <= partCount(part, cfg, level)) return cfg;
+  return {
+    ...cfg,
+    blocks: { ...cfg.blocks, [part]: { ...cfg.blocks[part], exerciseCount: Math.min(n, 6), fixedCount: true } },
+  };
+}
+
 export function maxCount(part: DayPart, cfg: DayConfig) {
   const block = cfg.blocks[part];
   const base = part === 'main' && cfg.gentleStrength ? Math.min(block.exerciseCount, GENTLE_MAX) : block.exerciseCount;

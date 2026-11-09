@@ -4,7 +4,8 @@ import { filterExercisesForUser, isUnsafeWeight } from './filter';
 import { generateDayByRules, hadPain, isGentle, lastWeightOf, pickWeight, prescribe } from './generator';
 import { feltTooMuch, progressSlot, wasTooHard } from './progression';
 import { dayIntensity, MIN_REST_SEC, POWER_REPS_MAX, slotRole, sortByRole } from './strength';
-import { fitPart } from './timeBudget';
+import { fitPart, withMinCount } from './timeBudget';
+import { dayNeeds, prepares, stretchesMuscle } from './coverage';
 import type {
   BlockType,
   DayConfig,
@@ -112,6 +113,52 @@ function ensureShoulderPrep(blocks: PlannedBlock[], cfg: DayConfig, input: Guard
   return blocks.map((b) => (b === warmup ? { ...b, slots } : b));
 }
 
+// La variedad no descuida el objetivo: si lo que entregó la IA deja un movimiento de Fuerza sin un
+// calentamiento que lo prepare, o un músculo clave sin estirar, se cambia un ejercicio que no cubre
+// nada por uno que sí. Lo que cubre va primero, para que el ajuste a los minutos no lo saque.
+function ensureCoverage(blocks: PlannedBlock[], cfg: DayConfig, input: GuardInput): PlannedBlock[] {
+  const byId = new Map(input.exercises.map((e) => [e.id, e]));
+  const exOf = (type: BlockType) =>
+    (blocks.find((b) => b.type === type)?.slots ?? []).flatMap((s) => byId.get(s.exerciseId) ?? []);
+  // Lo que hay que preparar y estirar: la Fuerza del día o, en un día de Lesión, el trabajo de lesión.
+  const main = exOf('main_strength');
+  const worked = main.length ? main : exOf('prehab');
+  if (!worked.length) return blocks;
+  const needs = dayNeeds(worked);
+  const dayProfile = { ...input.profile, equipment: equipmentAt(cfg.location, input.profile) };
+  const used = new Set(blocks.flatMap((b) => b.slots.map((s) => s.exerciseId)));
+
+  const fix = <N>(current: PlannedBlock[], type: BlockType, list: N[], covers: (e: Exercise, n: N) => boolean) =>
+    current.map((b) => {
+      if (b.type !== type || !b.slots.length) return b;
+      const slots = [...b.slots];
+      const ex = (s: ExerciseSlot) => byId.get(s.exerciseId);
+      const isNeeded = (s: ExerciseSlot) => {
+        const e = ex(s);
+        return !!e && (e.tags.includes('shoulder_prep') || list.some((n) => covers(e, n)));
+      };
+      for (const need of list) {
+        if (slots.some((s) => ex(s) && covers(ex(s)!, need))) continue;
+        const pick = filterExercisesForUser(input.exercises, dayProfile, type).find(
+          (e) => !used.has(e.id) && covers(e, need),
+        );
+        if (!pick) continue;
+        used.add(pick.id);
+        const slot = prescribe(pick, input.profile, null);
+        const spare = slots
+          .map((s, i) => (isNeeded(s) ? -1 : i))
+          .filter((i) => i >= 0)
+          .pop();
+        if (spare != null) slots[spare] = slot;
+        else slots.push(slot);
+      }
+      return { ...b, slots: [...slots.filter(isNeeded), ...slots.filter((s) => !isNeeded(s))] };
+    });
+
+  const warmed = fix(blocks, 'warmup', needs.movements, prepares);
+  return fix(warmed, 'cooldown', needs.topMuscles, (e, m) => stretchesMuscle(e, m) || stretchesMuscle(e, m, true));
+}
+
 // Día de fuerza suave (lesión): solo ejercicios sencillos, sin balísticos ni saltos. Si la IA no
 // dejó ninguno que cumpla, Fuerza de ese día se arma por reglas.
 function keepGentle(blocks: PlannedBlock[], cfg: DayConfig, input: GuardInput, byRules: () => DayPlan) {
@@ -163,16 +210,27 @@ export function guardAiPlan(plan: GeneratedWeekPlan, input: GuardInput): Generat
       .filter((b): b is PlannedBlock => !!b);
     blocks = keepGentle(blocks, cfg, input, byRules);
     blocks = ensureShoulderPrep(blocks, cfg, input);
+    blocks = ensureCoverage(blocks, cfg, input);
     blocks = blocks.map((b) => {
       const slots = b.slots.map((s) => withinLimits(s, b.type, input, cycle));
       return b.type === 'main_strength' ? { ...b, slots: slots.map((s) => limitLoad(s, input)) } : { ...b, slots };
     });
     // Al final, cada parte se ajusta a sus minutos como en las reglas: series y, si sobra, ejercicios.
     const intensity = cycle.preparation ? 'light' : dayIntensity(days, day.day, profile.level);
+    // Como en las reglas: un estiramiento por cada músculo clave de la Fuerza (o de la Lesión), aunque los minutos dieran menos.
+    const slotsEx = (type: BlockType) =>
+      (blocks.find((b) => b.type === type)?.slots ?? []).flatMap(
+        (s) => exercises.find((e) => e.id === s.exerciseId) ?? [],
+      );
+    const workedEx = slotsEx('main_strength').length ? slotsEx('main_strength') : slotsEx('prehab');
+    const cooldownCfg = withMinCount(cfg, 'cooldown', dayNeeds(workedEx).topMuscles.length, profile.level);
     blocks = blocks.map((b) => {
       const part = PARTS.find(([type]) => type === b.type)![1];
       const slots = part === 'main' ? sortByRole(b.slots) : b.slots;
-      return { ...b, slots: fitPart(part, slots, cfg, profile.level, cycle, intensity) };
+      return {
+        ...b,
+        slots: fitPart(part, slots, part === 'cooldown' ? cooldownCfg : cfg, profile.level, cycle, intensity),
+      };
     });
     return { ...day, blocks };
   });

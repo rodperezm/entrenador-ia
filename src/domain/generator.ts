@@ -26,7 +26,8 @@ import {
   sortByRole,
   strengthRole,
 } from './strength';
-import { fitPart, maxCount } from './timeBudget';
+import { fitPart, maxCount, withMinCount } from './timeBudget';
+import { coverFirst, coverMuscles, dayNeeds, prepares } from './coverage';
 import { DAYS, dayDate } from './week';
 
 // Generador por reglas. Produce la misma estructura que devolverá el LLM
@@ -313,6 +314,8 @@ function generateDay(
     ),
   );
   const main = mainOptions.filter((m) => mainSlots.some((s) => s.exerciseId === m.exercise.id));
+  // En el orden de la sesión (A, B, C): lo primero que se prepara y estira es lo del bloque A.
+  const mainInOrder = mainSlots.flatMap((s) => main.find((m) => m.exercise.id === s.exerciseId)?.exercise ?? []);
   const mainGroups = new Set(main.flatMap((m) => m.exercise.muscleGroups));
   // Variedad: Fuerza se mantiene en el bloque para medir el avance, pero calentamiento, lesión y
   // elongación prefieren lo que no hizo en los últimos días, entre ejercicios que sirven igual.
@@ -327,21 +330,28 @@ function generateDay(
     const options = (b.main.enabled || !gentleWarmups.length ? warmups : gentleWarmups).sort(
       (x, y) => activates(y) - activates(x) || fresh(y) - fresh(x),
     );
-    // Con barra de activación, todo día de fuerza prepara el hombro (manguito rotador y escápulas).
-    const shoulderPrep = main.length ? options.find((e) => e.tags.includes('shoulder_prep')) : undefined;
-    if (shoulderPrep) {
-      options.splice(options.indexOf(shoulderPrep), 1);
-      options.unshift(shoulderPrep);
-    }
-    // Principiante con swing o peso muerto ese día: primero el ejercicio que enseña la bisagra.
+    // Fijos al inicio: el principiante con swing o peso muerto parte con el ejercicio que enseña la
+    // bisagra; con barra de activación, todo día de fuerza prepara el hombro.
+    const forced: Exercise[] = [];
     if (profile.level === 'beginner' && main.some((m) => m.exercise.movementPattern === 'hinge')) {
-      options.sort((x, y) => Number(y.tags.includes('hinge_drill')) - Number(x.tags.includes('hinge_drill')));
+      const drill = options.find((e) => e.tags.includes('hinge_drill'));
+      if (drill) forced.push(drill);
     }
+    const shoulderPrep = main.length ? options.find((e) => e.tags.includes('shoulder_prep')) : undefined;
+    if (shoulderPrep) forced.push(shoulderPrep);
+    // Después, uno que prepare cada movimiento de la Fuerza de hoy (el de A primero); la variedad
+    // solo elige entre los que preparan lo mismo, y el resto viene detrás.
+    const covered = coverFirst(
+      options.filter((e) => !forced.includes(e)),
+      dayNeeds(mainInOrder).movements,
+      prepares,
+      forced,
+    );
     blocks.push({
       type: 'warmup',
       slots: fit(
         'warmup',
-        options.map((e) => prescribe(e, profile, null)),
+        covered.map((e) => prescribe(e, profile, null)),
       ),
     });
   }
@@ -402,17 +412,29 @@ function generateDay(
       ...general.filter(isFresh),
       ...general.filter((id) => !isFresh(id)),
     ];
+    // Primero un estiramiento para cada músculo principal trabajado; la variedad elige entre los que
+    // estiran ese mismo músculo.
+    const ordered = coverMuscles(
+      ids.map((id) => byId.get(id)!),
+      dayNeeds(mainInOrder, prehabChosen).muscles,
+    );
+    // Al menos un estiramiento por cada músculo clave de la Fuerza (o de la Lesión, si no hay Fuerza), aunque
+    // los minutos dieran menos: son cortos y estirar lo trabajado es el objetivo de la elongación.
+    const cooldownCfg = withMinCount(
+      cfg,
+      'cooldown',
+      dayNeeds(mainInOrder.length ? mainInOrder : prehabChosen).topMuscles.length,
+      profile.level,
+    );
     blocks.push({
       type: 'cooldown',
-      slots: fit(
+      slots: fitPart(
         'cooldown',
-        ids.map((id) =>
-          prescribe(
-            exercises.find((e) => e.id === id)!,
-            profile,
-            null,
-          ),
-        ),
+        ordered.map((e) => prescribe(e, profile, null)),
+        cooldownCfg,
+        profile.level,
+        cycle,
+        intensity,
       ),
     });
   }

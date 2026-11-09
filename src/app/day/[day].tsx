@@ -10,6 +10,7 @@ import { cycleInfo } from '@/domain/cycle';
 import { generateDayByRules, strongPainIds } from '@/domain/generator';
 import { dayIntensity, strengthInfo } from '@/domain/strength';
 import { explainDay } from '@/domain/explain';
+import { supportNote } from '@/domain/coverage';
 import { WhyDay } from '@/features/planner/WhyCards';
 import { MUSCLE_GROUP_LABELS, MUSCLE_GROUPS } from '@/domain/catalog';
 import { BLOCK_LABELS, ROLE_LABELS } from '@/domain/labels';
@@ -66,6 +67,13 @@ export default function DayScreen() {
   const cfg = week.days.find((d) => d.day === day)!;
 
   const hasConditions = (profile?.conditions.length ?? 0) > 0;
+  // Lo que se trabaja en Fuerza (y Lesión) este día: base de lo que prepara y estira cada ejercicio de apoyo.
+  const slotsOf = (type: string) =>
+    (plan?.days.find((p) => p.day === day)?.blocks.find((x) => x.type === type)?.slots ?? []).flatMap(
+      (s) => EXERCISES_BY_ID.get(s.exerciseId) ?? [],
+    );
+  const dayMain = slotsOf('main_strength');
+  const dayWorked = [...dayMain, ...slotsOf('prehab')];
   const today = isToday(day);
   const dayPlan = plan?.days.find((p) => p.day === day);
   const stale = !!plan && !!profile && staleDays(plan, week, profile.updatedAt).has(day);
@@ -212,6 +220,7 @@ export default function DayScreen() {
               })}
             />
           )}
+          {/* Qué prepara cada calentamiento y qué estira cada elongación, según la Fuerza del día. */}
           {dayPlan.blocks.map((b) => (
             <View key={b.type} style={styles.routineBlock}>
               <Text style={styles.routineTitle}>{BLOCK_LABELS[b.type]}</Text>
@@ -233,7 +242,11 @@ export default function DayScreen() {
                           {/* Debajo del nombre y no al lado: con «8 en total (4 con cada brazo)» no cabe en una fila. */}
                           <Text style={styles.slotRx}>{slotLabel(s)}</Text>
                           {b.type === 'main_strength' && <Text style={styles.muted}>{strengthInfo(ex)}</Text>}
-                          {s.rationale && <Text style={styles.muted}>{s.rationale}</Text>}
+                          {(s.rationale ?? supportNote(s, b.type, dayMain, dayWorked, EXERCISES_BY_ID)) && (
+                            <Text style={styles.muted}>
+                              {s.rationale ?? supportNote(s, b.type, dayMain, dayWorked, EXERCISES_BY_ID)}
+                            </Text>
+                          )}
                         </View>
                         <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
                       </Pressable>

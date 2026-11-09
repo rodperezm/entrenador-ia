@@ -1,4 +1,5 @@
-import { MEDICAL_CONDITIONS, MUSCLE_GROUP_LABELS, type MuscleGroupId } from './catalog';
+import { MEDICAL_CONDITIONS, MUSCLE_GROUP_LABELS, type MuscleGroupId, MUSCLES, type MuscleId } from './catalog';
+import { dayNeeds, MOVEMENT_LABEL, prepares, stretchesMuscle } from './coverage';
 import type { CycleInfo } from './cycle';
 import { recentExerciseIds } from './generator';
 import { lastSessionOf } from './progression';
@@ -27,15 +28,6 @@ const familyOf = (e: Exercise): Family | null => {
   if (p === 'carry') return 'carry';
   if (p.startsWith('core')) return 'core';
   return null;
-};
-// Lo que prepara el calentamiento según lo que viene en Fuerza.
-const PREPARES: Record<Family, string> = {
-  hinge: 'la cadera',
-  legs: 'las piernas',
-  push: 'hombros y pecho',
-  pull: 'la espalda',
-  core: 'el core',
-  carry: 'el agarre',
 };
 
 // Los movimientos base del método con kettlebell.
@@ -112,7 +104,7 @@ export function explainWeek(input: {
     const fresh = support.filter((s) => !recent.has(s.exerciseId)).length;
     if (support.length) {
       why.push(
-        `${fresh} de ${support.length} ejercicios de calentamiento, lesión y elongación son distintos a los de la semana pasada; los que se repiten son los que más te sirven.`,
+        `${fresh} de ${support.length} ejercicios de calentamiento, lesión y elongación son distintos a los de la semana pasada. Cambian los ejercicios, no el objetivo: siempre preparan y estiran lo que trabajas ese día.`,
       );
     }
   }
@@ -197,11 +189,20 @@ export function explainDay(input: {
   if (main.length && input.intensity && !cfg.gentleStrength) lines.push(INTENSITY_NOTE[input.intensity]);
 
   const families = [...new Set(main.flatMap((s) => (ex(s) ? [familyOf(ex(s)!)] : [])).filter((f): f is Family => !!f))];
+  // Calentamiento y elongación se explican con lo que de verdad cubren, no con lo que se esperaba.
+  const exList = (slots: ExerciseSlot[]) => slots.flatMap((s) => ex(s) ?? []);
+  const needs = dayNeeds(exList(main));
   const warm = block('warmup');
   if (warm.length) {
+    const ready = needs.movements.filter((m) => exList(warm).some((e) => prepares(e, m)));
+    const missing = needs.movements.filter((m) => !ready.includes(m));
     lines.push(
-      main.length && families.length
-        ? `Calentamiento · ${warm.length}: prepara ${join([...new Set(families.map((f) => PREPARES[f]))])} para la Fuerza de hoy.`
+      main.length && needs.movements.length
+        ? `Calentamiento · ${warm.length}: ${
+            ready.length
+              ? `cada movimiento de la Fuerza de hoy tiene su preparación: ${join(ready.map((m) => MOVEMENT_LABEL[m]))}`
+              : 'entrada en calor general'
+          }${missing.length ? `; ${join(missing.map((m) => MOVEMENT_LABEL[m]))} no tiene uno específico hoy` : ''}. Cada ejercicio dice qué prepara.`
         : `Calentamiento · ${warm.length}: suave, para entrar en calor sin cargar la zona que cuidas.`,
     );
   }
@@ -246,12 +247,22 @@ export function explainDay(input: {
 
   const cool = block('cooldown');
   if (cool.length) {
-    const worked = [...main, ...prehab].flatMap((s) => ex(s)?.muscleGroups ?? []);
-    const groups = [...new Set(worked)] as MuscleGroupId[];
+    // El músculo que más trabajó cada ejercicio de Fuerza (o de Lesión, si no hubo Fuerza).
+    const key = dayNeeds(exList(main.length ? main : prehab)).topMuscles;
+    const stretched = key.filter((m) => exList(cool).some((e) => stretchesMuscle(e, m) || stretchesMuscle(e, m, true)));
+    const missing = key.filter((m) => !stretched.includes(m));
+    const label = (m: MuscleId) => MUSCLES[m].label.toLowerCase();
     lines.push(
-      groups.length
-        ? `Elongación · ${cool.length}: estira ${join(groups.map((g) => MUSCLE_GROUP_LABELS[g].toLowerCase()))}, lo que trabajaste hoy.`
+      key.length
+        ? `Elongación · ${cool.length}: estira el músculo que más trabajó cada ejercicio: ${join(stretched.map(label))}${
+            missing.length ? `; ${join(missing.map(label))} queda sin estiramiento propio hoy` : ''
+          }.`
         : `Elongación · ${cool.length}: estiramientos generales, lentos y sin forzar.`,
+    );
+  }
+  if ((warm.length || cool.length) && (main.length || prehab.length)) {
+    lines.push(
+      'Calentamiento y elongación cambian de una semana a otra para variar, pero siempre preparan y estiran lo que trabajas ese día.',
     );
   }
 
