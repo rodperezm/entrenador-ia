@@ -22,7 +22,7 @@ const TOO_HARD_RPE = 9.5;
 const TIME_STEP_SEC = 5;
 const BIG_JUMP = 1.2; // subir más de un 20 % de peso de una vez pide peldaños antes
 
-function lastSessionOf(exerciseId: string, history: WorkoutSession[]) {
+export function lastSessionOf(exerciseId: string, history: WorkoutSession[]) {
   for (const s of history) {
     // En HIIT y AMRAP cambian el peso y la fatiga: solo importa si hubo dolor.
     const logs = s.sets.filter((l) => l.exerciseId === exerciseId && (!l.format || painOf(l) > 0));

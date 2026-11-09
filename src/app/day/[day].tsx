@@ -8,13 +8,16 @@ import { EXERCISES, EXERCISES_BY_ID } from '@/data/exercises.seed';
 import { averageMet, kcalRangeLabel, latestWeight } from '@/domain/calories';
 import { cycleInfo } from '@/domain/cycle';
 import { generateDayByRules, strongPainIds } from '@/domain/generator';
-import { strengthInfo } from '@/domain/strength';
+import { dayIntensity, strengthInfo } from '@/domain/strength';
+import { explainDay } from '@/domain/explain';
+import { WhyDay } from '@/features/planner/WhyCards';
 import { MUSCLE_GROUP_LABELS, MUSCLE_GROUPS } from '@/domain/catalog';
 import { BLOCK_LABELS, ROLE_LABELS } from '@/domain/labels';
-import { type DayConfig, DayOfWeek, type DayPlan } from '@/domain/schema';
-import { dayMinutes, leadPart, timeStatus } from '@/domain/timeBudget';
+import { type DayConfig, DayOfWeek, type DayPlan, type LocalProfile } from '@/domain/schema';
+import { dayMinutes, leadPart, partCount, timeStatus } from '@/domain/timeBudget';
 import {
   applyDayChoice,
+  DAY_PARTS,
   configHash,
   dayConfigHash,
   dayHashes,
@@ -194,6 +197,21 @@ export default function DayScreen() {
             label="Empezar entrenamiento"
             onPress={() => router.push({ pathname: '/workout/[day]', params: { day } })}
           />
+          {profile && !editing && (
+            <WhyDay
+              lines={explainDay({
+                dayPlan,
+                cfg,
+                profile,
+                exercises: EXERCISES,
+                intensity: cfg.blocks.main.enabled
+                  ? cycleInfo(sessions, profile.level, week.days).preparation
+                    ? 'light'
+                    : dayIntensity(week.days, day, profile.level)
+                  : null,
+              })}
+            />
+          )}
           {dayPlan.blocks.map((b) => (
             <View key={b.type} style={styles.routineBlock}>
               <Text style={styles.routineTitle}>{BLOCK_LABELS[b.type]}</Text>
@@ -240,6 +258,7 @@ export default function DayScreen() {
           cfg={editing}
           hasConditions={hasConditions}
           hasRoutine={!!dayPlan}
+          level={profile?.level ?? 'intermediate'}
           estimate={estimate}
           onEdit={edit}
           setBlock={setBlock}
@@ -324,6 +343,7 @@ function AdjustPanel({
   cfg,
   hasConditions,
   hasRoutine,
+  level,
   estimate,
   onEdit,
   setBlock,
@@ -333,6 +353,7 @@ function AdjustPanel({
   cfg: DayConfig;
   hasConditions: boolean;
   hasRoutine: boolean;
+  level: LocalProfile['level'];
   estimate: number | null;
   onEdit: (patch: (d: DayConfig) => DayConfig) => void;
   setBlock: <K extends keyof Blocks>(key: K, patch: Partial<Blocks[K]>) => void;
@@ -341,6 +362,8 @@ function AdjustPanel({
 }) {
   const parts = dayChoiceOf(cfg);
   const groups = cfg.blocks.main.muscleGroups;
+  // Abierto solo si la persona ya fijó alguna cantidad a mano.
+  const [showCounts, setShowCounts] = useState(() => DAY_PARTS.some((p) => cfg.blocks[p].fixedCount));
   const set = (patch: Partial<DayConfig>) => onEdit((d) => ({ ...d, ...patch }));
   const confirmLabel = !cfg.active
     ? 'Guardar como descanso'
@@ -396,12 +419,23 @@ function AdjustPanel({
           )}
           <Text style={styles.muted}>{estimateLabel}</Text>
 
-          <Text style={styles.section}>Ejercicios por parte</Text>
+          {/* La cantidad de ejercicios la decide la app con los minutos; fijarla a mano es opcional. */}
+          <Pressable onPress={() => setShowCounts(!showCounts)} hitSlop={8}>
+            <Text style={styles.link}>
+              {showCounts ? 'Ocultar la cantidad de ejercicios' : 'Elegir la cantidad de ejercicios (avanzado)'}
+            </Text>
+          </Pressable>
+          {!showCounts && (
+            <Text style={styles.muted}>
+              La app calcula cuántos ejercicios lleva cada parte con tus minutos y tu nivel.
+            </Text>
+          )}
 
-          {cfg.blocks.warmup.enabled && (
+          {showCounts && cfg.blocks.warmup.enabled && (
             <BlockCard title="Calentamiento">
               <CountRow
                 count={cfg.blocks.warmup.exerciseCount}
+                auto={partCount('warmup', cfg, level)}
                 max={8}
                 fixed={!!cfg.blocks.warmup.fixedCount}
                 onChange={(patch) => setBlock('warmup', patch)}
@@ -409,7 +443,7 @@ function AdjustPanel({
             </BlockCard>
           )}
 
-          {cfg.blocks.prehab.enabled && (
+          {showCounts && cfg.blocks.prehab.enabled && (
             <BlockCard
               title={dayPartLabel('prehab', hasConditions)}
               description={
@@ -419,6 +453,7 @@ function AdjustPanel({
               }
             >
               <CountRow
+                auto={partCount('prehab', cfg, level)}
                 count={cfg.blocks.prehab.exerciseCount}
                 max={6}
                 fixed={!!cfg.blocks.prehab.fixedCount}
@@ -429,12 +464,15 @@ function AdjustPanel({
 
           {cfg.blocks.main.enabled && (
             <BlockCard title="Fuerza">
-              <CountRow
-                count={cfg.blocks.main.exerciseCount}
-                max={10}
-                fixed={!!cfg.blocks.main.fixedCount}
-                onChange={(patch) => setBlock('main', patch)}
-              />
+              {showCounts && (
+                <CountRow
+                  count={cfg.blocks.main.exerciseCount}
+                  auto={partCount('main', cfg, level)}
+                  max={10}
+                  fixed={!!cfg.blocks.main.fixedCount}
+                  onChange={(patch) => setBlock('main', patch)}
+                />
+              )}
               {hasConditions && cfg.blocks.prehab.enabled && (
                 <Row label="Suave (día de lesión)">
                   <Switch
@@ -470,9 +508,10 @@ function AdjustPanel({
             </BlockCard>
           )}
 
-          {cfg.blocks.cooldown.enabled && (
+          {showCounts && cfg.blocks.cooldown.enabled && (
             <BlockCard title="Elongación" description="Estiramientos de los músculos trabajados en la sesión.">
               <CountRow
+                auto={partCount('cooldown', cfg, level)}
                 count={cfg.blocks.cooldown.exerciseCount}
                 max={8}
                 fixed={!!cfg.blocks.cooldown.fixedCount}
@@ -494,11 +533,13 @@ function AdjustPanel({
 // Auto: la app ajusta la cantidad a los minutos. Al mover el número, queda fija.
 function CountRow({
   count,
+  auto,
   max,
   fixed,
   onChange,
 }: {
   count: number;
+  auto: number;
   max: number;
   fixed: boolean;
   onChange: (patch: { exerciseCount?: number; fixedCount?: boolean }) => void;
@@ -509,7 +550,7 @@ function CountRow({
         <View style={styles.countControls}>
           <Chip label="Auto" active={!fixed} onPress={() => onChange({ fixedCount: undefined })} />
           <Stepper
-            value={count}
+            value={fixed ? count : auto}
             min={1}
             max={max}
             onChange={(exerciseCount) => onChange({ exerciseCount, fixedCount: true })}
@@ -517,7 +558,9 @@ function CountRow({
         </View>
       </Row>
       <Text style={styles.muted}>
-        {fixed ? `Respetamos estos ${count}; ajustamos vueltas y duración.` : 'La cantidad se ajusta a tus minutos.'}
+        {fixed
+          ? `Respetamos estos ${count}; ajustamos vueltas y duración.`
+          : `Con tus minutos, la app propone ${auto}.`}
       </Text>
     </>
   );
@@ -581,6 +624,7 @@ const styles = StyleSheet.create({
   countControls: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   estimate: { color: colors.text, fontSize: 15, fontWeight: '700', textAlign: 'center' },
+  link: { color: colors.accent, fontSize: 14, fontWeight: '700', marginTop: spacing.sm },
   muted: { color: colors.textMuted, fontSize: 13, lineHeight: 18 },
   stale: { color: colors.warning, fontSize: 13 },
   routineBlock: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.md, gap: 2 },

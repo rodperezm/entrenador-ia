@@ -89,6 +89,22 @@ const cycleMaxSets = (cap: number, cycle?: CycleInfo, intensity: Intensity = 'in
   return Math.max(LIGHT_MAX_SETS, byWeek - (intensity === 'moderate' ? 1 : 0));
 };
 
+// Cuántos ejercicios lleva cada parte: lo decide la app con los minutos de esa parte y el nivel,
+// salvo que la persona fije el número a mano (opción avanzada). Segundos que se espera que tome
+// cada ejercicio ya con sus vueltas: con eso, un calentamiento de 8 min trae unos 5 ejercicios.
+const SEC_PER_EXERCISE: Record<Exclude<DayPart, 'main'>, number> = { warmup: 100, prehab: 240, cooldown: 135 };
+const MAIN_SEC_PER_EXERCISE: Record<Level, number> = { beginner: 300, intermediate: 360, advanced: 420 };
+const MIN_COUNT: Record<DayPart, number> = { warmup: 3, prehab: 2, main: 3, cooldown: 3 };
+
+export function partCount(part: DayPart, cfg: DayConfig, level: Level) {
+  const block = cfg.blocks[part];
+  if (block.fixedCount) return Math.min(block.exerciseCount, maxCount(part, cfg));
+  const budget = partBudgets(cfg, level)[part] ?? 0;
+  const per = part === 'main' ? MAIN_SEC_PER_EXERCISE[level] : SEC_PER_EXERCISE[part];
+  const max = maxCount(part, cfg);
+  return Math.max(Math.min(MIN_COUNT[part], max), Math.min(max, Math.round(budget / per)));
+}
+
 export function maxCount(part: DayPart, cfg: DayConfig) {
   const block = cfg.blocks[part];
   const base = part === 'main' && cfg.gentleStrength ? Math.min(block.exerciseCount, GENTLE_MAX) : block.exerciseCount;
@@ -113,7 +129,7 @@ export function fitPart(
   const budget = (partBudgets(cfg, level)[part] ?? 0) * (shorter ? DELOAD_TIME : 1);
   const maxSets = part === 'main' ? cycleMaxSets(MAIN_MAX_SETS[level], cycled, intensity) : MAX_SETS[part];
   const fixed = !!cfg.blocks[part].fixedCount;
-  const baseCount = Math.min(cfg.blocks[part].exerciseCount, maxCount(part, cfg));
+  const baseCount = partCount(part, cfg, level);
   // Moderado y suave cuidan la recuperación: no suman ejercicios aunque sobre tiempo.
   const limit = part === 'main' && intensity !== 'intense' ? baseCount : maxCount(part, cfg);
   const capped = (s: ExerciseSlot) => ({ ...s, sets: Math.min(s.sets, maxSets) });

@@ -314,14 +314,18 @@ function generateDay(
   );
   const main = mainOptions.filter((m) => mainSlots.some((s) => s.exerciseId === m.exercise.id));
   const mainGroups = new Set(main.flatMap((m) => m.exercise.muscleGroups));
+  // Variedad: Fuerza se mantiene en el bloque para medir el avance, pero calentamiento, lesión y
+  // elongación prefieren lo que no hizo en los últimos días, entre ejercicios que sirven igual.
+  const recent = recentExerciseIds(plan.history);
+  const fresh = (e: Exercise) => Number(!recent.has(e.id));
 
   if (b.warmup.enabled) {
     // Sin fuerza el calentamiento es suave. Preferir los que activen los grupos del día.
     const warmups = pool('warmup');
     const gentleWarmups = warmups.filter(isGentle);
+    const activates = (e: Exercise) => Number(e.muscleGroups.some((g) => mainGroups.has(g)));
     const options = (b.main.enabled || !gentleWarmups.length ? warmups : gentleWarmups).sort(
-      (x, y) =>
-        Number(y.muscleGroups.some((g) => mainGroups.has(g))) - Number(x.muscleGroups.some((g) => mainGroups.has(g))),
+      (x, y) => activates(y) - activates(x) || fresh(y) - fresh(x),
     );
     // Con barra de activación, todo día de fuerza prepara el hombro (manguito rotador y escápulas).
     const shoulderPrep = main.length ? options.find((e) => e.tags.includes('shoulder_prep')) : undefined;
@@ -349,7 +353,16 @@ function generateDay(
         (c) => MEDICAL_CONDITIONS.find((m) => m.id === c.conditionId)?.prehabExerciseIds ?? [],
       ),
     );
-    const options = pool('prehab').sort((x, y) => Number(fromConditions.has(y.id)) - Number(fromConditions.has(x.id)));
+    // Primero los de su condición; un parecido (mismos grupos) sin repetir le gana a uno de la condición
+    // que ya hizo esta semana, para que la lesión no sea siempre la misma lista.
+    const conditionGroups = new Set(exercises.filter((e) => fromConditions.has(e.id)).flatMap((e) => e.muscleGroups));
+    const score = (e: Exercise) =>
+      (fromConditions.has(e.id) ? 2 : e.muscleGroups.some((g) => conditionGroups.has(g)) ? 1 : 0) + 1.5 * fresh(e);
+    const sorted = pool('prehab').sort((x, y) => score(y) - score(x));
+    // Siempre al menos 2 de su condición, aunque los haya hecho: rotan entre ellos (primero los que no hizo).
+    const own = sorted.filter((e) => fromConditions.has(e.id)).sort((x, y) => fresh(y) - fresh(x));
+    const kept = own.slice(0, PREHAB_OWN_MIN);
+    const options = [...kept, ...sorted.filter((e) => !kept.includes(e))];
     const prehabSlots = fit(
       'prehab',
       options.map((e) =>
@@ -378,7 +391,17 @@ function generateDay(
     const general = pool('cooldown')
       .map((e) => e.id)
       .filter((id) => !linked.includes(id) && !byGroup.includes(id));
-    const ids = [...linked, ...byGroup, ...general];
+    // Lo ligado a lo trabajado primero, pero sin repetir lo de la semana pasada si hay otro que estire lo mismo.
+    const byId = new Map(exercises.map((e) => [e.id, e]));
+    const isFresh = (id: string) => fresh(byId.get(id)!) === 1;
+    const ids = [
+      ...linked.filter(isFresh),
+      ...byGroup.filter(isFresh),
+      ...linked.filter((id) => !isFresh(id)),
+      ...byGroup.filter((id) => !isFresh(id)),
+      ...general.filter(isFresh),
+      ...general.filter((id) => !isFresh(id)),
+    ];
     blocks.push({
       type: 'cooldown',
       slots: fit(
@@ -395,6 +418,15 @@ function generateDay(
   }
 
   return { day: cfg.day, location: cfg.location, blocks: blocks.filter((bl) => bl.slots.length > 0) };
+}
+
+// Lo que hizo en los últimos 8 días (una semana y un poco): base de la variedad entre semanas.
+const RECENT_MS = 8 * 24 * 3600 * 1000;
+const PREHAB_OWN_MIN = 2; // ejercicios de su condición que siempre van en Lesión
+export function recentExerciseIds(history: WorkoutSession[], now = Date.now()) {
+  return new Set(
+    history.filter((s) => Date.parse(s.finishedAt) >= now - RECENT_MS).flatMap((s) => s.sets.map((l) => l.exerciseId)),
+  );
 }
 
 const GENTLE_FLAGS = ['ballistic', 'jumping', 'high_impact'] as const;

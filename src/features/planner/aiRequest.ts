@@ -3,10 +3,11 @@ import { zoneLabel } from '@/domain/checkIn';
 import { cycleGuide, cycleInfo, previousBlockExercises } from '@/domain/cycle';
 import { effortKind, effortNote } from '@/domain/effort';
 import { filterExercisesForUser } from '@/domain/filter';
-import { avoidedIds, legsRestIds } from '@/domain/generator';
+import { avoidedIds, legsRestIds, recentExerciseIds } from '@/domain/generator';
 import { wasTooHard } from '@/domain/progression';
 import { A_STAGES, dayIntensity, strengthRole } from '@/domain/strength';
-import { leadPart, partBudgets } from '@/domain/timeBudget';
+import { leadPart, partBudgets, partCount } from '@/domain/timeBudget';
+import { DAY_PARTS } from '@/domain/week';
 import {
   type BlockType,
   type Exercise,
@@ -172,6 +173,13 @@ export function buildAiRequest(
       .filter((d) => d.active)
       .map(({ active: _active, ...d }) => ({
         ...d,
+        // La cantidad de ejercicios de cada parte la calcula la app con los minutos (salvo que la persona la fije).
+        blocks: Object.fromEntries(
+          DAY_PARTS.map((p) => [
+            p,
+            { ...d.blocks[p], exerciseCount: partCount(p, { ...d, active: true }, profile.level) },
+          ]),
+        ) as typeof d.blocks,
         availableEquipment: equipmentAt(d.location, profile),
         intensity: dayIntensity(week.days, d.day, profile.level),
         leadPart: leadPart({ ...d, active: true }),
@@ -184,6 +192,8 @@ export function buildAiRequest(
       })),
     candidates,
     history: lastByExercise,
+    // Lo que hizo en los últimos 8 días: calentamiento, lesión y elongación deben variar respecto de esto.
+    recentExercises: [...recentExerciseIds(history)],
     // Lo que dijo la persona: cómo llegó, cómo se sintió tras calentar, cómo estuvo y cómo amaneció.
     recentFeelings: history.slice(0, HISTORY_SESSIONS).flatMap((s) =>
       s.checkIn || s.feeling || s.painFollowUp

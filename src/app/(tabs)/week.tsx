@@ -3,7 +3,10 @@ import { Link } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui';
+import { EXERCISES } from '@/data/exercises.seed';
 import { cycleInfo } from '@/domain/cycle';
+import { explainWeek } from '@/domain/explain';
+import { WhyWeek } from '@/features/planner/WhyCards';
 import { DAY_LONG, dayDate, DAYS, isFromPastWeek, isToday, staleDays } from '@/domain/week';
 import { countExercises, dayTypeLabel } from '@/features/planner/describe';
 import { useGenerateWeek } from '@/features/planner/useGenerateWeek';
@@ -25,7 +28,8 @@ export default function WeekScreen() {
   const staleSet = plan ? staleDays(plan, week, profile.updatedAt) : new Set<string>();
   const stale = staleSet.size > 0;
   const activeDays = week.days.filter((d) => d.active).length;
-  const preparing = cycleInfo(sessions, profile.level, week.days).preparation;
+  const cycle = cycleInfo(sessions, profile.level, week.days);
+  const preparing = cycle.preparation;
   const hasCurrentPlan = !!plan?.days.length && !(activeDays > 0 && isFromPastWeek(plan.generatedAt));
   const hasConditions = profile.conditions.length > 0;
   const trainedOn = new Set(sessions.map((s) => new Date(s.finishedAt).toDateString()));
@@ -35,7 +39,18 @@ export default function WeekScreen() {
       <Text style={styles.title}>
         {activeDays} {activeDays === 1 ? 'día' : 'días'} de entrenamiento
       </Text>
-      {hasCurrentPlan && !stale && plan.generator === 'llm' && <Text style={styles.summary}>✨ {plan.summary}</Text>}
+      {hasCurrentPlan && !stale && (
+        <WhyWeek
+          explanation={explainWeek({
+            days: plan.days,
+            cycle,
+            // Lo que hizo antes de armar la semana: contra eso se compara lo que cambia.
+            history: sessions.filter((s) => s.finishedAt < plan.generatedAt),
+            exercises: EXERCISES,
+          })}
+          aiNote={plan.generator === 'llm' ? plan.summary : null}
+        />
+      )}
       {!hasCurrentPlan && (
         <Link href="/" style={styles.pending}>
           Arma tu semana desde Hoy ›

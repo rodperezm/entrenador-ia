@@ -32,7 +32,11 @@ type GuardInput = {
   mainCandidates: string[]; // lo que la IA pudo elegir en Fuerza
 };
 
-const FIXED_KEPT_SUMMARY = 'Mantuvimos tus ejercicios del ciclo y ajustamos las cargas con tu historial.';
+// Si la IA cambió ejercicios de Fuerza a mitad del ciclo, se restauran y se dice por qué. Su resumen
+// no se usa porque podría hablar de los ejercicios que se quitaron; la explicación de la semana la
+// arma la app con los datos reales.
+const FIXED_KEPT_SUMMARY =
+  'La IA propuso cambiar ejercicios de Fuerza a mitad del ciclo; los mantuvimos para que puedas medir tu avance.';
 const PARTS: [BlockType, DayPart][] = [
   ['warmup', 'warmup'],
   ['prehab', 'prehab'],

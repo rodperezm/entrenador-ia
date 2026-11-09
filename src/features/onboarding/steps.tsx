@@ -22,7 +22,6 @@ import { CLOUD_BACKUP_READY } from '@/lib/cloudSync';
 import { BLOCK_LABELS } from '@/domain/labels';
 import type { BlockType, DayOfWeek, LocalProfile, Sex } from '@/domain/schema';
 import {
-  DAY_PARTS,
   DAY_TYPE_PARTS,
   type DayPart,
   type DayChoice,
@@ -65,8 +64,6 @@ const OPTIONAL_EQUIPMENT = (Object.keys(EQUIPMENT) as EquipmentId[]).filter((e) 
 const KB_WEIGHTS = [4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 28, 32];
 const DB_WEIGHTS = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 15, 20];
 
-export const PART_MAX: Record<DayPart, number> = { warmup: 8, prehab: 6, main: 10, cooldown: 8 };
-
 const toggle = <T,>(list: T[], item: T) => (list.includes(item) ? list.filter((x) => x !== item) : [...list, item]);
 
 // ---------- Portada (antes del paso 1, solo la primera vez) ----------
@@ -87,8 +84,8 @@ export function IntroScreen({ onStart, onExisting }: { onStart: () => void; onEx
         <Text style={[styles.introBrand, display]}>KETTAI</Text>
         <Text style={[styles.introHeadline, display]}>Entrena fuerte.{'\n'}Cuida lo que duele.</Text>
         <Text style={styles.introBody}>
-          La fuerza es la madre de todas las batallas. Solo necesitas una kettlebell, tu cuerpo y un plan que respeta
-          tus lesiones.
+          La fuerza es la clave para moverte con libertad toda la vida: solo necesitas una kettlebell, tu cuerpo y un
+          plan que respete tus lesiones.
         </Text>
       </ScrollView>
       <Button label="Empezar" onPress={onStart} />
@@ -621,25 +618,11 @@ export function WeekStep({ draft, update }: StepProps) {
           );
         })}
 
-      {mode === 'manual' && (
-        <View style={styles.dayRow}>
-          <Text style={styles.dayName}>Ejercicios por parte</Text>
-          {DAY_PARTS.map((p) => (
-            <View key={p} style={styles.stepRow}>
-              <Text style={styles.stepLabel} numberOfLines={1}>
-                {dayPartLabel(p, hasConditions)}
-              </Text>
-              <Stepper
-                value={draft.partCounts[p]}
-                min={1}
-                max={PART_MAX[p]}
-                onChange={(n) => update({ partCounts: { ...draft.partCounts, [p]: n } })}
-              />
-            </View>
-          ))}
-          <Text style={styles.hint}>Es una base: la rutina la ajusta a los minutos de cada día.</Text>
-        </View>
-      )}
+      {/* Cuántos ejercicios lleva cada parte lo decide la app con los minutos, el nivel y el tipo de día.
+          Quien quiera fijarlo puede hacerlo en «Rehacer o ajustar este día». */}
+      <Text style={styles.hint}>
+        Cuántos ejercicios lleva cada parte lo calcula la app con tus minutos y tu nivel, y te explica por qué.
+      </Text>
 
       <Text style={styles.hint}>
         {custom ? 'Elige qué haces cada día. Fuerza necesita al menos 20 minutos.' : ''}
