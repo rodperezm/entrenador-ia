@@ -93,8 +93,9 @@ const cycleMaxSets = (cap: number, cycle?: CycleInfo, intensity: Intensity = 'in
 // salvo que la persona fije el número a mano (opción avanzada). Segundos que se espera que tome
 // cada ejercicio ya con sus vueltas: con eso, un calentamiento de 8 min trae unos 5 ejercicios.
 const SEC_PER_EXERCISE: Record<Exclude<DayPart, 'main'>, number> = { warmup: 100, prehab: 240, cooldown: 135 };
-const MAIN_SEC_PER_EXERCISE: Record<Level, number> = { beginner: 300, intermediate: 360, advanced: 420 };
-const MIN_COUNT: Record<DayPart, number> = { warmup: 3, prehab: 2, main: 3, cooldown: 3 };
+const MAIN_SEC_PER_EXERCISE: Record<Level, number> = { beginner: 330, intermediate: 460, advanced: 600 };
+// Fuerza: al menos 4, para cubrir bisagra, piernas, empuje y tirón (cuerpo completo).
+const MIN_COUNT: Record<DayPart, number> = { warmup: 3, prehab: 2, main: 4, cooldown: 3 };
 
 export function partCount(part: DayPart, cfg: DayConfig, level: Level) {
   const block = cfg.blocks[part];
@@ -160,7 +161,13 @@ export function fitPart(
   // que es opcional. La app avisa que toma más tiempo; si la persona pide ajustarla, se recorta.
   const keepFull = part === 'main' && !cfg.gentleStrength && !cfg.fitToTime;
   if (keepFull) {
-    while (out.length > 1 && total() > budget && out.at(-1)!.role === 'C') reserve.unshift(out.pop()!);
+    while (out.length > 1 && total() > budget && out.some((s) => s.role === 'C')) {
+      const c = out.findLastIndex((s) => s.role === 'C');
+      reserve.unshift(...out.splice(c, 1));
+    }
+    // Cuerpo completo (bisagra, piernas, empuje y tirón) sin pasar del margen: si aun así no cabe,
+    // se baja una serie a los que tengan más, nunca bajo 2, en vez de quitar un patrón.
+    trimSets(out, budget * MAIN_TOLERANCE);
   } else {
     // Fuerza suave: mejor dos ejercicios con pocas vueltas que uno solo con muchas.
     if (part === 'main' && cfg.gentleStrength) dropSets(GENTLE_MIN_SETS);
@@ -198,6 +205,25 @@ export function fitPart(
       changed = true;
     }
   }
+  return out;
+}
+
+// Baja una serie a los ejercicios que tengan más (nunca bajo 2) hasta que la Fuerza quepa en `roof` segundos.
+function trimSets(slots: ExerciseSlot[], roof: number) {
+  while (slotsSeconds(slots) > roof) {
+    const most = Math.max(...slots.map((s) => s.sets));
+    if (most <= GENTLE_MIN_SETS) return;
+    [...slots].reverse().find((s) => s.sets === most)!.sets--;
+  }
+}
+
+// La progresión (más repeticiones o series) se aplica después de repartir el tiempo: este último
+// control evita que la Fuerza pase del margen de 120% de sus minutos, sin quitar ningún patrón.
+export function capMainTime(slots: ExerciseSlot[], cfg: DayConfig, level: Level, cycle?: CycleInfo) {
+  if (cfg.gentleStrength) return slots;
+  const budget = (partBudgets(cfg, level).main ?? 0) * (cycle?.week === 4 ? DELOAD_TIME : 1);
+  const out = slots.map((s) => ({ ...s }));
+  if (budget > 0) trimSets(out, budget * MAIN_TOLERANCE);
   return out;
 }
 

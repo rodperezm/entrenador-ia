@@ -5,7 +5,7 @@ import { recentExerciseIds } from './generator';
 import { lastSessionOf } from './progression';
 import type { DayConfig, DayPlan, Exercise, ExerciseSlot, LocalProfile, WorkoutSession } from './schema';
 import { weightLabel } from './sides';
-import type { Intensity } from './strength';
+import { anchorIds, type Intensity, isArmAccessory } from './strength';
 
 // Por qué la semana y el día son como son. Lo arma la app con los datos reales (semana del ciclo,
 // lo que hizo la última vez, lo que trabaja cada día), así nunca dice algo que no pasó.
@@ -51,7 +51,7 @@ const KB_CORE = new Set([
 
 const PURPOSE: Record<CycleInfo['week'], string> = {
   1: 'Partimos con técnica y peso cómodo: el cuerpo aprende los movimientos antes de exigirle.',
-  2: 'Subimos el volumen de a poco: más series o repeticiones con los mismos ejercicios.',
+  2: 'Subimos el volumen de a poco: más series o repeticiones en tus ejercicios ancla.',
   3: 'La semana más exigente del ciclo: más peso si tienes una kettlebell mayor; si no, más tensión.',
   4: 'Descarga: bajamos el volumen para que el cuerpo asimile lo trabajado y llegues fresco al próximo ciclo.',
 };
@@ -62,7 +62,14 @@ const join = (items: string[]) =>
 const doseLabel = (exerciseId: string, sets: number, reps: number | null, sec: number | null, kg: number | null) =>
   `${sets} × ${reps ?? `${sec ?? 0} s`}${kg ? ` · ${weightLabel(exerciseId, kg)}` : ''}`;
 
-export type ExerciseChange = { name: string; before: string | null; now: string; note: string | null };
+export type ExerciseChange = {
+  name: string;
+  before: string | null;
+  now: string;
+  note: string | null;
+  tag: 'anchor' | 'new' | 'back' | null; // ancla del ciclo, primera vez o vuelve tras unos días
+  sinceStart: string | null; // en las anclas: la dosis de la primera sesión del ciclo
+};
 export type WeekExplanation = {
   title: string;
   purpose: string;
@@ -89,22 +96,48 @@ export function explainWeek(input: {
     ? 'Hasta el lunes, días de técnica para empezar el ciclo con buena base. La primera semana del ciclo la arma la IA.'
     : PURPOSE[cycle.week];
 
+  // Anclas: el ejercicio de potencia y el principal de piernas de cada día. Se mantienen todo el ciclo
+  // para medir el avance; el resto de la Fuerza rota cada semana dentro de los mismos patrones.
+  const anchors = new Set(
+    strengthDays.flatMap((d) =>
+      anchorIds(d.blocks.find((b) => b.type === 'main_strength')?.slots ?? [], byId),
+    ),
+  );
+  const recent = recentExerciseIds(history);
+  const mainIds = [...new Set(mainSlots.map((s) => s.exerciseId))];
+  const fresh = recent.size ? mainIds.filter((id) => !anchors.has(id) && !recent.has(id)) : [];
+  const nameOf = (id: string) => byId.get(id)?.name.es ?? id;
+
   const why: string[] = [];
   if (strengthDays.length) {
-    why.push(
-      cycle.week === 1 && cycle.block > 1
-        ? 'Ciclo nuevo: cambian los ejercicios de Fuerza B y C, con los mismos patrones de movimiento; el bloque A sigue su progresión.'
-        : 'Tus ejercicios de Fuerza se mantienen las 4 semanas del ciclo: con el mismo ejercicio se mide si avanzas. Lo que cambia es la carga.',
-    );
+    if (cycle.week === 1 && cycle.block > 1) {
+      why.push(
+        'Ciclo nuevo: eliges nuevas anclas con los mismos patrones de movimiento; el ejercicio de potencia sigue su progresión.',
+      );
+    }
+    if (anchors.size) {
+      why.push(
+        `Anclas del ciclo: ${join([...anchors].map(nameOf))}. Se mantienen las 4 semanas para medir tu avance: lo que cambia es la carga.`,
+      );
+      why.push(
+        'El resto de la Fuerza rota cada semana con los mismos patrones (empuje, tirón, piernas y bisagra), para que entrenes todo el cuerpo sin que sea siempre lo mismo.',
+      );
+    }
+    if (fresh.length) {
+      why.push(`Distinto a la semana pasada en Fuerza: ${join(fresh.map(nameOf))}.`);
+    }
+    const arms = mainIds.filter((id) => byId.get(id) && isArmAccessory(byId.get(id)!));
+    if (arms.length) {
+      why.push(`Brazos (bíceps y tríceps): ${join(arms.map(nameOf))}, como remate al final de la Fuerza.`);
+    }
   }
   // Variedad real: cuántos ejercicios de apoyo no hizo en los últimos días.
-  const recent = recentExerciseIds(history);
   if (recent.size) {
     const support = days.flatMap((d) => d.blocks.filter((b) => b.type !== 'main_strength').flatMap((b) => b.slots));
-    const fresh = support.filter((s) => !recent.has(s.exerciseId)).length;
+    const freshSupport = support.filter((s) => !recent.has(s.exerciseId)).length;
     if (support.length) {
       why.push(
-        `${fresh} de ${support.length} ejercicios de calentamiento, lesión y elongación son distintos a los de la semana pasada. Cambian los ejercicios, no el objetivo: siempre preparan y estiran lo que trabajas ese día.`,
+        `${freshSupport} de ${support.length} ejercicios de calentamiento, lesión y elongación son distintos a los de la semana pasada. Cambian los ejercicios, no el objetivo: siempre preparan y estiran lo que trabajas ese día.`,
       );
     }
   }
@@ -112,6 +145,17 @@ export function explainWeek(input: {
   // Qué cambia en cada ejercicio de Fuerza frente a lo que hizo la última vez.
   const seen = new Set<string>();
   const changes: ExerciseChange[] = [];
+  // Dosis de un registro de sesión, para comparar.
+  const doseOf = (id: string, logs: WorkoutSession['sets']) => {
+    const plain = logs.filter((l) => !l.format);
+    if (!plain.length) return null;
+    const reps = Math.max(...plain.map((l) => l.targetReps ?? l.repsDone ?? 0)) || null;
+    const sec = Math.max(...plain.map((l) => l.durationSec ?? 0)) || null;
+    const kg = Math.max(...plain.map((l) => l.weightKg ?? 0)) || null;
+    return doseLabel(id, plain.length, reps, sec, kg);
+  };
+  // Lo hecho en este ciclo, de la sesión más antigua a la más reciente.
+  const blockHistory = history.filter((h) => h.finishedAt.slice(0, 10) >= cycle.blockStart).reverse();
   for (const s of mainSlots) {
     if (seen.has(s.exerciseId)) continue;
     seen.add(s.exerciseId);
@@ -119,17 +163,18 @@ export function explainWeek(input: {
     if (!e) continue;
     const last = lastSessionOf(s.exerciseId, history);
     const now = doseLabel(s.exerciseId, s.sets, s.reps, s.durationSec, s.weightKg);
-    let before: string | null = null;
-    if (last) {
-      const logs = last.logs.filter((l) => !l.format);
-      if (logs.length) {
-        const reps = Math.max(...logs.map((l) => l.targetReps ?? l.repsDone ?? 0)) || null;
-        const sec = Math.max(...logs.map((l) => l.durationSec ?? 0)) || null;
-        const kg = Math.max(...logs.map((l) => l.weightKg ?? 0)) || null;
-        before = doseLabel(s.exerciseId, logs.length, reps, sec, kg);
-      }
-    }
-    changes.push({ name: e.name.es, before, now, note: s.rationale });
+    const before = last ? doseOf(s.exerciseId, last.logs) : null;
+    const anchor = anchors.has(s.exerciseId);
+    const first = anchor ? lastSessionOf(s.exerciseId, blockHistory) : null;
+    const start = first && first.session !== last?.session ? doseOf(s.exerciseId, first.logs) : null;
+    changes.push({
+      name: e.name.es,
+      before,
+      now,
+      note: s.rationale,
+      tag: anchor ? 'anchor' : !last ? 'new' : fresh.includes(s.exerciseId) ? 'back' : null,
+      sinceStart: start,
+    });
   }
 
   // Qué trabaja la semana: patrones por días, grupos musculares y movimientos base con kettlebell.

@@ -31,13 +31,14 @@ type GuardInput = {
   history: WorkoutSession[];
   lockedByDay: Partial<Record<DayConfig['day'], string[]>>;
   mainCandidates: string[]; // lo que la IA pudo elegir en Fuerza
+  rotate?: boolean; // semana nueva del ciclo: lockedByDay son solo las anclas
 };
 
 // Si la IA cambió ejercicios de Fuerza a mitad del ciclo, se restauran y se dice por qué. Su resumen
 // no se usa porque podría hablar de los ejercicios que se quitaron; la explicación de la semana la
 // arma la app con los datos reales.
 const FIXED_KEPT_SUMMARY =
-  'La IA propuso cambiar ejercicios de Fuerza a mitad del ciclo; los mantuvimos para que puedas medir tu avance.';
+  'La IA propuso cambiar tus ejercicios ancla de Fuerza a mitad del ciclo; los mantuvimos para que puedas medir tu avance.';
 const PARTS: [BlockType, DayPart][] = [
   ['warmup', 'warmup'],
   ['prehab', 'prehab'],
@@ -56,9 +57,10 @@ function changedWithoutReason(day: DayPlan, cfg: DayConfig, input: GuardInput) {
     const e = input.exercises.find((x) => x.id === id);
     return !!e && input.mainCandidates.includes(id) && e.equipment.required.every((q) => available.has(q));
   };
-  const allowedChanges = fixed.filter((id) => !canStay(id)).length;
+  // Lo fijo (todo, en la misma semana; solo las anclas, en una semana nueva) tiene que estar. Lo demás
+  // puede variar: en una semana nueva, rotar es lo esperado.
   const slots = day.blocks.filter((b) => b.type === 'main_strength').flatMap((b) => b.slots);
-  return slots.filter((s) => !fixed.includes(s.exerciseId)).length > allowedChanges;
+  return fixed.some((id) => canStay(id) && !slots.some((s) => s.exerciseId === id));
 }
 
 function limitLoad(proposed: ExerciseSlot, input: GuardInput): ExerciseSlot {
@@ -196,7 +198,7 @@ export function guardAiPlan(plan: GeneratedWeekPlan, input: GuardInput): Generat
     if (!cfg) return day;
     let blocks = day.blocks;
     const others = plan.days.filter((d) => d.day !== day.day);
-    const byRules = () => generateDayByRules(cfg, others, profile, exercises, history, 1, lockedByDay[day.day], days);
+    const byRules = () => generateDayByRules(cfg, others, profile, exercises, history, 1, lockedByDay[day.day], days, !!input.rotate);
     if (changedWithoutReason(day, cfg, input)) {
       restored = true;
       const main = byRules().blocks.find((b) => b.type === 'main_strength');

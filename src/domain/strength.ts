@@ -41,9 +41,20 @@ const B_PATTERNS: Pattern[] = [
   'pull_vertical',
 ];
 
-// null = no entra a Fuerza: aislados, movilidad, gemelos o cardio.
+// Brazos (bíceps y tríceps aislados): entran como remate C, para que la semana también los trabaje.
+export const isArmAccessory = (e: Exercise) =>
+  e.movementPattern === 'isolation_arm' &&
+  e.blockTypes.includes('main_strength') &&
+  e.anatomy.primary.some((m) => m.muscle === 'biceps' || m.muscle === 'triceps');
+
+// null = no entra a Fuerza: movilidad, gemelos, cardio u otros aislados.
 export function strengthRole(e: Exercise): StrengthRole | null {
-  if (FINISHER_IDS.includes(e.id) || e.movementPattern === 'carry' || e.movementPattern.startsWith('core_')) {
+  if (
+    FINISHER_IDS.includes(e.id) ||
+    e.movementPattern === 'carry' ||
+    e.movementPattern.startsWith('core_') ||
+    isArmAccessory(e)
+  ) {
     return 'C';
   }
   if (e.restrictionFlags.includes('ballistic')) return 'A';
@@ -57,6 +68,16 @@ export function slotRole(e: Exercise, stage: number): StrengthRole | null {
 // Descanso mínimo entre series: los compuestos pesados necesitan recuperar para mantener la técnica.
 export const MIN_REST_SEC: Record<StrengthRole, number> = { A: 120, B: 90, C: 45 };
 export const POWER_REPS_MAX = 10;
+
+// Anclas del día: se mantienen todo el ciclo para medir el progreso. Son el ejercicio de potencia (A)
+// y el principal de piernas (o, si no hay, el primer B). El resto de Fuerza rota cada semana.
+export function anchorIds(slots: ExerciseSlot[], byId: Map<string, Exercise>): string[] {
+  const a = slots.filter((s) => s.role === 'A').map((s) => s.exerciseId);
+  const b = slots.filter((s) => s.role === 'B');
+  const legs = b.find((s) => ['squat', 'lunge'].includes(byId.get(s.exerciseId)?.movementPattern ?? ''));
+  const firstB = legs ?? b[0];
+  return [...a.slice(0, 1), ...(firstB ? [firstB.exerciseId] : []), ...(a.length ? [] : b.filter((s) => s !== firstB).slice(0, 1).map((s) => s.exerciseId))];
+}
 
 const ROLE_ORDER: StrengthRole[] = ['A', 'B', 'C'];
 export const sortByRole = (slots: ExerciseSlot[]) =>

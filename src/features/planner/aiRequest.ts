@@ -3,7 +3,7 @@ import { zoneLabel } from '@/domain/checkIn';
 import { cycleGuide, cycleInfo, previousBlockExercises } from '@/domain/cycle';
 import { effortKind, effortNote } from '@/domain/effort';
 import { filterExercisesForUser } from '@/domain/filter';
-import { avoidedIds, legsRestIds, recentExerciseIds } from '@/domain/generator';
+import { avoidedIds, legsRestIds, recentExerciseIds, weekLocks } from '@/domain/generator';
 import { wasTooHard } from '@/domain/progression';
 import { A_STAGES, dayIntensity, strengthRole } from '@/domain/strength';
 import { leadPart, partBudgets, partCount } from '@/domain/timeBudget';
@@ -136,16 +136,8 @@ export function buildAiRequest(
     }));
   });
 
-  // Dentro del bloque se conservan los ejercicios de Fuerza ya elegidos.
-  const fixedByDay =
-    plan?.cycleBlock === cycle.blockStart
-      ? Object.fromEntries(
-          plan.days.map((d) => [
-            d.day,
-            d.blocks.filter((b) => b.type === 'main_strength').flatMap((b) => b.slots.map((s) => s.exerciseId)),
-          ]),
-        )
-      : {};
+  // Dentro del ciclo: misma semana, se conserva la Fuerza; semana nueva, solo las anclas y el resto rota.
+  const { lockedByDay: fixedByDay, rotate } = weekLocks(plan, cycle.blockStart, exercises);
 
   return {
     cycle: {
@@ -153,6 +145,8 @@ export function buildAiRequest(
       guide: cycleGuide(cycle, profile.level),
       previousBlockExercises: [...previousBlockExercises(history, cycle)],
       fixedByDay,
+      // true: fixedByDay son solo las anclas del día; el resto de main_strength rota respecto de la semana pasada.
+      rotateOthers: rotate,
     },
     profile: {
       level: profile.level,

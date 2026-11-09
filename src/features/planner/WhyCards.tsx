@@ -5,6 +5,8 @@ import { colors, radius, spacing } from '@/theme';
 
 // Las explicaciones de la semana y del día: el porqué de lo que propone la app, con datos reales.
 
+const TAG_LABEL = { anchor: '  · Ancla del ciclo', new: '  · Nuevo', back: '  · Vuelve esta semana', none: '' };
+
 export function WhyWeek({ explanation, aiNote }: { explanation: WeekExplanation; aiNote: string | null }) {
   const [showChanges, setShowChanges] = useState(false);
   const { title, purpose, why, changes, works } = explanation;
@@ -27,13 +29,16 @@ export function WhyWeek({ explanation, aiNote }: { explanation: WeekExplanation;
         <>
           <Pressable onPress={() => setShowChanges(!showChanges)} hitSlop={8}>
             <Text style={styles.link}>
-              {showChanges ? 'Ocultar los cambios' : `Ver qué cambia en cada ejercicio de Fuerza (${changes.length})`}
+              {showChanges ? 'Ocultar los cambios' : `Ver tus anclas, lo nuevo y qué cambia en Fuerza (${changes.length})`}
             </Text>
           </Pressable>
           {showChanges &&
             changes.map((c) => (
               <View key={c.name} style={styles.change}>
-                <Text style={styles.changeName}>{c.name}</Text>
+                <Text style={styles.changeName}>
+                  {c.name}
+                  {TAG_LABEL[c.tag ?? 'none']}
+                </Text>
                 <Text style={styles.changeDose}>
                   {c.before
                     ? c.before === c.now
@@ -41,6 +46,11 @@ export function WhyWeek({ explanation, aiNote }: { explanation: WeekExplanation;
                       : `${c.before} → ${c.now}`
                     : `${c.now} · primera vez`}
                 </Text>
+                {c.sinceStart && (
+                  <Text style={styles.muted}>
+                    Al empezar el ciclo: {c.sinceStart} · ahora: {c.now}
+                  </Text>
+                )}
                 {c.note && <Text style={styles.muted}>{c.note}</Text>}
               </View>
             ))}

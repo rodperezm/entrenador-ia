@@ -3,7 +3,7 @@ import { EXERCISES } from '@/data/exercises.seed';
 import { guardAiPlan } from '@/domain/aiGuard';
 import { bodyFat, calcIndices } from '@/domain/body';
 import { cycleInfo } from '@/domain/cycle';
-import { generateWeekByRules } from '@/domain/generator';
+import { generateWeekByRules, weekLocks } from '@/domain/generator';
 import { configHash, dayHashes, isFromPastWeek } from '@/domain/week';
 import { useBody } from '@/state/body';
 import { useHistory } from '@/state/history';
@@ -31,19 +31,12 @@ export function useGenerateWeek() {
       dayHashes: dayHashes(week, profile.updatedAt),
       cycleBlock: cycleInfo(sessions, profile.level, week.days).blockStart,
     };
-    // Mismo bloque: la Fuerza de cada día se conserva al volver a generar.
-    const lockedByDay =
-      plan?.cycleBlock === meta.cycleBlock
-        ? Object.fromEntries(
-            plan.days.map((d) => [
-              d.day,
-              d.blocks.filter((b) => b.type === 'main_strength').flatMap((b) => b.slots.map((s) => s.exerciseId)),
-            ]),
-          )
-        : {};
+    // Misma semana: la Fuerza se conserva. Semana nueva del mismo ciclo: se conservan las anclas
+    // (para medir el progreso) y el resto rota, para que la semana no sea una copia.
+    const { lockedByDay, rotate } = weekLocks(plan, meta.cycleBlock, EXERCISES);
     // La preparación previa al lunes es técnica: la arman las reglas, sin gastar IA.
     if (cycleInfo(sessions, profile.level, week.days).preparation) {
-      const result = generateWeekByRules(week, profile, EXERCISES, sessions, Date.now(), lockedByDay);
+      const result = generateWeekByRules(week, profile, EXERCISES, sessions, Date.now(), lockedByDay, rotate);
       await savePlan({ ...result, ...meta, generator: 'rules' });
       setGenerating(false);
       return;
@@ -72,6 +65,7 @@ export function useGenerateWeek() {
         exercises: EXERCISES,
         history: sessions,
         lockedByDay,
+        rotate,
         mainCandidates: request.candidates.filter((c) => c.blocks.includes('main_strength')).map((c) => c.id),
       });
       await savePlan({ ...guarded, ...meta, generator: 'llm' });
@@ -84,14 +78,14 @@ export function useGenerateWeek() {
           setGenerating(false);
           return;
         }
-        const result = generateWeekByRules(week, profile, EXERCISES, sessions, Date.now(), lockedByDay);
+        const result = generateWeekByRules(week, profile, EXERCISES, sessions, Date.now(), lockedByDay, rotate);
         await savePlan({ ...result, ...meta, generator: 'rules' });
         setNotice('Ya usaste tu semana con IA. Esta vez la armamos con las reglas de la app.');
         setGenerating(false);
         return;
       }
       // Respaldo: reglas dentro de la app (sin conexión, sin clave, etc.).
-      const result = generateWeekByRules(week, profile, EXERCISES, sessions, Date.now(), lockedByDay);
+      const result = generateWeekByRules(week, profile, EXERCISES, sessions, Date.now(), lockedByDay, rotate);
       await savePlan({ ...result, ...meta, generator: 'rules' });
       const reason = err instanceof AiPlanError ? err.message : 'error inesperado';
       console.warn(`IA no disponible: ${reason}`);
