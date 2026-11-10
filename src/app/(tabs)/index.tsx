@@ -14,6 +14,7 @@ import { countExercises, describeDayConfig } from '@/features/planner/describe';
 import { useGenerateWeek } from '@/features/planner/useGenerateWeek';
 import { WeekCard } from '@/features/planner/WeekCard';
 import { WeekStrip } from '@/features/planner/WeekStrip';
+import { UnfinishedWorkoutCard } from '@/features/workout/draft';
 import { PainFollowUpCard } from '@/features/workout/PainFollowUpCard';
 import { CLOUD_BACKUP_READY } from '@/lib/cloudSync';
 import { useHistory } from '@/state/history';
@@ -89,6 +90,7 @@ export default function TodayScreen() {
         </View>
       )}
 
+      <UnfinishedWorkoutCard />
       <PainFollowUpCard />
       <TodayCard generating={generating} onGenerate={generate} />
       <WeekCard generating={generating} onGenerate={generate} />

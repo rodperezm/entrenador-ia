@@ -35,11 +35,13 @@ import {
 import { fmtClock } from '@/domain/session';
 import { alternatingSplit, isPerSide, loadCount, sideLabel, weightLabel } from '@/domain/sides';
 import { DAY_LONG } from '@/domain/week';
+import { canResume, sessionFromDraft, sessionIdOf, type WorkoutDraft } from '@/domain/workoutDraft';
 import { slotLabel } from '@/features/planner/describe';
 import { CANT_DO_OPTIONS, easierAlternative, replacementSlot } from '@/domain/cantDo';
 import { adjustForCheckIn, allowsFinisher } from '@/domain/checkIn';
 import { AmrapBlock, type AmrapResult } from '@/features/workout/AmrapBlock';
 import { AfterWarmupQuestion, ArrivalQuestion, checkInMessage } from '@/features/workout/CheckInPanel';
+import { clearDraft, DraftSaver, ResumePrompt, useWorkoutDraft } from '@/features/workout/draft';
 import type { FinisherFeedbackResult } from '@/features/workout/FinisherFeedback';
 import { HiitBlock, type HiitResult } from '@/features/workout/HiitBlock';
 import { PAIN_OPTIONS, PainPicker, SidePicker } from '@/features/workout/PainControls';
@@ -98,7 +100,7 @@ export default function WorkoutScreen() {
   const dayPlan = plan?.days.find((d) => d.day === day);
   const cues = useCues(true);
 
-  const [startedAt] = useState(() => Date.now());
+  const [startedAt, setStartedAt] = useState(() => Date.now());
   const [now, setNow] = useState(startedAt);
   const [logs, setLogs] = useState<(SetLog & { itemKey: string })[]>([]);
   const [idx, setIdx] = useState(0);
@@ -136,6 +138,15 @@ export default function WorkoutScreen() {
   const markTimes = useRef<number[]>([]); // cuándo se marcó cada serie
   // Ejercicios que hace modificados hoy (clave del ejercicio en la sesión).
   const [modifiedKeys, setModifiedKeys] = useState<string[]>([]);
+  // Un entrenamiento que quedó a medias (el sistema cerró la app): al abrir se ofrece retomarlo.
+  // Se decide una sola vez, con lo que había guardado al entrar a esta pantalla.
+  const savedDraft = useWorkoutDraft();
+  const [entryDraft, setEntryDraft] = useState<WorkoutDraft | null | undefined>(undefined);
+  if (entryDraft === undefined && savedDraft !== undefined) setEntryDraft(savedDraft);
+  const [draftChoice, setDraftChoice] = useState<'pending' | 'done'>('pending');
+  // Terminar y guardar pasan una sola vez, aunque el botón reciba dos toques seguidos.
+  const finishing = useRef(false);
+  const savedOnce = useRef(false);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 250);
@@ -184,12 +195,12 @@ export default function WorkoutScreen() {
   // La sesión de hoy según cómo llegó la persona; el plan guardado no cambia.
   const planFor = (c: CheckIn | null) =>
     profile ? adjustForCheckIn(dayPlan, c ?? undefined, { profile, exercises: EXERCISES }) : dayPlan;
-  const itemsOf = (plan: typeof dayPlan): Item[] =>
+  const itemsOf = (plan: typeof dayPlan, repl: Record<string, Item> = replacements): Item[] =>
     plan.blocks.flatMap((b) =>
       b.slots.flatMap((slot, i) => {
         // Un ejercicio cambiado (por dolor o porque no pudo) queda cerrado y su reemplazo va
         // justo después; el reemplazo también puede cambiarse.
-        const chain = (it: Item): Item[] => (replacements[it.key] ? [it, ...chain(replacements[it.key])] : [it]);
+        const chain = (it: Item): Item[] => (repl[it.key] ? [it, ...chain(repl[it.key])] : [it]);
         return chain({ key: `${b.type}-${i}`, block: b.type, slot });
       }),
     );
@@ -205,6 +216,8 @@ export default function WorkoutScreen() {
   const isClosed = (it: Item) => isComplete(it) || skipped.includes(it.key);
 
   const finish = (doneLogs = logs) => {
+    if (finishing.current) return;
+    finishing.current = true;
     // El dolor marcado se guarda siempre: en las series hechas y, si el ejercicio
     // no alcanzó a tener series, como una serie sin repeticiones (para que la
     // próxima rutina lo cambie o lo alivie).
@@ -240,9 +253,12 @@ export default function WorkoutScreen() {
     const end = now;
     setFinishedAt(end);
     setRestEndsAt(null);
-    if (allLogs.length === 0) return;
+    if (allLogs.length === 0) {
+      clearDraft();
+      return;
+    }
     const session: WorkoutSession = {
-      id: `s${startedAt.toString(36)}`,
+      id: sessionIdOf(startedAt),
       day,
       location: dayPlan.location,
       startedAt: new Date(startedAt).toISOString(),
@@ -271,12 +287,55 @@ export default function WorkoutScreen() {
     saveSession(session);
   };
   const saveSession = (s: WorkoutSession) => {
+    if (savedOnce.current) return;
+    savedOnce.current = true;
+    clearDraft();
     cues.play('done');
     cues.say('¡Lo lograste!');
     addSession(s);
     setSaveState('saved');
   };
-  const sessionId = `s${startedAt.toString(36)}`;
+  const sessionId = sessionIdOf(startedAt);
+
+  // ---------- Entrenamiento sin terminar ----------
+  const pendingDraft = draftChoice === 'pending' && entryDraft?.logs.length ? entryDraft : null;
+  const resumable = !!pendingDraft && canResume(pendingDraft, { day, planGeneratedAt: plan?.generatedAt ?? null, now });
+  const keepDraft = (d: WorkoutDraft) => {
+    addSession(sessionFromDraft(d));
+    clearDraft();
+  };
+  const resumeDraft = (d: WorkoutDraft) => {
+    const restored = itemsOf(planFor(d.checkIn), d.replacements);
+    const closed = (it: Item) =>
+      d.logs.filter((l) => l.itemKey === it.key).length >= it.slot.sets || d.skipped.includes(it.key);
+    const at = restored[d.idx];
+    // Quedó en la pregunta de esfuerzo: se vuelve ahí. Si no, al ejercicio donde iba o al primero pendiente.
+    const askEffort = d.feedback && !!at && !d.skipped.includes(at.key) && closed(at);
+    const open = at && !closed(at) ? d.idx : restored.findIndex((it) => !closed(it));
+    if (!askEffort && open < 0) {
+      // No quedaba nada por hacer: solo faltaba guardarla.
+      keepDraft(d);
+      router.back();
+      return;
+    }
+    setStartedAt(d.startedAt);
+    setLogs(d.logs);
+    setCheckIn(d.checkIn);
+    setOverrides(d.overrides);
+    setSkipped(d.skipped);
+    setItemPain(d.itemPain);
+    setPainSides(d.painSides);
+    setReplacements(d.replacements);
+    setModifiedKeys(d.modifiedKeys);
+    setClosingDismissed(d.closingDismissed);
+    cantDo.current = d.cantDo ?? [];
+    amrapResult.current = d.amrap;
+    markTimes.current = d.markTimes;
+    setIdx(askEffort ? d.idx : open);
+    setPhase(askEffort ? 'feedback' : 'work');
+    setNote('Seguimos donde quedaste.');
+    setDraftChoice('done');
+  };
 
   if (finishedAt != null) {
     const minutes = Math.round((finishedAt - startedAt) / 60000);
@@ -299,10 +358,39 @@ export default function WorkoutScreen() {
         saveState={saveState}
         onSave={() => pendingSession.current && saveSession(pendingSession.current)}
         onDiscard={() => {
+          clearDraft();
           removeSession(sessionId);
           setSaveState('discarded');
         }}
       />
+    );
+  }
+
+  // Mientras se lee si quedó algo a medias, no se muestra nada (es un instante).
+  if (entryDraft === undefined) {
+    return <View style={styles.screen} />;
+  }
+  if (pendingDraft) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false, gestureEnabled: true }} />
+        <ResumePrompt
+          draft={pendingDraft}
+          resumable={resumable}
+          insetTop={insets.top}
+          onResume={() => resumeDraft(pendingDraft)}
+          onKeep={() => {
+            keepDraft(pendingDraft);
+            // Era este mismo entrenamiento: ya quedó guardado. Si era otro, se sigue con el de hoy.
+            if (resumable) router.back();
+            else setDraftChoice('done');
+          }}
+          onDiscard={() => {
+            clearDraft();
+            setDraftChoice('done');
+          }}
+        />
+      </>
     );
   }
 
@@ -702,6 +790,32 @@ export default function WorkoutScreen() {
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
+      {/* Guarda lo registrado tras cada serie, para poder retomar si el sistema cierra la app. */}
+      <DraftSaver
+        snapshot={{
+          v: 1,
+          day,
+          location: dayPlan.location,
+          startedAt,
+          planGeneratedAt: plan?.generatedAt ?? null,
+          totalSets,
+          logs,
+          idx,
+          feedback: phase === 'feedback',
+          checkIn,
+          overrides,
+          skipped,
+          itemPain,
+          painSides,
+          replacements,
+          modifiedKeys,
+          modifiedIds: items.filter((it) => modifiedKeys.includes(it.key)).map((it) => it.slot.exerciseId),
+          closingDismissed,
+        }}
+        cantDo={cantDo}
+        amrap={amrapResult}
+        markTimes={markTimes}
+      />
 
       <View style={styles.top}>
         <Pressable onPress={() => setConfirmEnd(true)} hitSlop={12} accessibilityLabel="Terminar">
