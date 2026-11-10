@@ -14,11 +14,18 @@ import {
 
 const WEEK_KEY = 'week-config.v1';
 const PLAN_KEY = 'week-plan.v1';
+// Cuándo cambió cada uno en este teléfono. Van en claves aparte para no tocar el formato guardado
+// (la huella de la semana se calcula sobre su contenido). El respaldo las usa para saber cuál es más nuevo.
+const WEEK_AT_KEY = 'week-config.updatedAt';
+const PLAN_AT_KEY = 'week-plan.updatedAt';
 
 type PlanState = {
   week: WeekConfig;
   plan: StoredWeekPlan | null;
   loading: boolean;
+  /** Última vez que la semana o la rutina cambiaron en este teléfono (null = no se sabe). */
+  weekUpdatedAt: string | null;
+  planUpdatedAt: string | null;
   updateDay: (day: DayOfWeek, patch: (d: DayConfig) => DayConfig) => void;
   updateAllDays: (patch: (d: DayConfig) => DayConfig) => void;
   /** Aplica las partes elegidas a cada día; los días que ya las tienen no se tocan. */
@@ -26,8 +33,12 @@ type PlanState = {
   savePlan: (p: StoredWeekPlan) => Promise<void>;
   /** Vuelve a la semana inicial y borra la rutina guardada. */
   resetPlan: () => Promise<void>;
-  /** Trae la semana y la rutina de la nube. */
-  importPlan: (w: WeekConfig | null, p: StoredWeekPlan | null) => Promise<void>;
+  /** Trae la semana y la rutina de la nube, con la fecha que tenían allá. */
+  importPlan: (
+    w: WeekConfig | null,
+    p: StoredWeekPlan | null,
+    at?: { week?: string | null; plan?: string | null },
+  ) => Promise<void>;
 };
 
 const PlanContext = createContext<PlanState | null>(null);
@@ -36,6 +47,8 @@ export function PlanProvider({ children }: { children: ReactNode }) {
   const [week, setWeek] = useState<WeekConfig>(defaultWeekConfig);
   const [plan, setPlan] = useState<StoredWeekPlan | null>(null);
   const [loading, setLoading] = useState(true);
+  const [weekUpdatedAt, setWeekUpdatedAt] = useState<string | null>(null);
+  const [planUpdatedAt, setPlanUpdatedAt] = useState<string | null>(null);
   // Hasta terminar la carga no se escribe: se guardaría la semana por defecto sobre la real.
   const loaded = useRef(false);
   // Claves cuya carga no dejó copia de lo que había: antes de escribirlas se reintenta la copia.
@@ -48,14 +61,29 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     }
     await AsyncStorage.setItem(key, JSON.stringify(value));
   }, []);
-  const saveWeek = useCallback((next: WeekConfig) => void write(WEEK_KEY, next).catch(() => {}), [write]);
+  const stamp = useCallback((key: string, set: (at: string | null) => void, at: string | null) => {
+    set(at);
+    (at ? AsyncStorage.setItem(key, at) : AsyncStorage.removeItem(key)).catch(() => {});
+  }, []);
+  // `touch`: la persona cambió la semana (no es solo un ajuste de formato al cargar).
+  const saveWeek = useCallback(
+    (next: WeekConfig, touch = true) => {
+      void write(WEEK_KEY, next).catch(() => {});
+      if (touch) stamp(WEEK_AT_KEY, setWeekUpdatedAt, new Date().toISOString());
+    },
+    [stamp, write],
+  );
 
   useEffect(() => {
     // Lo que no se entiende (por ejemplo, tras un cambio de formato) queda copiado en `.bak`.
     Promise.all([
       loadSafely(AsyncStorage, WEEK_KEY, parseWhole(WeekConfig)),
       loadSafely(AsyncStorage, PLAN_KEY, parseWhole(StoredWeekPlan)),
-    ]).then(([weekRes, planRes]) => {
+      AsyncStorage.getItem(WEEK_AT_KEY).catch(() => null),
+      AsyncStorage.getItem(PLAN_AT_KEY).catch(() => null),
+    ]).then(([weekRes, planRes, weekAt, planAt]) => {
+      setWeekUpdatedAt(weekAt);
+      setPlanUpdatedAt(planAt);
       if (!weekRes.safe) unsafe.current.add(WEEK_KEY);
       if (!planRes.safe) unsafe.current.add(PLAN_KEY);
       const w = weekRes.value;
@@ -65,7 +93,7 @@ export function PlanProvider({ children }: { children: ReactNode }) {
         const fixed = { days: w.days.map(normalizeDay) };
         setWeek(fixed);
         if (fixed.days.some((d, i) => d !== w.days[i])) {
-          saveWeek(fixed);
+          saveWeek(fixed, false);
         }
       }
       setPlan(p && withEvenAlternating(p)); // la semana ya armada también
@@ -120,34 +148,51 @@ export function PlanProvider({ children }: { children: ReactNode }) {
       const p = withEvenAlternating(raw);
       await write(PLAN_KEY, p);
       setPlan(p);
+      stamp(PLAN_AT_KEY, setPlanUpdatedAt, new Date().toISOString());
     },
-    [write],
+    [stamp, write],
   );
 
   const resetPlan = useCallback(async () => {
-    await AsyncStorage.multiRemove([WEEK_KEY, PLAN_KEY]);
+    await AsyncStorage.multiRemove([WEEK_KEY, PLAN_KEY, WEEK_AT_KEY, PLAN_AT_KEY]);
+    setWeekUpdatedAt(null);
+    setPlanUpdatedAt(null);
     setWeek(defaultWeekConfig());
     setPlan(null);
   }, []);
 
   const importPlan = useCallback(
-    async (w: WeekConfig | null, p: StoredWeekPlan | null) => {
+    async (w: WeekConfig | null, p: StoredWeekPlan | null, at: { week?: string | null; plan?: string | null } = {}) => {
       if (w) {
         const fixed = { days: w.days.map(normalizeDay) };
         await write(WEEK_KEY, fixed);
         setWeek(fixed);
+        stamp(WEEK_AT_KEY, setWeekUpdatedAt, at.week ?? null);
       }
       if (p) {
         await write(PLAN_KEY, p);
         setPlan(p);
+        stamp(PLAN_AT_KEY, setPlanUpdatedAt, at.plan ?? null);
       }
     },
-    [write],
+    [stamp, write],
   );
 
   return (
     <PlanContext.Provider
-      value={{ week, plan, loading, updateDay, updateAllDays, applyDayChoices, savePlan, resetPlan, importPlan }}
+      value={{
+        week,
+        plan,
+        loading,
+        weekUpdatedAt,
+        planUpdatedAt,
+        updateDay,
+        updateAllDays,
+        applyDayChoices,
+        savePlan,
+        resetPlan,
+        importPlan,
+      }}
     >
       {children}
     </PlanContext.Provider>

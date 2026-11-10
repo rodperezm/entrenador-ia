@@ -4,6 +4,7 @@ import { AppState } from 'react-native';
 import { z } from 'zod';
 import { FoldRecord, TapeRecord } from '@/domain/body';
 import { LocalProfile, StoredWeekPlan, WeekConfig, WorkoutSession } from '@/domain/schema';
+import { chooseDoc } from '@/domain/syncMerge';
 import { type CloudItem, deleteAccount, itemKey, pullItems, pushItems } from '@/lib/cloudSync';
 import { hashData, parseSent, type Sent } from '@/lib/itemHash';
 import { CLOUD_CONSENT_KEY, ensureSession, SessionLostError, sessionLost, supabase } from '@/lib/supabase';
@@ -54,7 +55,7 @@ const parseAll = <T,>(items: CloudItem[], kind: CloudItem['kind'], schema: z.Zod
 
 export function SyncProvider({ children }: { children: ReactNode }) {
   const { profile, loading: profileLoading, importProfile } = useProfile();
-  const { week, plan, loading: planLoading, importPlan } = usePlan();
+  const { week, plan, weekUpdatedAt, planUpdatedAt, loading: planLoading, importPlan } = usePlan();
   const { sessions, loading: historyLoading, uncertain: historyUncertain, importSessions } = useHistory();
   const { records, folds, loading: bodyLoading, uncertain: bodyUncertain, importBody } = useBody();
   const [enabled, setEnabled] = useState(false);
@@ -69,21 +70,29 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const loading = profileLoading || planLoading || historyLoading || bodyLoading || !checked;
 
   const items = useMemo<CloudItem[]>(() => {
-    const doc = (kind: CloudItem['kind'], item_id: string, data: unknown): CloudItem => ({
+    // `at`: cuándo cambió en el teléfono; viaja como fecha de la fila para comparar al traer.
+    const doc = (kind: CloudItem['kind'], item_id: string, data: unknown, at?: string | null): CloudItem => ({
       kind,
       item_id,
       data,
       deleted: false,
+      ...(at ? { updated_at: at } : {}),
     });
     return [
-      ...(profile ? [doc('profile', 'me', profile)] : []),
-      ...(profile ? [doc('week', 'me', week)] : []),
-      ...(plan ? [doc('plan', 'me', plan)] : []),
+      ...(profile ? [doc('profile', 'me', profile, profile.updatedAt)] : []),
+      ...(profile ? [doc('week', 'me', week, weekUpdatedAt)] : []),
+      ...(plan ? [doc('plan', 'me', plan, planUpdatedAt ?? plan.generatedAt)] : []),
       ...sessions.map((s) => doc('session', s.id, s)),
       ...records.map((r) => doc('tape', r.id, r)),
       ...folds.map((f) => doc('fold', f.id, f)),
     ];
-  }, [profile, week, plan, sessions, records, folds]);
+  }, [profile, week, plan, weekUpdatedAt, planUpdatedAt, sessions, records, folds]);
+
+  // Lo que hay ahora en el teléfono, para compararlo con la nube al traer el respaldo.
+  const localRef = useRef({ profile, week, plan, weekUpdatedAt, planUpdatedAt });
+  useEffect(() => {
+    localRef.current = { profile, week, plan, weekUpdatedAt, planUpdatedAt };
+  }, [profile, week, plan, weekUpdatedAt, planUpdatedAt]);
 
   const itemsRef = useRef(items);
   useEffect(() => {
@@ -129,22 +138,69 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Trae lo que hay en la nube. El perfil, la semana y la rutina de la nube mandan;
-  // sesiones y medidas se combinan para no perder nada de ningún teléfono.
-  const pull = useCallback(async () => {
-    if (await sessionLost()) throw new SessionLostError();
-    const cloud = await pullItems();
-    const deletedIds = cloud.filter((i) => i.deleted).map((i) => i.item_id);
-    importSessions(parseAll(cloud, 'session', WorkoutSession), deletedIds);
-    importBody(parseAll(cloud, 'tape', TapeRecord), parseAll(cloud, 'fold', FoldRecord), deletedIds);
-    const cloudProfile = parseAll(cloud, 'profile', LocalProfile)[0];
-    if (cloudProfile) await importProfile(cloudProfile);
-    await importPlan(
-      parseAll(cloud, 'week', WeekConfig)[0] ?? null,
-      parseAll(cloud, 'plan', StoredWeekPlan)[0] ?? null,
-    );
-    merged.current = true;
-  }, [importBody, importPlan, importProfile, importSessions]);
+  // Trae lo que hay en la nube. Sesiones y medidas se combinan para no perder nada de ningún
+  // teléfono. Perfil, semana y rutina: gana el más reciente, y lo del teléfono nunca se reemplaza
+  // por algo más antiguo. `preferCloud`: al entrar a una cuenta que ya existe, manda la cuenta.
+  const pull = useCallback(
+    async (preferCloud = false) => {
+      if (await sessionLost()) throw new SessionLostError();
+      const cloud = await pullItems();
+      const deletedIds = cloud.filter((i) => i.deleted).map((i) => i.item_id);
+      importSessions(parseAll(cloud, 'session', WorkoutSession), deletedIds);
+      importBody(parseAll(cloud, 'tape', TapeRecord), parseAll(cloud, 'fold', FoldRecord), deletedIds);
+      const local = localRef.current;
+      const rowDate = (kind: CloudItem['kind']) => cloud.find((i) => i.kind === kind && !i.deleted)?.updated_at ?? null;
+      const resend: string[] = [];
+      const fromCloud = <T,>(
+        kind: CloudItem['kind'],
+        mine: T | null,
+        theirs: T | null,
+        mineAt?: string | null,
+        theirsAt?: string | null,
+      ) => {
+        const choice = chooseDoc({ local: mine, cloud: theirs, localAt: mineAt, cloudAt: theirsAt, preferCloud });
+        if (choice.resend) resend.push(itemKey({ kind, item_id: 'me' }));
+        return choice.use === 'cloud' ? theirs : null;
+      };
+
+      const cloudProfile = parseAll(cloud, 'profile', LocalProfile)[0] ?? null;
+      const newProfile = fromCloud(
+        'profile',
+        local.profile,
+        cloudProfile,
+        local.profile?.updatedAt,
+        cloudProfile?.updatedAt,
+      );
+      if (newProfile) await importProfile(newProfile);
+
+      const cloudPlan = parseAll(cloud, 'plan', StoredWeekPlan)[0] ?? null;
+      // Sin perfil, la semana del teléfono es la de fábrica: no compite con la de la cuenta.
+      const newWeek = fromCloud(
+        'week',
+        local.profile ? local.week : null,
+        parseAll(cloud, 'week', WeekConfig)[0] ?? null,
+        local.weekUpdatedAt,
+        rowDate('week'),
+      );
+      const newPlan = fromCloud(
+        'plan',
+        local.plan,
+        cloudPlan,
+        local.planUpdatedAt ?? local.plan?.generatedAt,
+        rowDate('plan') ?? cloudPlan?.generatedAt,
+      );
+      await importPlan(newWeek, newPlan, { week: rowDate('week'), plan: rowDate('plan') });
+
+      // Lo del teléfono que es más nuevo que la nube se vuelve a subir aunque ya se hubiera enviado.
+      if (resend.length) {
+        const sent = parseSent(await AsyncStorage.getItem(SENT_KEY));
+        resend.forEach((key) => delete sent[key]);
+        await AsyncStorage.setItem(SENT_KEY, JSON.stringify(sent));
+      }
+      merged.current = true;
+    },
+    [importBody, importPlan, importProfile, importSessions],
+  );
 
   const syncNow = useCallback(async () => {
     setStatus('syncing');
@@ -195,7 +251,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const enable = useCallback(async () => {
     const { data } = await supabase.auth.getUser();
     await AsyncStorage.removeItem(SENT_KEY);
-    await pull();
+    await pull(true);
     await AsyncStorage.setItem(CONSENT_KEY, JSON.stringify({ acceptedAt: new Date().toISOString() }));
     setEmail(data.user?.email ?? null);
     setEnabled(true);

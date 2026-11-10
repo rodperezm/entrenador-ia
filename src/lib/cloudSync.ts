@@ -6,7 +6,9 @@ import { supabase } from './supabase';
 export const CLOUD_BACKUP_READY = true;
 
 export type ItemKind = 'profile' | 'week' | 'plan' | 'session' | 'tape' | 'fold';
-export type CloudItem = { kind: ItemKind; item_id: string; data: unknown; deleted: boolean };
+// `updated_at`: cuándo cambió el dato en el teléfono (perfil, semana y rutina). Al traer el respaldo
+// se compara con lo local para no reemplazarlo por algo más antiguo.
+export type CloudItem = { kind: ItemKind; item_id: string; data: unknown; deleted: boolean; updated_at?: string };
 
 const CHUNK = 200;
 const PAGE = 1000;
@@ -18,7 +20,7 @@ export async function pullItems() {
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from('user_items')
-      .select('kind,item_id,data,deleted')
+      .select('kind,item_id,data,deleted,updated_at')
       .order('kind')
       .order('item_id')
       .range(from, from + PAGE - 1);
@@ -29,9 +31,9 @@ export async function pullItems() {
 }
 
 export async function pushItems(items: CloudItem[]) {
-  const updated_at = new Date().toISOString();
+  const now = new Date().toISOString();
   for (let i = 0; i < items.length; i += CHUNK) {
-    const rows = items.slice(i, i + CHUNK).map((item) => ({ ...item, updated_at }));
+    const rows = items.slice(i, i + CHUNK).map((item) => ({ ...item, updated_at: item.updated_at ?? now }));
     const { error } = await supabase.from('user_items').upsert(rows, { onConflict: 'user_id,kind,item_id' });
     if (error) throw error;
   }
