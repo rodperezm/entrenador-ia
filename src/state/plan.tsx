@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { type DayConfig, type DayOfWeek, StoredWeekPlan, WeekConfig } from '@/domain/schema';
 import { withEvenAlternating } from '@/domain/sides';
+import { backupBeforeOverwrite, loadSafely, parseWhole } from '@/lib/safeStore';
 import {
   applyDayChoice,
   type DayChoice,
@@ -31,73 +32,97 @@ type PlanState = {
 
 const PlanContext = createContext<PlanState | null>(null);
 
-async function load<T>(key: string, schema: { safeParse: (v: unknown) => { success: boolean; data?: T } }) {
-  try {
-    const raw = await AsyncStorage.getItem(key);
-    if (!raw) return null;
-    const parsed = schema.safeParse(JSON.parse(raw));
-    return parsed.success ? (parsed.data as T) : null;
-  } catch {
-    return null;
-  }
-}
-
 export function PlanProvider({ children }: { children: ReactNode }) {
   const [week, setWeek] = useState<WeekConfig>(defaultWeekConfig);
   const [plan, setPlan] = useState<StoredWeekPlan | null>(null);
   const [loading, setLoading] = useState(true);
+  // Hasta terminar la carga no se escribe: se guardaría la semana por defecto sobre la real.
+  const loaded = useRef(false);
+  // Claves cuya carga no dejó copia de lo que había: antes de escribirlas se reintenta la copia.
+  const unsafe = useRef(new Set<string>());
+
+  const write = useCallback(async (key: string, value: unknown) => {
+    if (unsafe.current.has(key)) {
+      await backupBeforeOverwrite(AsyncStorage, key);
+      unsafe.current.delete(key);
+    }
+    await AsyncStorage.setItem(key, JSON.stringify(value));
+  }, []);
+  const saveWeek = useCallback((next: WeekConfig) => void write(WEEK_KEY, next).catch(() => {}), [write]);
 
   useEffect(() => {
-    Promise.all([load<WeekConfig>(WEEK_KEY, WeekConfig), load<StoredWeekPlan>(PLAN_KEY, StoredWeekPlan)]).then(
-      ([w, p]) => {
-        if (w) {
-          const fixed = { days: w.days.map(normalizeDay) };
-          setWeek(fixed);
-          if (fixed.days.some((d, i) => d !== w.days[i])) {
-            AsyncStorage.setItem(WEEK_KEY, JSON.stringify(fixed)).catch(() => {});
-          }
+    // Lo que no se entiende (por ejemplo, tras un cambio de formato) queda copiado en `.bak`.
+    Promise.all([
+      loadSafely(AsyncStorage, WEEK_KEY, parseWhole(WeekConfig)),
+      loadSafely(AsyncStorage, PLAN_KEY, parseWhole(StoredWeekPlan)),
+    ]).then(([weekRes, planRes]) => {
+      if (!weekRes.safe) unsafe.current.add(WEEK_KEY);
+      if (!planRes.safe) unsafe.current.add(PLAN_KEY);
+      const w = weekRes.value;
+      const p = planRes.value;
+      loaded.current = true;
+      if (w) {
+        const fixed = { days: w.days.map(normalizeDay) };
+        setWeek(fixed);
+        if (fixed.days.some((d, i) => d !== w.days[i])) {
+          saveWeek(fixed);
         }
-        setPlan(p && withEvenAlternating(p)); // la semana ya armada también
-        setLoading(false);
-      },
-    );
-  }, []);
-
-  const updateDay = useCallback((day: DayOfWeek, patch: (d: DayConfig) => DayConfig) => {
-    setWeek((prev) => {
-      const next = { days: prev.days.map((d) => (d.day === day ? patch(d) : d)) };
-      AsyncStorage.setItem(WEEK_KEY, JSON.stringify(next)).catch(() => {});
-      return next;
+      }
+      setPlan(p && withEvenAlternating(p)); // la semana ya armada también
+      setLoading(false);
     });
-  }, []);
+  }, [saveWeek]);
 
-  const applyDayChoices = useCallback((choices: Partial<Record<DayOfWeek, DayChoice>>) => {
-    setWeek((prev) => {
-      const next = {
-        days: prev.days.map((d) => {
-          const c = choices[d.day];
-          return !c || sameChoice(dayChoiceOf(d), c) ? d : applyDayChoice(d, c);
-        }),
-      };
-      AsyncStorage.setItem(WEEK_KEY, JSON.stringify(next)).catch(() => {});
-      return next;
-    });
-  }, []);
+  const updateDay = useCallback(
+    (day: DayOfWeek, patch: (d: DayConfig) => DayConfig) => {
+      setWeek((prev) => {
+        if (!loaded.current) return prev;
+        const next = { days: prev.days.map((d) => (d.day === day ? patch(d) : d)) };
+        saveWeek(next);
+        return next;
+      });
+    },
+    [saveWeek],
+  );
 
-  const updateAllDays = useCallback((patch: (d: DayConfig) => DayConfig) => {
-    setWeek((prev) => {
-      const next = { days: prev.days.map(patch) };
-      AsyncStorage.setItem(WEEK_KEY, JSON.stringify(next)).catch(() => {});
-      return next;
-    });
-  }, []);
+  const applyDayChoices = useCallback(
+    (choices: Partial<Record<DayOfWeek, DayChoice>>) => {
+      setWeek((prev) => {
+        if (!loaded.current) return prev;
+        const next = {
+          days: prev.days.map((d) => {
+            const c = choices[d.day];
+            return !c || sameChoice(dayChoiceOf(d), c) ? d : applyDayChoice(d, c);
+          }),
+        };
+        saveWeek(next);
+        return next;
+      });
+    },
+    [saveWeek],
+  );
+
+  const updateAllDays = useCallback(
+    (patch: (d: DayConfig) => DayConfig) => {
+      setWeek((prev) => {
+        if (!loaded.current) return prev;
+        const next = { days: prev.days.map(patch) };
+        saveWeek(next);
+        return next;
+      });
+    },
+    [saveWeek],
+  );
 
   // Venga de las reglas o de la IA, los alternados quedan en número par (ver evenAlternatingReps).
-  const savePlan = useCallback(async (raw: StoredWeekPlan) => {
-    const p = withEvenAlternating(raw);
-    await AsyncStorage.setItem(PLAN_KEY, JSON.stringify(p));
-    setPlan(p);
-  }, []);
+  const savePlan = useCallback(
+    async (raw: StoredWeekPlan) => {
+      const p = withEvenAlternating(raw);
+      await write(PLAN_KEY, p);
+      setPlan(p);
+    },
+    [write],
+  );
 
   const resetPlan = useCallback(async () => {
     await AsyncStorage.multiRemove([WEEK_KEY, PLAN_KEY]);
@@ -105,17 +130,20 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     setPlan(null);
   }, []);
 
-  const importPlan = useCallback(async (w: WeekConfig | null, p: StoredWeekPlan | null) => {
-    if (w) {
-      const fixed = { days: w.days.map(normalizeDay) };
-      await AsyncStorage.setItem(WEEK_KEY, JSON.stringify(fixed));
-      setWeek(fixed);
-    }
-    if (p) {
-      await AsyncStorage.setItem(PLAN_KEY, JSON.stringify(p));
-      setPlan(p);
-    }
-  }, []);
+  const importPlan = useCallback(
+    async (w: WeekConfig | null, p: StoredWeekPlan | null) => {
+      if (w) {
+        const fixed = { days: w.days.map(normalizeDay) };
+        await write(WEEK_KEY, fixed);
+        setWeek(fixed);
+      }
+      if (p) {
+        await write(PLAN_KEY, p);
+        setPlan(p);
+      }
+    },
+    [write],
+  );
 
   return (
     <PlanContext.Provider
