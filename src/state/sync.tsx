@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { FoldRecord, TapeRecord } from '@/domain/body';
 import { LocalProfile, StoredWeekPlan, WeekConfig, WorkoutSession } from '@/domain/schema';
 import { type CloudItem, deleteAccount, itemKey, pullItems, pushItems } from '@/lib/cloudSync';
+import { hashData, parseSent, type Sent } from '@/lib/itemHash';
 import { CLOUD_CONSENT_KEY, ensureSession, SessionLostError, sessionLost, supabase } from '@/lib/supabase';
 import { useBody } from './body';
 import { useHistory } from './history';
@@ -22,7 +23,6 @@ const PUSH_DELAY_MS = 2000;
 const Consent = z.object({ acceptedAt: z.string() });
 // signed_out: la sesión del correo se cerró; no se sube ni se trae nada hasta volver a entrar.
 type Status = 'off' | 'syncing' | 'ok' | 'pending' | 'signed_out';
-type Sent = Record<string, string>;
 
 type SyncState = {
   /** Ya se revisó si este teléfono tiene respaldo activo. */
@@ -106,9 +106,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         setStatus('signed_out');
         return;
       }
-      const sent: Sent = JSON.parse((await AsyncStorage.getItem(SENT_KEY)) ?? '{}');
+      // Por cada dato se guarda solo una huella corta, no otra copia completa (ver lib/itemHash).
+      const sent = parseSent(await AsyncStorage.getItem(SENT_KEY));
       const current = new Map(itemsRef.current.map((i) => [itemKey(i), i]));
-      const changed = [...current].filter(([key, i]) => sent[key] !== JSON.stringify(i.data)).map(([, i]) => i);
+      const changed = [...current].filter(([key, i]) => sent[key] !== hashData(i.data)).map(([, i]) => i);
       // Lo que ya subió y dejó de existir en el teléfono se marca como borrado.
       const removed = (uncertainRef.current ? [] : Object.keys(sent))
         .filter((key) => !current.has(key))
@@ -117,7 +118,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
           return { kind: kind as CloudItem['kind'], item_id: id.join(':'), data: null, deleted: true };
         });
       await pushItems([...changed, ...removed]);
-      const next: Sent = Object.fromEntries([...current].map(([key, i]) => [key, JSON.stringify(i.data)]));
+      const next: Sent = Object.fromEntries([...current].map(([key, i]) => [key, hashData(i.data)]));
       await AsyncStorage.setItem(SENT_KEY, JSON.stringify(next));
       setLastSyncAt(new Date().toISOString());
       setStatus('ok');
