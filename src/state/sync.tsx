@@ -55,8 +55,8 @@ const parseAll = <T,>(items: CloudItem[], kind: CloudItem['kind'], schema: z.Zod
 export function SyncProvider({ children }: { children: ReactNode }) {
   const { profile, loading: profileLoading, importProfile } = useProfile();
   const { week, plan, loading: planLoading, importPlan } = usePlan();
-  const { sessions, loading: historyLoading, importSessions } = useHistory();
-  const { records, folds, loading: bodyLoading, importBody } = useBody();
+  const { sessions, loading: historyLoading, uncertain: historyUncertain, importSessions } = useHistory();
+  const { records, folds, loading: bodyLoading, uncertain: bodyUncertain, importBody } = useBody();
   const [enabled, setEnabled] = useState(false);
   const [checked, setChecked] = useState(false);
   const [status, setStatus] = useState<Status>('off');
@@ -90,6 +90,13 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     itemsRef.current = items;
   }, [items]);
 
+  // Si el teléfono no pudo leer bien su historial o sus medidas, lo que falta no es un borrado de la
+  // persona: en esta apertura no se marca nada como borrado en la nube (se borraría en todos sus teléfonos).
+  const uncertainRef = useRef(false);
+  useEffect(() => {
+    uncertainRef.current = historyUncertain || bodyUncertain;
+  }, [historyUncertain, bodyUncertain]);
+
   const push = useCallback(async () => {
     if (busy.current) return;
     busy.current = true;
@@ -103,7 +110,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       const current = new Map(itemsRef.current.map((i) => [itemKey(i), i]));
       const changed = [...current].filter(([key, i]) => sent[key] !== JSON.stringify(i.data)).map(([, i]) => i);
       // Lo que ya subió y dejó de existir en el teléfono se marca como borrado.
-      const removed = Object.keys(sent)
+      const removed = (uncertainRef.current ? [] : Object.keys(sent))
         .filter((key) => !current.has(key))
         .map((key) => {
           const [kind, ...id] = key.split(':');

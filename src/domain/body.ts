@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-redeclare -- esquema zod y su tipo comparten nombre a propósito */
 import { z } from 'zod';
+import { type Parsed, salvageList } from '@/lib/safeStore';
 import type { Sex } from './schema';
 
 // Fórmulas, umbrales y tablas portados de la bitácora MetricBody
@@ -166,3 +167,20 @@ export const fmtNum = (n: number | null, digits = 1) =>
   n == null || !Number.isFinite(n)
     ? '—'
     : n.toLocaleString('es-CL', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+
+// ---------- Lo guardado en el teléfono ----------
+
+export type StoredBody = { records: TapeRecord[]; folds: FoldRecord[] };
+
+// Registro por registro: uno inválido no bota a los demás (ver lib/safeStore).
+export function parseBody(json: unknown): Parsed<StoredBody> | null {
+  if (!json || typeof json !== 'object') return null;
+  const { records, folds } = json as { records?: unknown; folds?: unknown };
+  if (records === undefined && folds === undefined) return null;
+  // Una lista dañada (no es lista) cuenta como un registro perdido, sin botar la otra.
+  const list = <T,>(raw: unknown, schema: Parameters<typeof salvageList<T>>[1]) =>
+    salvageList(raw ?? [], schema) ?? { value: [] as T[], dropped: 1 };
+  const r = list(records, TapeRecord);
+  const f = list(folds, FoldRecord);
+  return { value: { records: r.value, folds: f.value }, dropped: r.dropped + f.dropped };
+}
