@@ -1,5 +1,5 @@
 import type { DayConfig, DayOfWeek, WeekConfig } from './schema';
-import { weekFocus } from './strength';
+import { MAX_STRENGTH_DAYS, weekFocus } from './strength';
 
 export const DAYS: { id: DayOfWeek; short: string; long: string }[] = [
   { id: 'mon', short: 'Lun', long: 'Lunes' },
@@ -196,6 +196,16 @@ const STRENGTH_DAY: DayChoice = ['warmup', 'main', 'cooldown'];
 const INJURY_DAY: DayChoice = ['warmup', 'prehab', 'main', 'cooldown'];
 export const GENTLE_MAX = 2; // ejercicios de fuerza en un día de fuerza suave
 
+// Siempre queda al menos un día sin Fuerza (ni siquiera suave): es cuando el cuerpo asimila el trabajo.
+// Ese día se puede calentar, cuidar una lesión o elongar.
+export const REST_FROM_STRENGTH_NOTE =
+  'Deja al menos un día sin Fuerza: es cuando el cuerpo asimila el trabajo. Ese día puedes hacer movilidad, cuidar una lesión o elongar.';
+// ¿Los otros días ya ocupan todos los días de Fuerza permitidos? (`day` es el que se está editando.)
+export const strengthDaysFull = (choices: Partial<Record<DayOfWeek, DayChoice>>, day: DayOfWeek) =>
+  Object.entries(choices).filter(([d, parts]) => d !== day && parts?.includes('main')).length >= MAX_STRENGTH_DAYS;
+export const weekChoicesOf = (week: WeekConfig) =>
+  Object.fromEntries(week.days.map((d) => [d.day, dayChoiceOf(d)])) as Record<DayOfWeek, DayChoice>;
+
 // Propuesta de semana: con una lesión y 4+ días, alterna fuerza con días de
 // lesión (que llevan fuerza suave); con pocos días, todas las partes con fuerza completa.
 export function proposeWeek(
@@ -206,7 +216,9 @@ export function proposeWeek(
   const choices = Object.fromEntries(DAYS.map((d) => [d.id, [] as DayChoice])) as Record<DayOfWeek, DayChoice>;
   const gentle: DayOfWeek[] = [];
   training.forEach((day, i) => {
-    if (!hasConditions) choices[day] = STRENGTH_DAY;
+    // El séptimo día nunca lleva Fuerza: lesión y elongación, o solo elongación.
+    if (i >= MAX_STRENGTH_DAYS) choices[day] = hasConditions ? ['prehab', 'cooldown'] : ['cooldown'];
+    else if (!hasConditions) choices[day] = STRENGTH_DAY;
     else if (training.length < 4) choices[day] = DAY_PARTS;
     else if (i % 2 === 0) choices[day] = STRENGTH_DAY;
     else {

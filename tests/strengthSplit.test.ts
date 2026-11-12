@@ -134,3 +134,20 @@ test('al pasar de 3 a 4 días, los días ya armados quedan desactualizados', () 
   // Con 3 días la huella no cambia respecto de antes (no depende de la zona).
   assert.equal(dayHashes(weekOf(2), 'x').mon, three.mon);
 });
+
+test('siempre queda un día sin Fuerza: la propuesta de 7 días deja el séptimo libre de ella', async () => {
+  const { proposeWeek, strengthDaysFull } = await import('@/domain/week');
+  for (const withInjury of [false, true]) {
+    const { choices, gentle } = proposeWeek(7, withInjury);
+    const withStrength = DAYS.filter((d) => choices[d].includes('main'));
+    assert.equal(withStrength.length, 6, `lesión: ${withInjury}`);
+    assert.ok(choices.sun.length > 0 && !choices.sun.includes('main'));
+    assert.ok(!gentle.includes('sun'));
+  }
+  // Con 6 días ya ocupados, el séptimo no puede sumar Fuerza; uno de los 6 sí puede seguir con ella.
+  const six = proposeWeek(6, false).choices;
+  const free = DAYS.find((d) => !six[d].includes('main'))!;
+  assert.equal(strengthDaysFull(six, free), true);
+  assert.equal(strengthDaysFull(six, DAYS.find((d) => six[d].includes('main'))!), false);
+  assert.equal(strengthDaysFull(proposeWeek(5, false).choices, 'sun'), false);
+});

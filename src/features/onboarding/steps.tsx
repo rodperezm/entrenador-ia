@@ -33,6 +33,8 @@ import {
   proposeWeek,
   canBeGentle,
   toggleDayPart,
+  REST_FROM_STRENGTH_NOTE,
+  strengthDaysFull,
 } from '@/domain/week';
 import { colors, radius, spacing } from '@/theme';
 
@@ -464,6 +466,7 @@ export function WeekStep({ draft, update }: StepProps) {
   const setSessionMinutes = (m: number) =>
     update({ weekMinutes: Object.fromEntries(DAYS.map((d) => [d.id, m])) as Draft['weekMinutes'] });
 
+  const [restNoteDay, setRestNoteDay] = useState<DayOfWeek | null>(null);
   const propose = (n: number) => {
     setDaysPerWeek(n);
     const { choices, gentle } = proposeWeek(n, hasConditions);
@@ -571,7 +574,12 @@ export function WeekStep({ draft, update }: StepProps) {
                   return (
                     <Pressable
                       key={p}
-                      onPress={() => setDay(d.id, toggleDayPart(parts, p))}
+                      onPress={() => {
+                        // Con Fuerza ya en 6 días, el séptimo no puede llevarla.
+                        const full = p === 'main' && !on && strengthDaysFull(draft.weekChoices, d.id);
+                        setRestNoteDay(full ? d.id : null);
+                        if (!full) setDay(d.id, toggleDayPart(parts, p));
+                      }}
                       style={[styles.typeChip, on && styles.typeChipOn]}
                     >
                       <Text style={[styles.typeChipText, on && { color: colors.onAccent }]} numberOfLines={1}>
@@ -586,6 +594,7 @@ export function WeekStep({ draft, update }: StepProps) {
                   </Text>
                 </Pressable>
               </View>
+              {restNoteDay === d.id && <Text style={styles.restNote}>{REST_FROM_STRENGTH_NOTE}</Text>}
               {!rest && <Text style={styles.hint}>{dayIncludedNote(parts)}</Text>}
               {hasConditions && canBeGentle(parts) && (
                 <Pressable onPress={() => toggleGentle(d.id)} style={styles.stepRow} hitSlop={6}>
@@ -817,6 +826,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
   },
   link: { color: colors.link, fontWeight: '600', marginTop: spacing.sm },
+  restNote: { color: colors.warning, fontSize: 13, lineHeight: 18 },
   moreLink: { paddingVertical: spacing.sm },
   summaryRow: { backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, gap: 2 },
   summaryLabel: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },

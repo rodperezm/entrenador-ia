@@ -18,6 +18,9 @@ import { type DayConfig, DayOfWeek, type DayPlan, type LocalProfile } from '@/do
 import { dayMinutes, leadPart, partCount, timeStatus } from '@/domain/timeBudget';
 import {
   applyDayChoice,
+  REST_FROM_STRENGTH_NOTE,
+  strengthDaysFull,
+  weekChoicesOf,
   DAY_PARTS,
   configHash,
   dayConfigHash,
@@ -85,7 +88,10 @@ export default function DayScreen() {
   // Con la semana ya armada, un día de entrenamiento sin rutina abre los ajustes directamente.
   const editing = draft ?? (cfg.active && !dayPlan && !weekEmpty ? cfg : null);
 
-  const openAdjust = () => setDraft(cfg.active ? cfg : applyDayChoice(cfg, [...STRENGTH_DAY]));
+  // Los otros días ya tienen Fuerza 6 veces: este no puede llevarla (la semana necesita un día libre).
+  const strengthFull = strengthDaysFull(weekChoicesOf(week), day);
+  const openAdjust = () =>
+    setDraft(cfg.active ? cfg : applyDayChoice(cfg, strengthFull ? ['cooldown'] : [...STRENGTH_DAY]));
   const edit = (patch: (d: DayConfig) => DayConfig) => setDraft(patch(editing ?? cfg));
   const setBlock = <K extends keyof Blocks>(key: K, patch: Partial<Blocks[K]>) =>
     edit((d) => ({ ...d, blocks: { ...d.blocks, [key]: { ...d.blocks[key], ...patch } } }));
@@ -199,6 +205,7 @@ export default function DayScreen() {
             onFit={() => rebuild({ ...withAutoCounts(cfg), fitToTime: true })}
             onFull={() => rebuild({ ...cfg, fitToTime: undefined })}
             onAddGentle={() => rebuild(withGentleStrength(cfg))}
+            canAddStrength={!strengthFull}
             onDismiss={dismissTimeNotice}
           />
           <Button
@@ -274,6 +281,7 @@ export default function DayScreen() {
           hasRoutine={!!dayPlan}
           level={profile?.level ?? 'intermediate'}
           estimate={estimate}
+          strengthFull={strengthFull}
           onEdit={edit}
           setBlock={setBlock}
           onConfirm={() => rebuild(editing)}
@@ -293,6 +301,7 @@ function TimeNotice({
   onFit,
   onFull,
   onAddGentle,
+  canAddStrength,
   onDismiss,
 }: {
   dayPlan: DayPlan;
@@ -301,13 +310,15 @@ function TimeNotice({
   onFit: () => void;
   onFull: () => void;
   onAddGentle: () => void;
+  /** false: los otros días ya ocupan los 6 de Fuerza; este queda libre de ella. */
+  canAddStrength: boolean;
   onDismiss: () => void;
 }) {
   const { minutes, available, state } = timeStatus(dayPlan.blocks, cfg);
   const free = available - minutes;
   const over = state === 'over' || state === 'far_over';
   const dismissed = !!dayPlan.timeNoticeDismissed;
-  const offerGentle = state === 'short' && !cfg.blocks.main.enabled && free >= 15 && !dismissed;
+  const offerGentle = state === 'short' && !cfg.blocks.main.enabled && free >= 15 && !dismissed && canAddStrength;
   const kcal = weightKg ? kcalRangeLabel(averageMet(dayPlan.blocks, EXERCISES_BY_ID), weightKg, minutes) : null;
 
   return (
@@ -359,12 +370,14 @@ function AdjustPanel({
   hasRoutine,
   level,
   estimate,
+  strengthFull,
   onEdit,
   setBlock,
   onConfirm,
   onCancel,
 }: {
   cfg: DayConfig;
+  strengthFull: boolean;
   hasConditions: boolean;
   hasRoutine: boolean;
   level: LocalProfile['level'];
@@ -378,6 +391,7 @@ function AdjustPanel({
   const groups = cfg.blocks.main.muscleGroups;
   // Abierto solo si la persona ya fijó alguna cantidad a mano.
   const [showCounts, setShowCounts] = useState(() => DAY_PARTS.some((p) => cfg.blocks[p].fixedCount));
+  const [restNote, setRestNote] = useState(false);
   const set = (patch: Partial<DayConfig>) => onEdit((d) => ({ ...d, ...patch }));
   const confirmLabel = !cfg.active
     ? 'Guardar como descanso'
@@ -398,11 +412,17 @@ function AdjustPanel({
             key={p}
             label={dayPartLabel(p, hasConditions)}
             active={parts.includes(p)}
-            onPress={() => onEdit((d) => applyDayChoice(d, toggleDayPart(dayChoiceOf(d), p)))}
+            onPress={() => {
+              // Agregar Fuerza cuando ya hay 6 días: no se aplica y se explica por qué.
+              if (p === 'main' && !parts.includes('main') && strengthFull) return setRestNote(true);
+              setRestNote(false);
+              onEdit((d) => applyDayChoice(d, toggleDayPart(dayChoiceOf(d), p)));
+            }}
           />
         ))}
         <Chip label="Descanso" active={!parts.length} onPress={() => onEdit((d) => applyDayChoice(d, []))} />
       </View>
+      {restNote && <Text style={styles.restNote}>{REST_FROM_STRENGTH_NOTE}</Text>}
       <Text style={styles.muted}>{parts.length ? dayChoiceLabel(parts, hasConditions) : 'Sin entrenamiento'}</Text>
       {parts.length > 0 && <Text style={styles.muted}>{dayIncludedNote(parts)}</Text>}
 
@@ -639,6 +659,7 @@ const styles = StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   estimate: { color: colors.text, fontSize: 15, fontWeight: '700', textAlign: 'center' },
   link: { color: colors.link, fontSize: 14, fontWeight: '700', marginTop: spacing.sm },
+  restNote: { color: colors.warning, fontSize: 14, lineHeight: 20 },
   muted: { color: colors.textMuted, fontSize: 13, lineHeight: 18 },
   stale: { color: colors.warning, fontSize: 13 },
   routineBlock: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.md, gap: 2 },
