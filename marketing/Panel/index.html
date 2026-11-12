@@ -12,7 +12,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;500;600;700&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
 <style>
-  /* Panel de control de KETTAI: misma marca oscura que la página, pensado para leer y decidir rápido. */
+  /* Panel de control de KETTAI: primero lo que pide atención, después el detalle. */
   :root {
     color-scheme: dark;
     --bg: #0e0f13;
@@ -30,13 +30,14 @@
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.5; }
-  .wrap { max-width: 1180px; margin-inline: auto; padding: 24px max(16px, env(safe-area-inset-left, 0px)) 64px; }
-  h1, h2 { font-family: var(--display); font-weight: 400; letter-spacing: .02em; margin: 0; }
-  h1 { font-size: 40px; line-height: 1; }
+  .wrap { max-width: 1080px; margin-inline: auto; padding: 24px max(16px, env(safe-area-inset-left, 0px)) 64px; }
+  h1, h2, h3 { font-family: var(--display); font-weight: 400; letter-spacing: .02em; margin: 0; }
+  h1 { font-size: 36px; line-height: 1; }
   h2 { font-size: 28px; margin: 32px 0 12px; }
+  h3 { font-size: 22px; color: var(--lime); margin-bottom: 4px; }
   .muted { color: var(--muted); }
   .small { font-size: 13px; }
-  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
   .brand { display: flex; align-items: center; gap: 12px; }
   .brand img { width: 40px; height: 40px; border-radius: 10px; }
   button, input, select { font: inherit; color: inherit; }
@@ -44,40 +45,79 @@
   button.ghost { background: transparent; color: var(--fg); border: 1px solid var(--line); }
   button:disabled { opacity: .5; cursor: default; }
   input, select { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-width: 0; }
-  input:focus-visible, select:focus-visible, button:focus-visible { outline: 3px solid var(--lime); outline-offset: 2px; }
+  input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid var(--lime); outline-offset: 2px; }
   .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 20px; }
   .login { max-width: 420px; margin: 10vh auto 0; display: grid; gap: 14px; }
-  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 4px; }
-  .tabs button { background: var(--surface); color: var(--muted); border: 1px solid var(--line); }
-  .tabs button[aria-selected="true"] { background: var(--fg); color: var(--bg); }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
-  .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
-  .kpi b { display: block; font-family: var(--display); font-size: 38px; font-weight: 400; line-height: 1.05; letter-spacing: .02em; }
-  .kpi span { color: var(--muted); font-size: 14px; }
-  .kpi small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
-  .kpi.good b { color: var(--lime); }
-  .kpi.warn b { color: var(--amber); }
-  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
-  th { color: var(--muted); font-weight: 600; background: var(--surface); position: sticky; top: 0; }
-  tr:last-child td { border-bottom: 0; }
-  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
-  .pill { display: inline-block; border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 700; background: var(--surface-2); color: var(--muted); }
-  .pill.pay { background: #2b3410; color: var(--lime); }
-  .pill.free { background: var(--surface-2); color: var(--muted); }
-  .pill.vip { background: #3a1410; color: var(--red); }
   .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .hidden { display: none !important; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 24px; }
+  .tabs button { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 16px; }
+  .tabs button[aria-selected="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+
+  .hero { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .hero div { background: var(--surface); border-radius: 16px; padding: 18px; display: grid; gap: 2px; align-content: start; }
+  .hero b { font-family: var(--display); font-size: 52px; font-weight: 400; line-height: 1; letter-spacing: .02em; }
+  .hero small { font-size: 13px; color: var(--muted); }
+  .good { color: var(--lime); }
+  .warn { color: var(--amber); }
+  .hero small.good { color: var(--lime); font-weight: 700; }
+  .hero small.warn { color: var(--amber); font-weight: 700; }
+
+  .alerts { display: grid; gap: 8px; }
+  .alert { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 12px; align-items: center; background: var(--surface); border-radius: 12px; padding: 12px 16px; }
+  .alert i { width: 10px; height: 10px; border-radius: 50%; background: var(--amber); }
+  .alert.ok i { background: var(--lime); }
+  .alert button { padding: 4px 12px; font-size: 13px; }
+
+  .lists { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+  .list { border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; }
+  .list div { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--surface-2); }
+  .list div:last-child { border-bottom: 0; }
+  .list span { color: var(--muted); }
+  .list span small { display: block; font-size: 12px; }
+  .list b { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
   .chart { width: 100%; height: auto; display: block; }
   .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-top: 8px; }
   .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: middle; }
-  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 10px 18px; border-radius: 999px; font-weight: 700; opacity: 0; transition: opacity .2s; pointer-events: none; }
-  .toast.show { opacity: 1; }
-  .error { color: var(--amber); }
+
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .chips button { background: var(--surface-2); color: var(--muted); padding: 6px 14px; font-size: 14px; font-weight: 600; }
+  .chips button[aria-pressed="true"] { background: var(--red); color: var(--red-ink); }
+  .users { border: 1px solid var(--line); border-radius: 16px; padding: 4px 18px; }
+  .user { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.1fr) minmax(0, .8fr) auto; gap: 6px 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--surface-2); }
+  .user:last-child { border-bottom: 0; }
+  .user strong { font-weight: 600; overflow-wrap: anywhere; }
+  .user small { display: block; color: var(--muted); font-size: 13px; }
+  .user select { padding: 6px 10px; font-size: 14px; max-width: 100%; }
+  .pill { display: inline-block; border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 700; background: var(--surface-2); color: var(--muted); }
+  .pill.pay { background: #2b3410; color: var(--lime); }
+  .pill.vip { background: #3a1410; color: var(--red); }
+
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 600; background: var(--surface); }
+  tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .settings { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
   .settings label { display: grid; gap: 6px; }
-  .hidden { display: none !important; }
-  @media (max-width: 560px) { h1 { font-size: 32px; } .kpi b { font-size: 32px; } }
+
+  .docs { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+  .doc { display: grid; gap: 6px; color: inherit; text-decoration: none; }
+  .doc strong { font-family: var(--display); font-weight: 400; font-size: 26px; letter-spacing: .02em; }
+  .doc .small { color: var(--lime); font-weight: 700; }
+  .doc:hover { border-color: var(--lime); }
+
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 10px 18px; border-radius: 999px; font-weight: 700; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  @media (max-width: 760px) {
+    .hero { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .hero b { font-size: 42px; }
+    .user { grid-template-columns: minmax(0, 1fr) auto; }
+    .user .plan { grid-column: 1 / -1; }
+  }
 </style>
 </head>
 <body>
@@ -99,45 +139,53 @@
   <section id="app" class="hidden">
     <header>
       <div class="brand"><img src="../icon.png" alt=""><div><h1>KETTAI · Panel</h1><div id="who" class="small muted"></div></div></div>
-      <div class="row"><button class="ghost" id="reload">Actualizar</button><button class="ghost" id="logout">Salir</button></div>
+      <div class="row"><span id="updated" class="small muted"></span><button class="ghost" id="reload">Actualizar</button><button class="ghost" id="logout">Salir</button></div>
     </header>
     <nav class="tabs" role="tablist">
-      <button role="tab" data-tab="resumen" aria-selected="true">Resumen</button>
+      <button role="tab" data-tab="hoy" aria-selected="true">Hoy</button>
       <button role="tab" data-tab="usuarios" aria-selected="false">Usuarios</button>
-      <button role="tab" data-tab="precios" aria-selected="false">Precios y ajustes</button>
+      <button role="tab" data-tab="metodo" aria-selected="false">Método</button>
+      <button role="tab" data-tab="negocio" aria-selected="false">Negocio</button>
+      <button role="tab" data-tab="documentos" aria-selected="false">Documentos</button>
     </nav>
 
-    <div id="tab-resumen">
-      <h2>Crecimiento</h2>
-      <div class="grid" id="kpiGrowth"></div>
+    <div id="tab-hoy">
+      <div class="hero" id="hero"></div>
+      <h2>Requiere tu atención</h2>
+      <div class="alerts" id="alerts"></div>
       <h2>Uso</h2>
-      <div class="grid" id="kpiUse"></div>
-      <h2>Retención</h2>
-      <div class="grid" id="kpiRetention"></div>
-      <h2>Seguridad y sensación</h2>
-      <div class="grid" id="kpiSafety"></div>
-      <h2>IA y negocio</h2>
-      <div class="grid" id="kpiBiz"></div>
+      <div class="lists">
+        <div class="list" id="listGrowth"></div>
+        <div class="list" id="listUse"></div>
+      </div>
       <h2>Últimas 8 semanas</h2>
       <div class="card"><div id="chart"></div>
         <div class="legend"><span><i style="background:var(--red)"></i>Activos (entrenaron)</span><span><i style="background:var(--lime)"></i>Nuevos</span><span><i style="background:var(--muted)"></i>Semanas con IA</span></div>
       </div>
-      <h2>Planes</h2>
-      <div class="grid" id="kpiPlans"></div>
-      <p class="small muted">Las sesiones solo llegan a la nube de quienes activaron el respaldo con su correo. Los usuarios sin cuenta no aparecen en estas cifras.</p>
+      <p class="small muted" style="margin-top:16px">Las sesiones solo llegan a la nube de quienes activaron el respaldo con su correo. Los usuarios sin cuenta no aparecen en estas cifras.</p>
     </div>
 
     <div id="tab-usuarios" class="hidden">
-      <h2>Usuarios registrados</h2>
+      <div class="chips" id="filters"></div>
       <div class="row" style="margin-bottom:12px"><input id="search" type="search" placeholder="Buscar por correo" style="flex:1; max-width:360px"><span id="count" class="small muted"></span></div>
-      <div class="table-wrap"><table>
-        <thead><tr><th>Correo</th><th>Registro</th><th>Último entrenamiento</th><th class="num">Sesiones 30 días</th><th class="num">IA esta semana</th><th class="num">IA 30 días</th><th>Plan</th><th></th></tr></thead>
-        <tbody id="users"></tbody>
-      </table></div>
-      <p class="small muted">«Por defecto» sigue el valor de los ajustes. 0 es gratis: solo reglas de la app. Cada semana con IA por semana son 4 al mes.</p>
+      <div class="users" id="users"></div>
+      <p class="small muted" style="margin-top:12px">El plan se guarda al elegirlo. «Por defecto» sigue el valor de los ajustes. 0 es gratis: solo reglas de la app. Cada semana con IA por semana son 4 al mes.</p>
     </div>
 
-    <div id="tab-precios" class="hidden">
+    <div id="tab-metodo" class="hidden">
+      <p class="muted" style="max-width:640px">Cómo está respondiendo la gente al entrenamiento, en los últimos 30 días.</p>
+      <div class="lists" style="margin-top:16px">
+        <div class="list" id="listSafety"></div>
+        <div class="list" id="listFeel"></div>
+        <div class="list" id="listRetention"></div>
+      </div>
+    </div>
+
+    <div id="tab-negocio" class="hidden">
+      <div class="lists">
+        <div class="list" id="listBiz"></div>
+        <div class="list" id="listPlans"></div>
+      </div>
       <h2>Precio mensual de cada plan</h2>
       <div class="table-wrap"><table>
         <thead><tr><th>Plan</th><th>Semanas con IA</th><th>Precio en pesos (CLP)</th><th>Precio en dólares (USD)</th><th class="num">Costo IA al mes</th></tr></thead>
@@ -155,6 +203,16 @@
       </div>
       <div class="row" style="margin-top:12px"><button id="saveSettings">Guardar ajustes</button></div>
     </div>
+
+    <div id="tab-documentos" class="hidden">
+      <div class="docs">
+        <a class="card doc" href="/Panel/metodo" target="_blank" rel="noopener">
+          <strong>Base técnica del método</strong>
+          <span class="muted">Versión 5 · 12-11-2026. Las 7 capas con que KETTAI arma una rutina, para presentar a un especialista.</span>
+          <span class="small">Abrir en otra pestaña →</span>
+        </a>
+      </div>
+    </div>
   </section>
 </div>
 <div id="toast" class="toast" role="status"></div>
@@ -165,6 +223,10 @@
   const SUPABASE_URL = 'https://uzehvdheatciusnhfyjr.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_yYM3d_2uI9j80fws4tDKoQ_U5i3k7Fb';
   const CODE_LENGTH = 8;
+  const TABS = ['hoy', 'usuarios', 'metodo', 'negocio', 'documentos'];
+  const DAY = 864e5;
+  // Umbrales de las alertas: sobre o bajo esto, el panel lo pone arriba.
+  const PAIN_MAX = 15, TOO_MUCH_MAX = 25, STICK_MIN = 50, W2_MIN = 40, W4_MIN = 25, INACTIVE_DAYS = 14;
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storageKey: 'kettai-panel' } });
 
   const $ = (id) => document.getElementById(id);
@@ -174,10 +236,12 @@
   const usd = (n) => n == null ? '—' : 'US$' + Number(n).toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const date = (d) => d ? new Date(d).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—';
   const pct = (n) => n == null ? '—' : n + ' %';
+  const dec = (n) => n == null ? '—' : Number(n).toLocaleString('es-CL', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   const toast = (msg) => { const t = $('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200); };
 
   let config = null;
   let users = [];
+  let filter = 'todos';
 
   // ---------- Entrar ----------
   $('send').onclick = async () => {
@@ -222,10 +286,11 @@
   }
 
   // ---------- Pestañas ----------
-  document.querySelectorAll('[data-tab]').forEach((b) => b.onclick = () => {
-    document.querySelectorAll('[data-tab]').forEach((x) => x.setAttribute('aria-selected', x === b));
-    ['resumen', 'usuarios', 'precios'].forEach((t) => show($('tab-' + t), t === b.dataset.tab));
-  });
+  function openTab(name) {
+    document.querySelectorAll('[data-tab]').forEach((x) => x.setAttribute('aria-selected', x.dataset.tab === name));
+    TABS.forEach((t) => show($('tab-' + t), t === name));
+  }
+  document.querySelectorAll('[data-tab]').forEach((b) => b.onclick = () => openTab(b.dataset.tab));
 
   async function load() {
     const [m, u, c] = await Promise.all([sb.rpc('admin_metrics'), sb.rpc('admin_users'), sb.rpc('admin_config')]);
@@ -235,59 +300,113 @@
     renderMetrics(m.data);
     renderUsers();
     renderPrices();
+    $('updated').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
   }
 
   const setting = (k, d) => Number(config?.settings?.[k] ?? d);
   const priceOf = (tier) => config?.prices?.find((p) => p.weekly_limit === tier) ?? {};
+  const limitOf = (u) => u.unlimited ? Infinity : (u.has_plan ? u.weekly_limit : setting('default_weekly_limit', 1));
 
-  // ---------- Resumen ----------
-  function kpi(label, value, note = '', tone = '') {
-    return `<div class="kpi ${tone}"><b>${value}</b><span>${label}</span>${note ? `<small>${note}</small>` : ''}</div>`;
-  }
+  // ---------- Grupos de usuarios (filtros y alertas) ----------
+  const daysSince = (d) => d ? (Date.now() - new Date(d).getTime()) / DAY : Infinity;
+  const GROUPS = {
+    todos: { label: 'Todos', test: () => true },
+    activos: { label: 'Activos 7 días', test: (u) => daysSince(u.last_session) <= 7 },
+    inactivos: { label: `Inactivos ${INACTIVE_DAYS} días`, test: (u) => u.last_session && daysSince(u.last_session) > INACTIVE_DAYS },
+    nunca: { label: 'Nunca entrenó', test: (u) => !u.last_session },
+    agotaron: { label: 'Agotaron IA', test: (u) => { const l = limitOf(u); return l > 0 && l !== Infinity && u.used_week >= l; } },
+    pagando: { label: 'Pagando', test: (u) => { const l = limitOf(u); return l > 0 && l !== Infinity && Number(priceOf(l).price_clp || priceOf(l).price_usd || 0) > 0; } },
+  };
+  const inGroup = (g) => users.filter(GROUPS[g].test);
+
+  // ---------- Hoy, Método y Negocio ----------
+  const line = (label, value, note = '', tone = '') =>
+    `<div><span>${label}${note ? `<small>${note}</small>` : ''}</span><b class="${tone}">${value}</b></div>`;
+  const listOf = (title, rows) => `<h3>${title}</h3>${rows.join('')}`;
+
   function renderMetrics(m) {
     const stick = m.active_30d ? Math.round(100 * m.active_7d / m.active_30d) : null;
-    const dec = (n) => n == null ? '—' : Number(n).toLocaleString('es-CL', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
     const perActive = m.active_7d ? dec(m.sessions_7d / m.active_7d) : '—';
     const rate = setting('usd_to_clp', 950);
     const aiClp = m.ai_cost_usd_30d * rate;
     const margin = Number(m.mrr_clp) - aiClp;
     const conversion = m.users_total ? Math.round(100 * m.paying / m.users_total) : null;
-    $('kpiGrowth').innerHTML =
-      kpi('Usuarios con cuenta', m.users_total) +
-      kpi('Nuevos en 7 días', m.new_7d) +
-      kpi('Nuevos en 30 días', m.new_30d) +
-      kpi('Sin cuenta (anónimos)', m.users_anonymous, 'Usan la app sin correo');
-    $('kpiUse').innerHTML =
-      kpi('Activos en 7 días', m.active_7d, 'Entrenaron al menos una vez') +
-      kpi('Activos en 30 días', m.active_30d) +
-      kpi('Constancia', pct(stick), 'Activos 7 días ÷ activos 30 días', stick >= 50 ? 'good' : stick != null ? 'warn' : '') +
-      kpi('Sesiones por activo', perActive, 'En los últimos 7 días') +
-      kpi('Minutos por sesión', dec(m.avg_minutes_30d), 'Promedio 30 días') +
-      kpi('Sesiones completas', pct(m.completed_pct_30d), 'Últimos 30 días');
-    $('kpiRetention').innerHTML =
-      kpi('Vuelven la semana 2', pct(m.retention_w2), `De ${m.retention_cohort_w2} con al menos 2 semanas`, m.retention_w2 >= 40 ? 'good' : m.retention_w2 != null ? 'warn' : '') +
-      kpi('Vuelven la semana 4', pct(m.retention_w4), `De ${m.retention_cohort_w4} con al menos 4 semanas`, m.retention_w4 >= 25 ? 'good' : m.retention_w4 != null ? 'warn' : '');
     const f = m.feelings_30d || {};
     const fTotal = (f.wanted_more || 0) + (f.right || 0) + (f.too_much || 0);
-    const fp = (k) => fTotal ? Math.round(100 * (f[k] || 0) / fTotal) + ' %' : '—';
-    $('kpiSafety').innerHTML =
-      kpi('Sesiones con dolor', pct(m.pain_pct_30d), 'Moderado o fuerte, 30 días', m.pain_pct_30d > 15 ? 'warn' : '') +
-      kpi('«Fue mucho»', fp('too_much'), `De ${fTotal} respuestas`, (f.too_much || 0) / (fTotal || 1) > .25 ? 'warn' : '') +
-      kpi('«Justo»', fp('right')) +
-      kpi('«Me quedé con ganas»', fp('wanted_more'));
-    $('kpiBiz').innerHTML =
-      kpi('Semanas con IA (7 días)', m.ai_7d) +
-      kpi('Semanas con IA (30 días)', m.ai_30d) +
-      kpi('Costo IA 30 días', usd(m.ai_cost_usd_30d), clp(aiClp)) +
-      kpi('Pagando', m.paying, `Conversión ${pct(conversion)}`) +
-      kpi('Ingreso mensual estimado', clp(m.mrr_clp), usd(m.mrr_usd)) +
-      kpi('Margen sobre la IA', clp(margin), 'Ingreso menos costo IA del mes', margin >= 0 ? 'good' : 'warn');
+    const fShare = (k) => fTotal ? Math.round(100 * (f[k] || 0) / fTotal) : null;
+    const tooMuch = fShare('too_much');
+    const weeks = m.weekly || [];
+    const last = weeks.at(-1), prev = weeks.at(-2);
+    const delta = last && prev ? last.active - prev.active : null;
+    const trend = delta == null ? '' :
+      delta === 0 ? '<small>Igual que la semana anterior</small>' :
+      `<small class="${delta > 0 ? 'good' : 'warn'}">${delta > 0 ? '+' : '−'}${Math.abs(delta)} vs. semana anterior</small>`;
+
+    $('hero').innerHTML =
+      `<div><b>${m.users_total}</b>Usuarios con cuenta<small class="${m.new_7d > 0 ? 'good' : ''}">+${m.new_7d} en 7 días</small></div>` +
+      `<div><b>${m.active_7d}</b>Activos en 7 días${trend}</div>` +
+      `<div><b class="${m.retention_w2 == null ? '' : m.retention_w2 >= W2_MIN ? 'good' : 'warn'}">${pct(m.retention_w2)}</b>Vuelven la semana 2<small>Meta ${W2_MIN} % · de ${m.retention_cohort_w2}</small></div>` +
+      `<div><b class="${margin < 0 ? 'warn' : ''}">${clp(margin)}</b>Margen sobre la IA<small>${Number(m.mrr_clp) > 0 ? 'Ingreso menos costo IA del mes' : 'Aún sin ingresos'}</small></div>`;
+
+    // Alertas: solo lo que se sale de rango. Cada una lleva a donde se ve el detalle.
+    const alerts = [];
+    const alert = (text, action = '', label = '') => alerts.push(
+      `<div class="alert"><i></i><span>${text}</span>${action ? `<button class="ghost" data-go="${action}">${label}</button>` : '<span></span>'}</div>`);
+    if (m.pain_pct_30d > PAIN_MAX) alert(`${m.pain_pct_30d} % de las sesiones con dolor moderado o fuerte (sobre ${PAIN_MAX} %)`, 'tab:metodo', 'Ver método');
+    if (tooMuch != null && tooMuch > TOO_MUCH_MAX) alert(`${tooMuch} % de las respuestas dicen «Fue mucho» (sobre ${TOO_MUCH_MAX} %)`, 'tab:metodo', 'Ver método');
+    if (stick != null && stick < STICK_MIN) alert(`Constancia de ${stick} %: menos de la mitad de los activos del mes entrenó esta semana`);
+    if (m.retention_w2 != null && m.retention_w2 < W2_MIN) alert(`Solo ${m.retention_w2} % vuelve la segunda semana (meta ${W2_MIN} %)`, 'tab:metodo', 'Ver método');
+    if (margin < 0) alert(`La IA cuesta más de lo que entra: margen de ${clp(margin)} al mes`, 'tab:negocio', 'Ver negocio');
+    const count = (g, text) => { const n = inGroup(g).length; if (n) alert(`${n} ${n === 1 ? text[0] : text[1]}`, 'users:' + g, 'Ver quiénes'); };
+    count('inactivos', [`usuario sin entrenar hace más de ${INACTIVE_DAYS} días`, `usuarios sin entrenar hace más de ${INACTIVE_DAYS} días`]);
+    count('nunca', ['usuario con cuenta que nunca entrenó', 'usuarios con cuenta que nunca entrenaron']);
+    count('agotaron', ['usuario agotó su IA esta semana', 'usuarios agotaron su IA esta semana']);
+    $('alerts').innerHTML = alerts.join('') || '<div class="alert ok"><i></i><span>Todo dentro de lo esperado.</span><span></span></div>';
+    $('alerts').querySelectorAll('[data-go]').forEach((b) => b.onclick = () => {
+      const [kind, value] = b.dataset.go.split(':');
+      if (kind === 'users') { filter = value; $('search').value = ''; renderUsers(); openTab('usuarios'); } else openTab(value);
+    });
+
+    $('listGrowth').innerHTML = listOf('Crecimiento', [
+      line('Nuevos en 7 días', m.new_7d),
+      line('Nuevos en 30 días', m.new_30d),
+      line('Sin cuenta (anónimos)', m.users_anonymous, 'Usan la app sin correo'),
+    ]);
+    $('listUse').innerHTML = listOf('Actividad', [
+      line('Activos en 30 días', m.active_30d),
+      line('Constancia', pct(stick), 'Activos 7 días ÷ activos 30 días', stick == null ? '' : stick >= STICK_MIN ? 'good' : 'warn'),
+      line('Sesiones por activo', perActive, 'Últimos 7 días'),
+      line('Minutos por sesión', dec(m.avg_minutes_30d), 'Promedio 30 días'),
+      line('Sesiones completas', pct(m.completed_pct_30d), 'Últimos 30 días'),
+    ]);
+    $('listSafety').innerHTML = listOf('Seguridad', [
+      line('Sesiones con dolor', pct(m.pain_pct_30d), 'Moderado o fuerte', m.pain_pct_30d > PAIN_MAX ? 'warn' : ''),
+      line('Sesiones completas', pct(m.completed_pct_30d)),
+    ]);
+    $('listFeel').innerHTML = listOf('Sensación al terminar', [
+      line('«Fue mucho»', pct(tooMuch), `De ${fTotal} respuestas`, tooMuch > TOO_MUCH_MAX ? 'warn' : ''),
+      line('«Justo»', pct(fShare('right'))),
+      line('«Me quedé con ganas»', pct(fShare('wanted_more'))),
+    ]);
+    $('listRetention').innerHTML = listOf('Retención', [
+      line('Vuelven la semana 2', pct(m.retention_w2), `De ${m.retention_cohort_w2} con al menos 2 semanas`, m.retention_w2 == null ? '' : m.retention_w2 >= W2_MIN ? 'good' : 'warn'),
+      line('Vuelven la semana 4', pct(m.retention_w4), `De ${m.retention_cohort_w4} con al menos 4 semanas`, m.retention_w4 == null ? '' : m.retention_w4 >= W4_MIN ? 'good' : 'warn'),
+    ]);
+    $('listBiz').innerHTML = listOf('IA y dinero', [
+      line('Semanas con IA (7 días)', m.ai_7d),
+      line('Semanas con IA (30 días)', m.ai_30d),
+      line('Costo IA 30 días', usd(m.ai_cost_usd_30d), clp(aiClp)),
+      line('Pagando', m.paying, `Conversión ${pct(conversion)}`),
+      line('Ingreso mensual estimado', clp(m.mrr_clp), usd(m.mrr_usd)),
+      line('Margen sobre la IA', clp(margin), 'Ingreso menos costo IA del mes', margin >= 0 ? 'good' : 'warn'),
+    ]);
     const p = m.plans || {};
     const def = setting('default_weekly_limit', 1);
-    $('kpiPlans').innerHTML =
-      [0, 1, 2, 3, 4, 5].map((n) => kpi(n === 0 ? 'Gratis' : `${n} por semana`, p[n] || 0, n === 0 ? 'Solo reglas' : `${n * 4} al mes${n === def ? ' · por defecto' : ''}`)).join('') +
-      kpi('Sin límite', p.sin_limite || 0);
-    renderChart(m.weekly || []);
+    $('listPlans').innerHTML = listOf('Usuarios por plan', [
+      ...[0, 1, 2, 3, 4, 5].map((n) => line(n === 0 ? 'Gratis' : `${n} por semana`, p[n] || 0, n === 0 ? 'Solo reglas' : `${n * 4} al mes${n === def ? ' · por defecto' : ''}`)),
+      line('Sin límite', p.sin_limite || 0),
+    ]);
+    renderChart(weeks);
   }
 
   function renderChart(weeks) {
@@ -318,41 +437,41 @@
       opt('unlimited', 'Sin límite');
   }
   function pill(u) {
-    const def = setting('default_weekly_limit', 1);
     if (u.unlimited) return '<span class="pill vip">Sin límite</span>';
-    const lim = u.has_plan ? u.weekly_limit : def;
-    return lim === 0 ? '<span class="pill free">Gratis</span>' : `<span class="pill pay">${lim}/sem</span>`;
+    const lim = limitOf(u);
+    return lim === 0 ? '<span class="pill">Gratis</span>' : `<span class="pill pay">${lim}/sem</span>`;
+  }
+  function lastSeen(u) {
+    if (!u.last_session) return 'Nunca entrenó';
+    const d = Math.floor(daysSince(u.last_session));
+    return d <= 0 ? 'Entrenó hoy' : d === 1 ? 'Entrenó ayer' : `Entrenó hace ${d} días`;
   }
   function renderUsers() {
+    $('filters').innerHTML = Object.entries(GROUPS).map(([id, g]) =>
+      `<button data-filter="${id}" aria-pressed="${id === filter}">${g.label} · ${inGroup(id).length}</button>`).join('');
+    $('filters').querySelectorAll('[data-filter]').forEach((b) => b.onclick = () => { filter = b.dataset.filter; renderUsers(); });
     const q = $('search').value.trim().toLowerCase();
-    const list = users.filter((u) => !q || u.email.toLowerCase().includes(q));
+    const list = inGroup(filter).filter((u) => !q || u.email.toLowerCase().includes(q));
     $('count').textContent = `${list.length} de ${users.length}`;
-    const def = setting('default_weekly_limit', 1);
     $('users').innerHTML = list.map((u) => {
-      const lim = u.unlimited ? '∞' : (u.has_plan ? u.weekly_limit : def);
-      return `<tr data-id="${u.user_id}">
-        <td>${esc(u.email)} ${u.is_admin ? '<span class="pill vip">admin</span>' : ''}</td>
-        <td>${date(u.created_at)}</td>
-        <td>${date(u.last_session)}</td>
-        <td class="num">${u.sessions_30d}</td>
-        <td class="num">${u.used_week} / ${lim}</td>
-        <td class="num">${u.used_month}</td>
-        <td>${pill(u)} <select aria-label="Plan de ${esc(u.email)}">${planOptions(u)}</select></td>
-        <td><button class="ghost" data-save>Guardar</button></td>
-      </tr>`;
-    }).join('') || '<tr><td colspan="8" class="muted">Sin usuarios</td></tr>';
-    $('users').querySelectorAll('[data-save]').forEach((b) => b.onclick = async () => {
-      const tr = b.closest('tr');
-      const v = tr.querySelector('select').value;
-      b.disabled = true;
+      const lim = limitOf(u);
+      return `<div class="user" data-id="${u.user_id}">
+        <div><strong>${esc(u.email)}</strong> ${u.is_admin ? '<span class="pill vip">admin</span>' : ''}<small>Registro ${date(u.created_at)}</small></div>
+        <div>${lastSeen(u)}<small>${u.sessions_30d} sesiones en 30 días</small></div>
+        <div>IA ${u.used_week} / ${lim === Infinity ? '∞' : lim}<small>${u.used_month} en 30 días</small></div>
+        <div class="plan">${pill(u)} <select aria-label="Plan de ${esc(u.email)}">${planOptions(u)}</select></div>
+      </div>`;
+    }).join('') || '<p class="muted" style="padding:14px 0; margin:0">Nadie en este grupo.</p>';
+    $('users').querySelectorAll('select').forEach((sel) => sel.onchange = async () => {
+      const v = sel.value;
+      sel.disabled = true;
       const { error } = await sb.rpc('admin_set_limit', {
-        target: tr.dataset.id,
+        target: sel.closest('.user').dataset.id,
         new_limit: /^\d$/.test(v) ? Number(v) : null,
         no_limit: v === 'unlimited',
         use_default: v === 'default',
       });
-      b.disabled = false;
-      if (error) { toast('No se pudo guardar'); console.error(error); return; }
+      if (error) { toast('No se pudo guardar'); console.error(error); renderUsers(); return; }
       toast('Plan guardado');
       load();
     });

@@ -167,6 +167,13 @@ Solo análisis, nada decidido ni programado. Las cifras son aproximadas; confirm
 - [ ] Precios por país, reembolsos y cancelaciones.
 - [ ] Traducción de ejercicios, textos y fichas de tienda.
 
+## 8. Lógica de entrenamiento (evaluación externa del 12-11-2026)
+Notas dentro del alcance: Gemini 9,2 y 9,0; ChatGPT 8,0 y 8,1. Meta de 8 cumplida. Detalle en `docs/Evaluacion-4-resultados.md`.
+- [ ] Tope de series por zona a la semana (por decidir). Propuesta: 10 principiante, 16 intermedio, 20 avanzado; si una zona se pasa, se cambia su último ejercicio por uno de una zona con menos carga. Sirve sobre todo con 5 y 6 días.
+- [ ] Prueba inicial opcional (por decidir): sentadilla a una silla, plancha por tiempo, flexiones en 30 s indicando si es en el suelo o apoyando rodillas, y equilibrio en un pie.
+- [x] Publicado el 12-11-2026: semana 3 y ciclo nuevo sin saltos grandes de pesa, y balísticos de a uno.
+- [ ] Quinta evaluación (Gemini 9,3 y 9,1; ChatGPT 8,3 y 8,4; Claude 8,3 y 8,0), por decidir: alertas médicas graves que bloqueen en vez de solo avisar; intermedio partiendo en la etapa 1 del swing; confirmar técnica solo con esfuerzo 8 o menos; rangos de repeticiones más amplios con pesas livianas. Detalle en `docs/Evaluacion-5-resultados.md`.
+
 ## Para retomar
 - Arrancar el servidor: `$env:NODE_OPTIONS='--max-old-space-size=3072'; npx expo start` en `C:\dev\entrenador-ia`.
 - En el iPhone: Expo Go → `exp://192.168.1.106:8081`.

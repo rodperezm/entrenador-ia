@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="/favicon.png">
+<title>KETTAI · Base técnica</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;500;600;700&display=swap">
+<style>
+  :root {
+    --bg: #0e0f13; --surface: #1a1b22; --surface-2: #272933; --line: #333644;
+    --fg: #f4f4f7; --muted: #a7aab8; --red: #ff5040; --lime: #cdd63c;
+    --display: "Bebas Neue", "Arial Narrow", Impact, sans-serif;
+    --body: "Barlow", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.5; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 40px 24px 64px; }
+  h1, h2, h3 { font-family: var(--display); font-weight: 400; letter-spacing: .01em; margin: 0; }
+  h1 { font-size: clamp(40px, 6vw, 64px); line-height: 1; }
+  h2 { font-size: 30px; line-height: 1.05; }
+  h3 { font-size: 21px; color: var(--lime); }
+  p { margin: 0; }
+  .label { color: var(--red); font-size: 13px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
+  .lead { color: var(--muted); max-width: 720px; margin-top: 12px; font-size: 18px; }
+  .muted { color: var(--muted); }
+
+  .sources { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+  .sources span { border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; font-size: 14px; color: var(--muted); }
+  .sources b { color: var(--fg); font-weight: 600; }
+
+  .flow { margin-top: 40px; display: grid; gap: 0; }
+  .stage { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 0 20px; position: relative; padding-bottom: 28px; }
+  .stage::before { content: ""; position: absolute; left: 37px; top: 60px; bottom: 0; width: 2px; background: var(--line); }
+  .stage:last-child::before { display: none; }
+  .num { font-family: var(--display); font-size: 40px; line-height: 1; color: var(--red); width: 76px; height: 56px; border: 1.5px solid var(--red); border-radius: 14px; display: grid; place-items: center; background: var(--bg); position: relative; z-index: 1; }
+  .stage.ai .num { background: var(--red); color: #1b0705; }
+  .body { background: var(--surface); border-radius: 18px; padding: 22px 24px; display: grid; gap: 14px; }
+  .q { color: var(--muted); font-size: 15px; margin-top: 2px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+  .cell { background: var(--bg); border-radius: 12px; padding: 14px 16px; display: grid; gap: 4px; align-content: start; }
+  .cell p, .cell li { color: var(--muted); font-size: 14.5px; }
+  .cell ul { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
+  .chain { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
+  .chain div { background: var(--bg); border-radius: 12px; padding: 12px 14px; flex: 1 1 150px; display: grid; gap: 2px; align-content: start; }
+  .chain div.key { outline: 1.5px solid var(--lime); }
+  .chain strong { font-family: var(--display); font-weight: 400; font-size: 22px; }
+  .chain span { color: var(--muted); font-size: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--lime); font-weight: 600; font-size: 13px; letter-spacing: .05em; text-transform: uppercase; }
+  td { color: var(--muted); }
+  td:first-child { color: var(--fg); font-weight: 600; white-space: nowrap; }
+  .tablewrap { overflow-x: auto; background: var(--bg); border-radius: 12px; padding: 4px 8px; }
+  .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+
+  .end { margin-top: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+  .end section { border: 1px solid var(--line); border-radius: 18px; padding: 22px 24px; display: grid; gap: 10px; align-content: start; }
+  .end ul { margin: 0; padding-left: 18px; color: var(--muted); display: grid; gap: 6px; font-size: 15px; }
+  .end b { color: var(--fg); font-weight: 600; }
+  footer { margin-top: 28px; color: var(--muted); font-size: 13px; }
+  @media (max-width: 560px) {
+    .stage { grid-template-columns: minmax(0, 1fr); }
+    .stage::before { display: none; }
+    .num { margin-bottom: 10px; }
+  }
+  @media print {
+    :root { --bg: #fff; --surface: #f3f3f5; --surface-2: #e6e6ea; --line: #c9cad2; --fg: #111; --muted: #444; --red: #c8281a; --lime: #5b6400; }
+    .stage, .end section { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="label">Base técnica · versión 5 · 12 de noviembre de 2026</p>
+  <h1>Cómo arma KETTAI una rutina</h1>
+  <p class="lead">Fuerza con una kettlebell y el peso del cuerpo, en casa o en el parque. La app no ve la ejecución: decide con lo que la persona declara y registra. Este esquema resume, capa por capa, en qué se basa cada decisión.</p>
+
+  <div class="sources">
+    <span><b>Estructura A/B/C y bloques de 4 semanas</b> · principios de programación de Christian Thibaudeau</span>
+    <span><b>Bisagra → swing por etapas</b> · kettlebell estilo hardstyle</span>
+    <span><b>Empujes, tirones y core</b> · calistenia</span>
+    <span><b>Esfuerzo</b> · RPE por repeticiones en reserva</span>
+    <span><b>Carga</b> · doble progresión</span>
+    <span><b>Regla madre</b> · lesiones y equipamiento mandan sobre el método</span>
+  </div>
+
+  <div class="flow">
+
+    <div class="stage">
+      <div class="num">1</div>
+      <div class="body">
+        <div><h2>Datos de entrada</h2><p class="q">Qué sabe la app de la persona.</p></div>
+        <div class="grid">
+          <div class="cell"><h3>Declara una vez</h3><ul><li>Nivel: principiante, intermedio o avanzado</li><li>Lesiones por zona y alertas médicas</li><li>Pesas que tiene (kg) y lugar</li><li>Días de Fuerza y minutos por día</li></ul></div>
+          <div class="cell"><h3>Registra en cada serie</h3><ul><li>Repeticiones y peso reales</li><li>Reps en reserva → RPE 6 a 10</li><li>Dolor en 4 niveles, por lado</li><li>Técnica mantenida (bloque A)</li></ul></div>
+          <div class="cell"><h3>Dice antes y después</h3><ul><li>«¿Cómo llegas hoy?»</li><li>«Fue mucho» / «Me quedé con ganas»</li><li>«No puedo hacerlo» y su motivo</li><li>Si usó la versión modificada</li></ul></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="num">2</div>
+      <div class="body">
+        <div><h2>Filtro de seguridad</h2><p class="q">Qué ejercicios pueden entrar. Se aplica antes que cualquier criterio de entrenamiento.</p></div>
+        <div class="grid">
+          <div class="cell"><h3>Sale del plan si</h3><ul><li>Carga una zona lesionada (bandera por ejercicio)</li><li>Pide equipo que no hay ese día</li><li>Supera la complejidad máxima del nivel</li><li>Tuvo dolor fuerte o «No puedo hacerlo» reciente</li></ul></div>
+          <div class="cell"><h3>Alertas médicas</h3><p>Dolor en el pecho, mareos, corazón, cirugía reciente o indicación médica: se recomienda consultar, se pide confirmación y no hay HIIT ni AMRAP.</p></div>
+          <div class="cell"><h3>Fuerza y lesión, separadas</h3><p>El trabajo de la lesión va en días aparte, con al menos 2 ejercicios indicados para la condición. Siempre queda un día sin Fuerza.</p></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="num">3</div>
+      <div class="body">
+        <div><h2>La semana</h2><p class="q">Cómo se reparte el trabajo según los días de Fuerza.</p></div>
+        <div class="tablewrap">
+          <table>
+            <tr><th>Días</th><th>División</th><th>Exigencia por día</th></tr>
+            <tr><td>1 a 3</td><td>Cuerpo completo cada día</td><td>Todos intensos, nunca dos seguidos</td></tr>
+            <tr><td>4</td><td>Inferior · superior · inferior · superior</td><td>Intenso, intenso, moderado, moderado</td></tr>
+            <tr><td>5</td><td>Lo anterior + un día de potencia y core al medio</td><td>Intenso, intenso, moderado ×3</td></tr>
+            <tr><td>6</td><td>Inferior / superior ×3</td><td>Intenso ×2, moderado ×2, liviano ×2</td></tr>
+          </table>
+        </div>
+        <p class="muted" style="font-size:14.5px">Principiante: máximo 3 días. Día moderado: una serie menos. Día liviano: técnica, máximo 2 series, sin balísticos. Con 4 o más días se divide porque repetir cuerpo completo no deja recuperar.</p>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="num">4</div>
+      <div class="body">
+        <div><h2>La sesión</h2><p class="q">Mandan los patrones de movimiento; los grupos musculares solo desempatan.</p></div>
+        <div class="chain">
+          <div><strong>Calentamiento</strong><span>Un ejercicio que prepara cada patrón de la Fuerza del día</span></div>
+          <div class="key"><strong>A · Potencia</strong><span>Balístico según etapa. 3+ series, hasta 10 reps, 2 min o más</span></div>
+          <div class="key"><strong>B · Fuerza</strong><span>Compuestos: sentadilla, zancada, bisagra, empuje, tirón. 90 s o más</span></div>
+          <div class="key"><strong>C · Remate</strong><span>Acarreo, core, brazos. Opcional: HIIT o AMRAP</span></div>
+          <div><strong>Elongación</strong><span>Un estiramiento por el músculo principal de cada ejercicio</span></div>
+        </div>
+        <div class="two">
+          <div class="cell"><h3>Etapas del bloque A</h3><p>1 peso muerto · 2 swing con pausa · 3 swing a dos manos · 4 swing a una mano · 5 clean y parientes · 6 snatch, jerk y long cycle. Se sube una etapa por bloque, con 2 sesiones de técnica confirmada y sin dolor. El dolor baja una etapa en el acto.</p></div>
+          <div class="cell"><h3>Tiempo disponible</h3><p>La sesión usa entre 80 y 100 % de los minutos elegidos. La Fuerza conserva al menos la mitad. Si falta tiempo se recorta desde el final (C primero), con un mínimo de 4 ejercicios.</p></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="num">5</div>
+      <div class="body">
+        <div><h2>La dosis</h2><p class="q">Ciclo de 4 semanas, con foco que rota por bloque. Los ejercicios ancla se repiten las 4 semanas para poder medir; el resto rota dentro del mismo patrón.</p></div>
+        <div class="two">
+          <div class="tablewrap">
+            <table>
+              <tr><th>Semana</th><th>Qué cambia</th></tr>
+              <tr><td>1 Introductoria</td><td>Una serie menos que el tope</td></tr>
+              <tr><td>2 Base</td><td>Series al tope: 3, 4 o 5 según nivel</td></tr>
+              <tr><td>3 Máxima intensidad</td><td>Más peso solo si el salto es de 20 % o menos; si no, misma pesa con tempo y menos descanso</td></tr>
+              <tr><td>4 Descarga</td><td>Mitad de las series, 60 % del tiempo</td></tr>
+            </table>
+          </div>
+          <div class="tablewrap">
+            <table>
+              <tr><th>Foco</th><th>Reps en B</th><th>Descanso</th></tr>
+              <tr><td>Técnica</td><td>Hasta 12, baja en 3 s con pausa</td><td>90 s</td></tr>
+              <tr><td>Fuerza</td><td>Desde 5, con 1 o 2 en reserva</td><td>150 s</td></tr>
+              <tr><td>Potencia</td><td>Cerca de 7, subida rápida</td><td>120 s</td></tr>
+            </table>
+          </div>
+        </div>
+        <p class="muted" style="font-size:14.5px">La semana solo avanza si se cumplió al menos la mitad de los días planificados. El principiante se queda en Técnica hasta dominar el swing a dos manos, o 2 bloques como máximo.</p>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="num">6</div>
+      <div class="body">
+        <div><h2>Progresión sesión a sesión</h2><p class="q">Autorregulación: manda lo que la persona sintió la última vez que hizo ese ejercicio.</p></div>
+        <div class="tablewrap">
+          <table>
+            <tr><th>Lo que registró</th><th>Lo que hace la app</th></tr>
+            <tr><td>Completó con RPE 8 o menos</td><td>+2 repeticiones, hasta el tope del rango</td></tr>
+            <tr><td>Llegó al tope del rango</td><td>Sube de pesa si el salto es de 20 % o menos. Si es mayor (12 → 16 kg): una serie más, luego bajar en 4 s con pausa, y recién después la pesa siguiente</td></tr>
+            <tr><td>Muy pesado (RPE 9,5 o más)</td><td>Mantiene la carga</td></tr>
+            <tr><td>«Fue mucho»</td><td>No sube; dos veces seguidas, una serie menos</td></tr>
+            <tr><td>Molestia leve</td><td>Mantiene; tres sesiones seguidas, baja la carga</td></tr>
+            <tr><td>Dolor moderado o fuerte</td><td>Baja a la pesa anterior y al mínimo de repeticiones; el fuerte saca el ejercicio</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="stage ai">
+      <div class="num">7</div>
+      <div class="body">
+        <div><h2>La IA y su guardia</h2><p class="q">La IA cumple el papel del entrenador que lee la semana y propone la siguiente. Las reglas tienen la última palabra.</p></div>
+        <div class="chain">
+          <div><strong>Recibe</strong><span>Perfil, lesiones, historial, anclas, etapa, foco y la lista de ejercicios permitidos</span></div>
+          <div class="key"><strong>Propone</strong><span>La semana completa, con el porqué de cada día en lenguaje simple</span></div>
+          <div><strong>La guardia revisa</strong><span>Ejercicios permitidos, zonas, anclas, pesos, saltos de carga y tiempo</span></div>
+          <div><strong>Si algo falla</strong><span>Ese día se rehace con las reglas de las capas 2 a 6</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="end">
+    <section>
+      <h2>Límites que declaramos</h2>
+      <ul>
+        <li><b>No vemos la ejecución.</b> La técnica es autoconfirmada; se mitiga con etapas, video e indicaciones en cada ejercicio.</li>
+        <li><b>El nivel es declarado.</b> No hay prueba de movimiento antes de empezar.</li>
+        <li><b>Lesiones de sí o no.</b> Un ejercicio carga o no una zona; no distingue rango ni velocidad.</li>
+        <li><b>El dolor es autoinformado.</b></li>
+      </ul>
+    </section>
+    <section>
+      <h2>Abierto a su revisión</h2>
+      <ul>
+        <li><b>Tope de series por zona a la semana.</b> Propuesta: 10, 16 y 20 según nivel.</li>
+        <li><b>Prueba inicial opcional.</b> Sentadilla a silla, plancha, flexiones en 30 s y equilibrio.</li>
+        <li><b>Alertas médicas graves.</b> ¿Bloquear en vez de solo avisar?</li>
+        <li><b>Avance en balísticos.</b> ¿Exigir RPE 8 o menos para confirmar técnica? ¿Partir todos en la etapa 1?</li>
+        <li><b>Pesas livianas.</b> ¿Rangos de 15 a 20 repeticiones antes de pedir otra pesa?</li>
+      </ul>
+    </section>
+  </div>
+
+  <footer>KETTAI · kettaiapp.com · Resumen del documento «Lógica de entrenamiento, versión 5». Los números son los programados hoy.</footer>
+</div>
+</body>
+</html>
