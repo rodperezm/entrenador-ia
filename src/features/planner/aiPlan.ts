@@ -131,8 +131,10 @@ export function checkAiPlan(
       );
     }
     for (const b of d.blocks) {
-      const intensity = request.week.find((w) => w.day === d.day)?.intensity;
-      b.slots = fitPart(BLOCK_KEY[b.type], b.slots, cfg, request.profile.level, request.cycle, intensity);
+      const asked = request.week.find((w) => w.day === d.day);
+      // Semana dividida por zonas: el remate (brazos, core, accesorios) es parte del día y no se quita por poco.
+      const zoned = b.type === 'main_strength' && !!asked && 'focus' in asked;
+      b.slots = fitPart(BLOCK_KEY[b.type], b.slots, cfg, request.profile.level, request.cycle, asked?.intensity, zoned);
     }
   }
 
