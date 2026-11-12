@@ -96,7 +96,7 @@ export function explainWeek(input: {
     ? 'Semana de preparación'
     : `Semana ${cycle.week} de 4 · ${cycle.weekName} · Ciclo ${cycle.block}, foco ${cycle.phaseName}`;
   const purpose = cycle.preparation
-    ? 'Hasta el lunes, días de técnica para empezar el ciclo con buena base. La primera semana del ciclo la arma la IA.'
+    ? 'Tu ciclo parte el lunes: así cada semana tiene su propósito y sus descansos bien repartidos. Hasta entonces, días de técnica para que conozcas la app y los ejercicios. La primera semana del ciclo la arma la IA.'
     : PURPOSE[cycle.week];
 
   // Anclas: el ejercicio de potencia y el principal de piernas de cada día. Se mantienen todo el ciclo

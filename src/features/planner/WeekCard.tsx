@@ -45,7 +45,7 @@ export function WeekCard({ generating, onGenerate }: { generating: boolean; onGe
           <Text style={styles.title}>Tu Semana {cycle.week} está lista para armarse</Text>
         </View>
         <Text style={styles.detail}>
-          La IA usa lo que registraste: pesos, esfuerzo y molestias. Puede tardar hasta un minuto.
+          La IA usa lo que registraste: pesos, esfuerzo y molestias. Puede tardar hasta un minuto y medio.
         </Text>
         <Button
           label={generating ? 'La IA está armando tu semana…' : `Armar mi Semana ${cycle.week} con IA`}

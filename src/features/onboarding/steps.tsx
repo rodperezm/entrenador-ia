@@ -540,11 +540,11 @@ export function WeekStep({ draft, update }: StepProps) {
     <View style={styles.gap}>
       {draft.isNew && (
         <View style={styles.aiBox}>
-          <Text style={styles.aiTitle}>{mondayStart ? '✨ La IA creará tu semana' : 'Partes con días de técnica'}</Text>
+          <Text style={styles.aiTitle}>{mondayStart ? '✨ La IA creará tu semana' : 'Tu plan parte el lunes'}</Text>
           <Text style={styles.body}>
             {mondayStart
               ? 'Con estos datos, la IA arma tus rutinas según tu perfil, lesiones, equipamiento y tiempo.'
-              : 'La app arma tu preparación y, desde el lunes, la IA crea tu semana.'}
+              : 'El ciclo de entrenamiento siempre empieza un lunes, con un buen plan. Hasta entonces te dejamos días de técnica para que conozcas la app y los ejercicios; el lunes, la IA crea tu semana.'}
           </Text>
         </View>
       )}

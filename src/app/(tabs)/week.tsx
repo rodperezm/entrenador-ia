@@ -118,7 +118,7 @@ export default function WeekScreen() {
               <Text style={styles.confirmText}>
                 {preparing
                   ? 'Se volverán a armar tus días de preparación.'
-                  : 'La IA armará tu semana de nuevo. Puede tardar hasta un minuto.'}
+                  : 'La IA armará tu semana de nuevo. Puede tardar hasta un minuto y medio.'}
               </Text>
               <Button
                 label="Sí, reemplazar"
@@ -147,7 +147,7 @@ export default function WeekScreen() {
             <Text style={styles.note}>
               {preparing
                 ? 'Hasta el domingo, tus días los arma la app. El lunes te avisaremos en Hoy para crear tu semana con IA.'
-                : 'Usa tu perfil, tus restricciones y tu historial. Puede tardar hasta un minuto.'}
+                : 'Usa tu perfil, tus restricciones y tu historial. Puede tardar hasta un minuto y medio.'}
             </Text>
           )}
         </>

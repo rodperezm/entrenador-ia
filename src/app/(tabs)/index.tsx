@@ -163,7 +163,8 @@ function TodayCard({ generating, onGenerate }: { generating: boolean; onGenerate
 
   if (weekMissing && preparing) {
     title = 'Arma tus días de preparación';
-    detail = 'Días de técnica para tomar el ritmo antes del lunes.';
+    detail =
+      'Tu ciclo parte el lunes, con un buen plan. Hasta entonces, días de técnica para conocer la app y los ejercicios.';
     action = { label: 'Armar mi preparación', onPress: onGenerate };
   } else if (waitingWeek && cfg.active) {
     detail = 'Tu rutina de hoy aparece cuando armes la semana.';

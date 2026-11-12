@@ -159,7 +159,7 @@ export default function DayScreen() {
             completo y varía los ejercicios entre días.
           </Text>
           <Button
-            label={generating ? 'Armando tu semana… (hasta 1 minuto)' : 'Generar mi semana con IA'}
+            label={generating ? 'Armando tu semana… (hasta 1 minuto y medio)' : 'Generar mi semana con IA'}
             onPress={generate}
             disabled={generating}
           />
