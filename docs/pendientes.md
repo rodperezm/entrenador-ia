@@ -145,6 +145,10 @@ Solo análisis, nada decidido ni programado. Las cifras son aproximadas; confirm
   - Uso: pasos del día en Hoy y Progreso, y en la IA como señal de recuperación (por ejemplo, muchos pasos ayer → piernas más suave).
   - Esfuerzo: mostrar pasos, fácil; IA y progreso, fácil a medio; Health Connect, medio a difícil.
   - Alternativa para la web: anotar los pasos a mano.
+- [ ] Antes de publicar en Android: guardar el historial como una clave por sesión, con un índice (anotado el 10-11-2026).
+  - Por qué: en Android cada dato guardado tiene un tope cercano a 2 MB; una sesión pesa unos 6 KB, así que el historial en un solo bloque se llena cerca de las 330 sesiones. En la web ese tope no aplica.
+  - Riesgo: un teléfono con una versión antigua en caché seguiría usando el bloque único y, al sincronizar, podría marcar como borradas en la nube las sesiones nuevas.
+  - Cómo: esperar unas semanas con la versión actual publicada; copiar cada sesión a su clave, releer para comprobar y conservar `history.v1` como copia; recién después dejar de usar el bloque único.
 - [ ] Cuenta de prueba para los revisores de Apple.
 - [ ] Página pública para pedir el borrado de cuenta (Google la exige).
 - [ ] Etiquetas de privacidad de Apple, Data safety y declaración de salud de Google.
