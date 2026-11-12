@@ -266,6 +266,9 @@ export type DayPlan = z.infer<typeof DayPlan>;
 export const GeneratedWeekPlan = z.object({ days: z.array(DayPlan), summary: z.string() });
 export type GeneratedWeekPlan = z.infer<typeof GeneratedWeekPlan>;
 
+export const PlannedByWeek = z.record(z.string(), z.number().int().min(0).max(7));
+export type PlannedByWeek = z.infer<typeof PlannedByWeek>;
+
 // Plan guardado: incluye con qué se generó y la configuración usada,
 // para saber si quedó desactualizado al cambiar la semana o el perfil.
 export const StoredWeekPlan = GeneratedWeekPlan.extend({
@@ -276,6 +279,9 @@ export const StoredWeekPlan = GeneratedWeekPlan.extend({
   dayHashes: z.partialRecord(DayOfWeek, z.string()).optional(),
   // Bloque en que se armó: dentro del mismo bloque, los ejercicios de Fuerza se mantienen.
   cycleBlock: z.string().optional(),
+  // Días de Fuerza planificados en cada semana (lunes AAAA-MM-DD → cantidad). Va aquí para que el
+  // respaldo lo lleve a otro teléfono: sin esto, el ciclo se contaría distinto en cada uno.
+  plannedByWeek: PlannedByWeek.optional(),
 });
 export type StoredWeekPlan = z.infer<typeof StoredWeekPlan>;
 

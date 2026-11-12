@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { type DayConfig, type DayOfWeek, StoredWeekPlan, WeekConfig } from '@/domain/schema';
+import { type DayConfig, type DayOfWeek, PlannedByWeek, StoredWeekPlan, WeekConfig } from '@/domain/schema';
 import { plannedThisWeek, setPlannedHistory, weekKey } from '@/domain/cycle';
 import { withEvenAlternating } from '@/domain/sides';
 import { backupBeforeOverwrite, loadSafely, parseWhole } from '@/lib/safeStore';
@@ -62,6 +62,17 @@ export function PlanProvider({ children }: { children: ReactNode }) {
   // Claves cuya carga no dejó copia de lo que había: antes de escribirlas se reintenta la copia.
   const unsafe = useRef(new Set<string>());
 
+  // Suma lo que venga de la rutina guardada o del respaldo; lo anotado en este teléfono manda.
+  const mergePlanned = useCallback((extra: unknown) => {
+    const parsed = PlannedByWeek.safeParse(extra);
+    if (!parsed.success || !Object.keys(parsed.data).length) return;
+    const next = { ...parsed.data, ...plannedRef.current };
+    if (Object.keys(next).length === Object.keys(plannedRef.current).length) return;
+    plannedRef.current = next;
+    setPlannedHistory(next);
+    AsyncStorage.setItem(PLANNED_KEY, JSON.stringify(next)).catch(() => {});
+  }, []);
+
   const write = useCallback(async (key: string, value: unknown) => {
     if (unsafe.current.has(key)) {
       await backupBeforeOverwrite(AsyncStorage, key);
@@ -92,14 +103,15 @@ export function PlanProvider({ children }: { children: ReactNode }) {
       AsyncStorage.getItem(PLANNED_KEY).catch(() => null),
     ]).then(([weekRes, planRes, weekAt, planAt, plannedRaw]) => {
       try {
-        const planned = JSON.parse(plannedRaw ?? '{}');
-        if (planned && typeof planned === 'object') {
-          plannedRef.current = planned;
-          setPlannedHistory(planned);
+        const planned = PlannedByWeek.safeParse(JSON.parse(plannedRaw ?? '{}'));
+        if (planned.success) {
+          plannedRef.current = planned.data;
+          setPlannedHistory(planned.data);
         }
       } catch {
         // Sin registro: el ciclo usa la configuración de hoy, como antes.
       }
+      mergePlanned(planRes.value?.plannedByWeek);
       setWeekUpdatedAt(weekAt);
       setPlanUpdatedAt(planAt);
       if (!weekRes.safe) unsafe.current.add(WEEK_KEY);
@@ -117,7 +129,7 @@ export function PlanProvider({ children }: { children: ReactNode }) {
       setPlan(p && withEvenAlternating(p)); // la semana ya armada también
       setLoading(false);
     });
-  }, [saveWeek]);
+  }, [mergePlanned, saveWeek]);
 
   const updateDay = useCallback(
     (day: DayOfWeek, patch: (d: DayConfig) => DayConfig) => {
@@ -163,12 +175,12 @@ export function PlanProvider({ children }: { children: ReactNode }) {
   // Venga de las reglas o de la IA, los alternados quedan en número par (ver evenAlternatingReps).
   const savePlan = useCallback(
     async (raw: StoredWeekPlan) => {
-      const p = withEvenAlternating(raw);
-      await write(PLAN_KEY, p);
       // Deja anotado cuántos días de Fuerza tiene esta semana, para juzgarla después con eso.
       plannedRef.current = { ...plannedRef.current, [weekKey()]: plannedThisWeek(weekRef.current.days) };
       setPlannedHistory(plannedRef.current);
       AsyncStorage.setItem(PLANNED_KEY, JSON.stringify(plannedRef.current)).catch(() => {});
+      const p = { ...withEvenAlternating(raw), plannedByWeek: plannedRef.current };
+      await write(PLAN_KEY, p);
       setPlan(p);
       stamp(PLAN_AT_KEY, setPlanUpdatedAt, new Date().toISOString());
     },
@@ -194,12 +206,13 @@ export function PlanProvider({ children }: { children: ReactNode }) {
         stamp(WEEK_AT_KEY, setWeekUpdatedAt, at.week ?? null);
       }
       if (p) {
+        mergePlanned(p.plannedByWeek);
         await write(PLAN_KEY, p);
         setPlan(p);
         stamp(PLAN_AT_KEY, setPlanUpdatedAt, at.plan ?? null);
       }
     },
-    [stamp, write],
+    [mergePlanned, stamp, write],
   );
 
   return (

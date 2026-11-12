@@ -5,8 +5,9 @@
 // historial. Claude solo puede elegir entre esos candidatos; la respuesta se
 // valida aquí (y otra vez en la app) antes de devolverla.
 //
-// Cada cuenta tiene un límite de semanas con IA (migración 0003): si lo alcanzó,
-// responde 429 sin llamar a Claude, y solo las consultas exitosas se cuentan.
+// Cada cuenta tiene un límite de semanas con IA (migraciones 0003 y 0005). El cupo se reserva
+// antes de llamar a Claude, para que varias consultas simultáneas no pasen con un solo cupo, y
+// se devuelve si Claude falla: solo las consultas exitosas se cuentan.
 //
 // Secretos (Edge Functions → Secrets):
 //   ANTHROPIC_API_KEY  (obligatorio)
@@ -56,7 +57,16 @@ function keepAliveResponse(work: Promise<unknown>) {
   });
 }
 
-type Quota = { used: number; weekly_limit: number | null; unlimited: boolean; resets_at: string };
+type Reservation = {
+  status: 'ok' | 'weekly_limit' | 'daily_cap' | 'needs_account';
+  generation_id: number | null;
+  weekly_limit: number | null;
+  resets_at: string;
+};
+// El pedido más grande medido (todo el equipamiento, 6 días, sin historial) pesa unos 90 KB.
+const MAX_BODY_BYTES = 400_000;
+const MAX_CANDIDATES = 400;
+const MAX_DAYS = 7;
 type Block = 'warmup' | 'prehab' | 'main_strength' | 'cooldown';
 type Candidate = { id: string; blocks: Block[]; kettlebell: boolean; dumbbells?: number; [k: string]: unknown };
 type RequestBody = {
@@ -231,6 +241,25 @@ function publishableKey(): string {
   return Deno.env.get('SUPABASE_ANON_KEY')!;
 }
 
+// Clave del servidor, solo para devolver un cupo reservado cuando Claude falla.
+function secretKey(): string | null {
+  const keys = Deno.env.get('SUPABASE_SECRET_KEYS');
+  if (keys) {
+    const parsed = JSON.parse(keys) as Record<string, string>;
+    return parsed.default ?? Object.values(parsed)[0] ?? null;
+  }
+  return Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? null;
+}
+
+// Si no se puede devolver, la consulta fallida queda contada: se prefiere eso a regalar cupos.
+async function release(generationId: number) {
+  const key = secretKey();
+  if (!key) return console.error('Sin clave del servidor: no se devolvió el cupo', generationId);
+  const admin = createClient(Deno.env.get('SUPABASE_URL')!, key, { auth: { persistSession: false } });
+  const { error } = await admin.rpc('release_ai_generation', { generation: generationId });
+  if (error) console.error('No se pudo devolver el cupo', error.message);
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
@@ -244,32 +273,40 @@ Deno.serve(async (req) => {
   const { data: auth } = await supabase.auth.getUser(token);
   if (!auth?.user) return json({ error: 'unauthorized' }, 401);
 
-  // Límite semanal antes de llamar a Claude, para no gastar la consulta.
-  const { data: quota, error: quotaError } = await supabase.rpc('ai_quota').single<Quota>();
-  if (quotaError || !quota) {
-    console.error('No se pudo leer el límite', quotaError?.message);
-    return json({ error: 'quota_unavailable' }, 503);
-  }
-  if (!quota.unlimited && quota.used >= (quota.weekly_limit ?? 0)) {
-    return json({ error: 'weekly_limit', resetsAt: quota.resets_at, limit: quota.weekly_limit }, 429);
-  }
-
+  // El pedido se revisa antes de reservar el cupo: uno inválido o gigante no gasta nada.
   let body: RequestBody;
   try {
-    body = await req.json();
-    if (!Array.isArray(body.candidates) || !Array.isArray(body.week) || body.week.length === 0) throw new Error();
+    const text = await req.text();
+    if (new TextEncoder().encode(text).length > MAX_BODY_BYTES) return json({ error: 'too_large' }, 413);
+    body = JSON.parse(text);
+    if (!body || typeof body.profile !== 'object' || body.profile === null) throw new Error();
+    if (!Array.isArray(body.candidates) || body.candidates.length === 0 || body.candidates.length > MAX_CANDIDATES) {
+      throw new Error();
+    }
+    if (!Array.isArray(body.week) || body.week.length === 0 || body.week.length > MAX_DAYS) throw new Error();
   } catch {
     return json({ error: 'bad_request' }, 400);
   }
 
+  // Reserva del cupo antes de llamar a Claude.
+  const { data: reserved, error: reserveError } = await supabase.rpc('reserve_ai_generation').single<Reservation>();
+  if (reserveError || !reserved) {
+    console.error('No se pudo reservar el cupo', reserveError?.message);
+    return json({ error: 'quota_unavailable' }, 503);
+  }
+  if (reserved.status !== 'ok' || reserved.generation_id == null) {
+    const status = reserved.status === 'needs_account' ? 403 : 429;
+    return json({ error: reserved.status, resetsAt: reserved.resets_at, limit: reserved.weekly_limit }, status);
+  }
+  const generationId = reserved.generation_id;
+
   return keepAliveResponse(
-    generatePlan(body).then(async (result) => {
-      if ('plan' in result) {
-        const { error } = await supabase.rpc('record_ai_generation');
-        if (error) console.error('No se pudo registrar la consulta', error.message);
-      }
-      return result;
-    }),
+    generatePlan(body)
+      .catch(() => ({ error: 'internal_error' }))
+      .then(async (result) => {
+        if (!('plan' in result)) await release(generationId);
+        return result;
+      }),
   );
 });
 

@@ -69,7 +69,7 @@ function ActionRow({
 }
 
 function BackupActive() {
-  const { status, email, lastSyncAt, syncNow, signOut, signInAgain, removeAccount, exportData } = useSync();
+  const { status, email, lastSyncAt, syncNow, signOut, signInAgain, removeAccount, wipeLocal, exportData } = useSync();
   const { profile } = useProfile();
   const { sessions } = useHistory();
   const { records, folds } = useBody();
@@ -113,6 +113,19 @@ function BackupActive() {
       'Dejará de sincronizar. Tu respaldo y lo guardado en este teléfono se mantienen.',
       'Cerrar sesión',
       signOut,
+    );
+
+  const askWipe = () =>
+    confirmAction(
+      '¿Borrar los datos de este teléfono?',
+      pending
+        ? 'Hay cambios que todavía no se copian a tu respaldo: si borras ahora, se pierden. Se cierra la sesión y este teléfono queda como nuevo.'
+        : 'Se cierra la sesión y este teléfono queda como nuevo. Tu respaldo en la nube se mantiene: lo recuperas entrando con tu correo.',
+      'Borrar de este teléfono',
+      () =>
+        wipeLocal()
+          .then(() => router.replace('/onboarding'))
+          .catch(() => setError('No se pudo borrar. Inténtalo de nuevo.')),
     );
 
   const askDelete = () =>
@@ -165,6 +178,8 @@ function BackupActive() {
       <Text style={styles.section}>Tu cuenta</Text>
       <View style={styles.group}>
         <ActionRow icon="log-out-outline" label="Cerrar sesión en este teléfono" onPress={askSignOut} />
+        <View style={styles.rowDivider} />
+        <ActionRow icon="phone-portrait-outline" label="Borrar los datos de este teléfono" onPress={askWipe} />
         <View style={styles.rowDivider} />
         <ActionRow icon="trash-outline" label="Borrar mi cuenta y mi respaldo" onPress={askDelete} danger />
       </View>

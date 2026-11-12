@@ -200,6 +200,10 @@
           <input id="aiCost" type="number" min="0" step="0.01"></label>
         <label>Valor del dólar (CLP)
           <input id="usdClp" type="number" min="1" step="1"></label>
+        <label id="dailyCapBox" class="hidden">Tope de semanas con IA en 24 horas, entre todas las cuentas
+          <input id="dailyCap" type="number" min="0" step="10"></label>
+        <label id="needsEmailBox" class="hidden">¿Quién puede usar la IA?
+          <select id="needsEmail"><option value="false">Cualquiera, con o sin correo</option><option value="true">Solo cuentas con correo</option></select></label>
       </div>
       <div class="row" style="margin-top:12px"><button id="saveSettings">Guardar ajustes</button></div>
     </div>
@@ -495,6 +499,12 @@
     $('defaultLimit').innerHTML = [0, 1, 2, 3, 4, 5].map((n) => `<option value="${n}" ${n === def ? 'selected' : ''}>${n === 0 ? '0 · gratis' : n + ' por semana'}</option>`).join('');
     $('aiCost').value = cost;
     $('usdClp').value = setting('usd_to_clp', 950);
+    // Ajustes de seguridad de la IA: aparecen cuando la base ya los tiene (migración 0005).
+    const s = config?.settings ?? {};
+    show($('dailyCapBox'), 'ai_daily_cap' in s);
+    show($('needsEmailBox'), 'ai_requires_email' in s);
+    $('dailyCap').value = s.ai_daily_cap ?? '';
+    $('needsEmail').value = String(s.ai_requires_email === true);
   }
   $('savePrices').onclick = async () => {
     const rows = [...$('prices').querySelectorAll('tr')].filter((tr) => tr.dataset.tier !== '0');
@@ -508,6 +518,9 @@
   };
   $('saveSettings').onclick = async () => {
     const pairs = [['default_weekly_limit', Number($('defaultLimit').value)], ['ai_cost_usd', Number($('aiCost').value)], ['usd_to_clp', Number($('usdClp').value)]];
+    const s = config?.settings ?? {};
+    if ('ai_daily_cap' in s && $('dailyCap').value !== '') pairs.push(['ai_daily_cap', Number($('dailyCap').value)]);
+    if ('ai_requires_email' in s) pairs.push(['ai_requires_email', $('needsEmail').value === 'true']);
     for (const [setting_, value] of pairs) {
       const { error } = await sb.rpc('admin_set_setting', { setting: setting_, new_value: value });
       if (error) { toast('No se pudo guardar'); console.error(error); return; }

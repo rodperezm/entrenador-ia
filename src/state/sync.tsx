@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { FoldRecord, TapeRecord } from '@/domain/body';
 import { LocalProfile, StoredWeekPlan, WeekConfig, WorkoutSession } from '@/domain/schema';
 import { chooseDoc } from '@/domain/syncMerge';
+import { clearDraft } from '@/features/workout/draft';
 import { type CloudItem, deleteAccount, itemKey, pullItems, pushItems } from '@/lib/cloudSync';
 import { hashData, parseSent, type Sent } from '@/lib/itemHash';
 import { CLOUD_CONSENT_KEY, ensureSession, SessionLostError, sessionLost, supabase } from '@/lib/supabase';
@@ -19,6 +20,8 @@ import { useProfile } from './profile';
 
 const CONSENT_KEY = CLOUD_CONSENT_KEY;
 const SENT_KEY = 'cloud-sent.v1';
+// Cuenta a la que pertenece lo guardado en este teléfono (la última que tuvo el respaldo activo).
+const OWNER_KEY = 'cloud-owner.v1';
 const PUSH_DELAY_MS = 2000;
 
 const Consent = z.object({ acceptedAt: z.string() });
@@ -32,8 +35,12 @@ type SyncState = {
   status: Status;
   email: string | null;
   lastSyncAt: string | null;
-  /** Activa el respaldo: combina lo que haya en la nube y sube lo del teléfono. */
-  enable: () => Promise<void>;
+  /**
+   * Activa el respaldo: combina lo que haya en la nube y sube lo del teléfono.
+   * `existing`: se entró a una cuenta que ya existía. Si el teléfono guardaba datos de OTRA
+   * cuenta, se reemplazan por los de esta en vez de mezclarse.
+   */
+  enable: (existing?: boolean) => Promise<void>;
   syncNow: () => Promise<void>;
   /** Deja de sincronizar en este teléfono; la nube y lo local no se tocan. */
   signOut: () => Promise<void>;
@@ -41,6 +48,8 @@ type SyncState = {
   signInAgain: () => Promise<void>;
   /** Borra la cuenta y su respaldo; lo del teléfono no se toca. */
   removeAccount: () => Promise<void>;
+  /** Cierra la sesión y borra todo lo guardado en este teléfono; el respaldo en la nube no se toca. */
+  wipeLocal: () => Promise<void>;
   exportData: () => string;
 };
 
@@ -54,10 +63,16 @@ const parseAll = <T,>(items: CloudItem[], kind: CloudItem['kind'], schema: z.Zod
   });
 
 export function SyncProvider({ children }: { children: ReactNode }) {
-  const { profile, loading: profileLoading, importProfile } = useProfile();
-  const { week, plan, weekUpdatedAt, planUpdatedAt, loading: planLoading, importPlan } = usePlan();
-  const { sessions, loading: historyLoading, uncertain: historyUncertain, importSessions } = useHistory();
-  const { records, folds, loading: bodyLoading, uncertain: bodyUncertain, importBody } = useBody();
+  const { profile, loading: profileLoading, importProfile, clearProfile } = useProfile();
+  const { week, plan, weekUpdatedAt, planUpdatedAt, loading: planLoading, importPlan, resetPlan } = usePlan();
+  const {
+    sessions,
+    loading: historyLoading,
+    uncertain: historyUncertain,
+    importSessions,
+    clearHistory,
+  } = useHistory();
+  const { records, folds, loading: bodyLoading, uncertain: bodyUncertain, importBody, clearBody } = useBody();
   const [enabled, setEnabled] = useState(false);
   const [checked, setChecked] = useState(false);
   const [status, setStatus] = useState<Status>('off');
@@ -141,14 +156,22 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   // Trae lo que hay en la nube. Sesiones y medidas se combinan para no perder nada de ningún
   // teléfono. Perfil, semana y rutina: gana el más reciente, y lo del teléfono nunca se reemplaza
   // por algo más antiguo. `preferCloud`: al entrar a una cuenta que ya existe, manda la cuenta.
+  // `replaceLocal`: lo del teléfono era de otra cuenta; no se combina, queda solo lo de esta.
   const pull = useCallback(
-    async (preferCloud = false) => {
+    async (preferCloud = false, replaceLocal = false) => {
       if (await sessionLost()) throw new SessionLostError();
       const cloud = await pullItems();
+      if (replaceLocal) {
+        clearHistory();
+        clearBody();
+        clearDraft();
+      }
       const deletedIds = cloud.filter((i) => i.deleted).map((i) => i.item_id);
       importSessions(parseAll(cloud, 'session', WorkoutSession), deletedIds);
       importBody(parseAll(cloud, 'tape', TapeRecord), parseAll(cloud, 'fold', FoldRecord), deletedIds);
-      const local = localRef.current;
+      const local = replaceLocal
+        ? { profile: null, week: localRef.current.week, plan: null, weekUpdatedAt: null, planUpdatedAt: null }
+        : localRef.current;
       const rowDate = (kind: CloudItem['kind']) => cloud.find((i) => i.kind === kind && !i.deleted)?.updated_at ?? null;
       const resend: string[] = [];
       const fromCloud = <T,>(
@@ -172,6 +195,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         cloudProfile?.updatedAt,
       );
       if (newProfile) await importProfile(newProfile);
+      else if (replaceLocal) await clearProfile();
 
       const cloudPlan = parseAll(cloud, 'plan', StoredWeekPlan)[0] ?? null;
       // Sin perfil, la semana del teléfono es la de fábrica: no compite con la de la cuenta.
@@ -189,6 +213,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         local.planUpdatedAt ?? local.plan?.generatedAt,
         rowDate('plan') ?? cloudPlan?.generatedAt,
       );
+      if (replaceLocal) await resetPlan();
       await importPlan(newWeek, newPlan, { week: rowDate('week'), plan: rowDate('plan') });
 
       // Lo del teléfono que es más nuevo que la nube se vuelve a subir aunque ya se hubiera enviado.
@@ -199,7 +224,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       }
       merged.current = true;
     },
-    [importBody, importPlan, importProfile, importSessions],
+    [clearBody, clearHistory, clearProfile, importBody, importPlan, importProfile, importSessions, resetPlan],
   );
 
   const syncNow = useCallback(async () => {
@@ -217,7 +242,11 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       .then(([raw, auth]) => {
         const user = auth?.data.user;
         if (raw && Consent.safeParse(JSON.parse(raw)).success) setEnabled(true);
-        if (user && !user.is_anonymous) setEmail(user.email ?? null);
+        if (user && !user.is_anonymous) {
+          setEmail(user.email ?? null);
+          // Respaldos activados antes de que existiera esta marca.
+          if (raw) AsyncStorage.setItem(OWNER_KEY, user.id).catch(() => {});
+        }
         else if (raw) setStatus('signed_out');
       })
       .catch(() => {})
@@ -248,14 +277,21 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     return () => sub.remove();
   }, [enabled, push]);
 
-  const enable = useCallback(async () => {
-    const { data } = await supabase.auth.getUser();
-    await AsyncStorage.removeItem(SENT_KEY);
-    await pull(true);
-    await AsyncStorage.setItem(CONSENT_KEY, JSON.stringify({ acceptedAt: new Date().toISOString() }));
-    setEmail(data.user?.email ?? null);
-    setEnabled(true);
-  }, [pull]);
+  const enable = useCallback(
+    async (existing = false) => {
+      const { data } = await supabase.auth.getUser();
+      const userId = data.user?.id ?? null;
+      const owner = await AsyncStorage.getItem(OWNER_KEY).catch(() => null);
+      const otherAccount = existing && !!owner && !!userId && owner !== userId;
+      await AsyncStorage.removeItem(SENT_KEY);
+      await pull(true, otherAccount);
+      await AsyncStorage.setItem(CONSENT_KEY, JSON.stringify({ acceptedAt: new Date().toISOString() }));
+      if (userId) await AsyncStorage.setItem(OWNER_KEY, userId);
+      setEmail(data.user?.email ?? null);
+      setEnabled(true);
+    },
+    [pull],
+  );
 
   const stop = useCallback(async () => {
     await AsyncStorage.multiRemove([CONSENT_KEY, SENT_KEY]);
@@ -279,9 +315,27 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
   const removeAccount = useCallback(async () => {
     await deleteAccount();
+    // Sin cuenta, lo que queda en el teléfono ya no pertenece a ninguna.
+    await AsyncStorage.removeItem(OWNER_KEY).catch(() => {});
     await stop();
     await ensureSession().catch(() => {});
   }, [stop]);
+
+  // Para un teléfono prestado o que se va a regalar. Primero se apaga el respaldo: si no, lo
+  // borrado aquí se marcaría como borrado también en la nube.
+  const wipeLocal = useCallback(async () => {
+    await stop();
+    await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+    clearHistory();
+    clearBody();
+    clearDraft();
+    await resetPlan();
+    await clearProfile();
+    // Marcas del respaldo y copias de seguridad de lo que alguna vez no se pudo leer.
+    const keys = await AsyncStorage.getAllKeys().catch(() => [] as readonly string[]);
+    const leftovers = keys.filter((k) => k === OWNER_KEY || /\.(bak(\.\d+)?|pending)$/.test(k));
+    if (leftovers.length) await AsyncStorage.multiRemove(leftovers).catch(() => {});
+  }, [clearBody, clearHistory, clearProfile, resetPlan, stop]);
 
   const exportData = useCallback(
     () =>
@@ -302,6 +356,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         signOut,
         signInAgain,
         removeAccount,
+        wipeLocal,
         exportData,
       }}
     >

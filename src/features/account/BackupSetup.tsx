@@ -34,7 +34,7 @@ const EXISTING: Copy = {
   intro: 'Escribe el correo de tu cuenta. Te enviaremos un código para entrar, sin contraseña.',
   noticeTitle: 'Al entrar',
   notice:
-    'Tus entrenamientos y medidas se suman a los de este teléfono. Tu perfil, tu semana y tu rutina se reemplazan por los de tu cuenta.',
+    'Tus entrenamientos y medidas se suman a los de este teléfono. Tu perfil, tu semana y tu rutina se reemplazan por los de tu cuenta. Si este teléfono guardaba datos de otra cuenta, se reemplazan todos por los de la tuya.',
   consent: 'Acepto sincronizar este teléfono con mi cuenta, incluidos mis datos de salud.',
 };
 
@@ -160,7 +160,7 @@ export function BackupSetup({ initialMode = 'new', signup = false, onCreated }: 
         await (mode === 'new' ? verifyBackupCode(cleanEmail, code) : verifyLoginCode(cleanEmail, code));
         verified.current = true;
       }
-      await enable();
+      await enable(mode === 'existing');
       // Al entrar a una cuenta que ya existe se trae su perfil: el inicio decide si falta completarlo.
       if (mode === 'new' && onCreated) onCreated();
       else router.replace('/');
