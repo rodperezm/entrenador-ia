@@ -269,6 +269,6 @@ const styles = StyleSheet.create({
   code: { fontSize: 24, letterSpacing: 8, textAlign: 'center' },
   notice: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.md, gap: spacing.sm },
   noticeTitle: { color: colors.text, fontSize: 16, fontWeight: '800' },
-  link: { color: colors.accent, fontSize: 14, fontWeight: '700' },
+  link: { color: colors.link, fontSize: 14, fontWeight: '700' },
   error: { color: colors.warning, fontSize: 14, lineHeight: 20 },
 });

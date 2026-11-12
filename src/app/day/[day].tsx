@@ -637,7 +637,7 @@ const styles = StyleSheet.create({
   countControls: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   estimate: { color: colors.text, fontSize: 15, fontWeight: '700', textAlign: 'center' },
-  link: { color: colors.accent, fontSize: 14, fontWeight: '700', marginTop: spacing.sm },
+  link: { color: colors.link, fontSize: 14, fontWeight: '700', marginTop: spacing.sm },
   muted: { color: colors.textMuted, fontSize: 13, lineHeight: 18 },
   stale: { color: colors.warning, fontSize: 13 },
   routineBlock: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.md, gap: 2 },

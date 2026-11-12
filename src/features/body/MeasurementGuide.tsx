@@ -1,7 +1,7 @@
 import { type ReactNode, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, G, Line, Text as SvgText } from 'react-native-svg';
-import { Silhouette } from '@/components/BodyMap';
+import { BodyMap } from '@/components/BodyMap';
 import { ageAt, fatCuts, todayISO } from '@/domain/body';
 import type { Sex } from '@/domain/schema';
 import { colors, radius, spacing } from '@/theme';
@@ -26,32 +26,32 @@ const TAPE_TIPS: ReactNode[] = [
   'Pésate en la misma balanza y con poca ropa. Basta con un registro por semana para ver la tendencia.',
 ];
 
+// `at`: dónde va la cinta sobre la figura (lienzo de 200 × 400), para cada cuerpo.
 const TAPE_SITES = [
   {
     n: 1,
     title: 'Tórax',
     text: 'A la altura de las tetillas, pasando bajo las axilas y por la parte más ancha de la espalda.',
-    y: 100,
-    x1: 54,
-    x2: 146,
+    at: { male: { y: 106, x1: 64, x2: 136 }, female: { y: 109, x1: 68, x2: 132 } },
   },
   {
     n: 2,
     title: 'Cintura',
     text: 'La parte más estrecha del torso, entre la última costilla y la cadera.',
-    y: 148,
-    x1: 60,
-    x2: 140,
+    at: { male: { y: 148, x1: 74, x2: 126 }, female: { y: 146, x1: 77, x2: 123 } },
   },
   {
     n: 3,
     title: 'Abdomen',
     text: 'A la altura del ombligo, tal como lo mide habitualmente el médico, con la cinta horizontal alrededor del torso.',
-    y: 172,
-    x1: 63,
-    x2: 137,
+    at: { male: { y: 164, x1: 73, x2: 127 }, female: { y: 163, x1: 75, x2: 125 } },
   },
-  { n: 4, title: 'Cadera', text: 'La parte más ancha de los glúteos, con los pies juntos.', y: 208, x1: 62, x2: 138 },
+  {
+    n: 4,
+    title: 'Cadera',
+    text: 'La parte más ancha de los glúteos, con los pies juntos.',
+    at: { male: { y: 188, x1: 68, x2: 132 }, female: { y: 190, x1: 66, x2: 134 } },
+  },
 ];
 
 const FOLD_TIPS: ReactNode[] = [
@@ -73,16 +73,16 @@ const FOLD_SITES: Record<Sex, { n: number; title: string; text: string; x: numbe
       n: 1,
       title: 'Pecho (pectoral)',
       text: 'Pliegue diagonal, a mitad de camino entre el pezón y la parte frontal de la axila, sobre la línea imaginaria que los une.',
-      x: 74,
-      y: 92,
+      x: 80,
+      y: 100,
     },
-    { n: 2, title: 'Abdomen', text: 'Pliegue vertical, 2 cm a la derecha del ombligo.', x: 86, y: 176 },
+    { n: 2, title: 'Abdomen', text: 'Pliegue vertical, 2 cm a la derecha del ombligo.', x: 91, y: 164 },
     {
       n: 3,
       title: 'Muslo',
       text: 'Pliegue vertical en el centro del muslo, a mitad de camino entre la ingle y la parte superior de la rótula.',
-      x: 82,
-      y: 280,
+      x: 80,
+      y: 218,
     },
   ],
   female: [
@@ -90,22 +90,22 @@ const FOLD_SITES: Record<Sex, { n: number; title: string; text: string; x: numbe
       n: 1,
       title: 'Tríceps',
       text: 'Pliegue vertical en la parte posterior del brazo, sobre el tríceps, a mitad de camino entre el hombro y el codo.',
-      x: 49,
-      y: 125,
+      x: 62,
+      y: 130,
     },
     {
       n: 2,
       title: 'Suprailíaco',
       text: 'Pliegue diagonal, justo por encima de la parte frontal y más adelantada del hueso de la cadera.',
-      x: 70,
-      y: 190,
+      x: 79,
+      y: 172,
     },
     {
       n: 3,
       title: 'Muslo',
       text: 'Pliegue vertical en el centro del muslo, a mitad de camino entre la ingle y la parte superior de la rótula.',
-      x: 82,
-      y: 280,
+      x: 81,
+      y: 218,
     },
   ],
 };
@@ -166,9 +166,8 @@ export function MeasurementGuide({
           </Section>
 
           <Section title="Dónde medir">
-            <Figure caption="Vista frontal">
-              <Circle cx={100} cy={176} r={1.8} fill={colors.textMuted} />
-              {TAPE_SITES.map((s) => (
+            <Figure caption="Vista frontal" gender={sex ?? 'male'}>
+              {TAPE_SITES.map(({ n, at }) => ({ n, ...at[sex ?? 'male'] })).map((s) => (
                 <G key={s.n}>
                   <Line
                     x1={s.x1}
@@ -179,7 +178,8 @@ export function MeasurementGuide({
                     strokeWidth={2.2}
                     strokeDasharray="5 4"
                   />
-                  <Badge x={s.x2 + 16} y={s.y} n={s.n} />
+                  {/* Alternan de lado: cintura y abdomen quedan muy cerca y se encimarían. */}
+                  <Badge x={s.n % 2 ? s.x2 + 16 : s.x1 - 16} y={s.y} n={s.n} />
                 </G>
               ))}
             </Figure>
@@ -245,8 +245,7 @@ export function MeasurementGuide({
 
           {sexOrder.map((s) => (
             <Section key={s} title={`Dónde medir · ${s === 'male' ? 'Hombres' : 'Mujeres'}`}>
-              <Figure caption="Lado derecho de la persona">
-                {s === 'male' && <Circle cx={100} cy={176} r={1.8} fill={colors.textMuted} />}
+              <Figure caption="Lado derecho de la persona" gender={s}>
                 {FOLD_SITES[s].map((p) => (
                   <Badge key={p.n} x={p.x} y={p.y} n={p.n} />
                 ))}
@@ -385,13 +384,19 @@ function Bullet({ children }: { children: ReactNode }) {
   );
 }
 
-function Figure({ caption, children }: { caption: string; children: ReactNode }) {
+// La misma figura anatómica del resto de la app; encima van las marcas de dónde medir.
+const FIGURE_W = 170;
+const FIGURE_H = 340;
+
+function Figure({ caption, gender, children }: { caption: string; gender: Sex; children: ReactNode }) {
   return (
     <View style={styles.figure}>
-      <Svg width={170} height={357} viewBox="0 0 200 420">
-        <Silhouette />
-        {children}
-      </Svg>
+      <View style={{ width: FIGURE_W, height: FIGURE_H }}>
+        <BodyMap primary={[]} views={['front']} height={FIGURE_H} gender={gender} />
+        <Svg width={FIGURE_W} height={FIGURE_H} viewBox="0 0 200 400" style={StyleSheet.absoluteFill}>
+          {children}
+        </Svg>
+      </View>
       <Text style={styles.caption}>{caption}</Text>
     </View>
   );

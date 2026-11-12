@@ -48,7 +48,7 @@ const styles = StyleSheet.create({
   card: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.md, gap: spacing.sm },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { color: colors.text, fontSize: 16, fontWeight: '800' },
-  link: { color: colors.accent, fontSize: 14, fontWeight: '700' },
+  link: { color: colors.link, fontSize: 14, fontWeight: '700' },
   days: { flexDirection: 'row', gap: 4 },
   day: { flex: 1, minHeight: 66, alignItems: 'center', justifyContent: 'center', gap: 3, borderRadius: radius.md },
   today: { backgroundColor: colors.accent },

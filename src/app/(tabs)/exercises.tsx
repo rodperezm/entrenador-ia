@@ -1,7 +1,7 @@
 import { Link } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { BodyMap } from '@/components/BodyMap';
+import { BodyMap, bestSide } from '@/components/BodyMap';
 import { Chip } from '@/components/Chip';
 import { EXERCISES } from '@/data/exercises.seed';
 import { MUSCLE_GROUP_LABELS, MUSCLE_GROUPS, type MuscleGroupId } from '@/domain/catalog';
@@ -70,7 +70,13 @@ function ExerciseCard({ exercise: e }: { exercise: Exercise }) {
       <Pressable>
         <View style={styles.card}>
           <View style={styles.cardMap}>
-            <BodyMap primary={e.anatomy.primary} secondary={e.anatomy.secondary} height={84} />
+            {/* Una sola figura, del lado donde más se ve lo que trabaja: así se alcanza a leer. */}
+            <BodyMap
+              primary={e.anatomy.primary}
+              secondary={e.anatomy.secondary}
+              views={[bestSide(e.anatomy.primary, e.anatomy.secondary)]}
+              height={104}
+            />
           </View>
           <View style={styles.cardBody}>
             <Text style={styles.cardTitle} numberOfLines={2}>

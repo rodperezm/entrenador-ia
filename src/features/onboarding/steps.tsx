@@ -816,7 +816,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.6,
   },
-  link: { color: colors.accent, fontWeight: '600', marginTop: spacing.sm },
+  link: { color: colors.link, fontWeight: '600', marginTop: spacing.sm },
   moreLink: { paddingVertical: spacing.sm },
   summaryRow: { backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, gap: 2 },
   summaryLabel: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },

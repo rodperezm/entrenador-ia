@@ -62,14 +62,12 @@ export function WeekCard({ generating, onGenerate }: { generating: boolean; onGe
     <View style={styles.card}>
       <View style={styles.header}>
         <Ionicons name="checkmark-circle-outline" size={18} color={colors.accent} />
-        <Text style={styles.title}>
-          Semana {cycle.week} armada {byAi ? 'con IA' : 'con las reglas de la app'}
-        </Text>
+        <Text style={styles.title}>Tu semana {cycle.week} está lista</Text>
       </View>
       <Text style={styles.detail}>
         {byAi
-          ? `La próxima se activa el ${nextMondayLabel()}.`
-          : 'Puedes volver a generarla con IA en la pestaña Semana.'}
+          ? `La armó la IA con lo que registraste. La próxima se activa el ${nextMondayLabel()}.`
+          : 'La armamos con las reglas de la app. Si quieres, pídela con IA en la pestaña Semana.'}
       </Text>
       {missing.map((m) => (
         <View key={m.label} style={styles.missing}>

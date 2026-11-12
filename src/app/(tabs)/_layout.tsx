@@ -76,5 +76,5 @@ export default function TabsLayout() {
 }
 
 const styles = StyleSheet.create({
-  profileLink: { color: colors.accent, fontWeight: '700', fontSize: 15, paddingHorizontal: spacing.lg },
+  profileLink: { color: colors.link, fontWeight: '700', fontSize: 15, paddingHorizontal: spacing.lg },
 });

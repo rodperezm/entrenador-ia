@@ -27,7 +27,7 @@ export default function ExerciseDetail() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <Stack.Screen options={{ title: e.name.es }} />
+      <Stack.Screen options={{ title: 'Ejercicio' }} />
 
       {e.media.youtubeId ? (
         <YouTubeVideo videoId={e.media.youtubeId} title={e.name.es} />
@@ -287,5 +287,5 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   warnTitle: { color: colors.warning, fontWeight: '700' },
-  link: { color: colors.accent, fontSize: 15, fontWeight: '600', paddingVertical: 4 },
+  link: { color: colors.link, fontSize: 15, fontWeight: '600', paddingVertical: 4 },
 });

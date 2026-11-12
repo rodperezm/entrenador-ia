@@ -8,6 +8,7 @@ import { colors, radius, spacing } from '@/theme';
 const TAG_LABEL = { anchor: '  · Ancla del ciclo', new: '  · Nuevo', back: '  · Vuelve esta semana', none: '' };
 
 export function WhyWeek({ explanation, aiNote }: { explanation: WeekExplanation; aiNote: string | null }) {
+  const [open, setOpen] = useState(false);
   const [showChanges, setShowChanges] = useState(false);
   const { title, purpose, why, changes, works } = explanation;
   return (
@@ -15,21 +16,25 @@ export function WhyWeek({ explanation, aiNote }: { explanation: WeekExplanation;
       <Text style={styles.kicker}>¿Por qué esta semana?</Text>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.text}>{purpose}</Text>
-      {why.map((l, i) => (
-        <Text key={i} style={styles.bullet}>
-          • {l}
-        </Text>
-      ))}
-      {works.map((l, i) => (
-        <Text key={i} style={styles.bullet}>
-          • {l}
-        </Text>
-      ))}
-      {changes.length > 0 && (
+      {/* A la vista queda el propósito de la semana; el detalle se abre al tocar. */}
+      {open &&
+        [...why, ...works].map((l, i) => (
+          <Text key={i} style={styles.bullet}>
+            • {l}
+          </Text>
+        ))}
+      {why.length + works.length > 0 && (
+        <Pressable onPress={() => setOpen(!open)} hitSlop={8}>
+          <Text style={styles.link}>{open ? 'Ver menos' : 'Ver por qué y qué trabajas'}</Text>
+        </Pressable>
+      )}
+      {open && changes.length > 0 && (
         <>
           <Pressable onPress={() => setShowChanges(!showChanges)} hitSlop={8}>
             <Text style={styles.link}>
-              {showChanges ? 'Ocultar los cambios' : `Ver tus anclas, lo nuevo y qué cambia en Fuerza (${changes.length})`}
+              {showChanges
+                ? 'Ocultar los cambios'
+                : `Ver tus anclas, lo nuevo y qué cambia en Fuerza (${changes.length})`}
             </Text>
           </Pressable>
           {showChanges &&
@@ -61,16 +66,25 @@ export function WhyWeek({ explanation, aiNote }: { explanation: WeekExplanation;
   );
 }
 
+const DAY_LINES_SHOWN = 2;
+
 export function WhyDay({ lines }: { lines: string[] }) {
+  const [open, setOpen] = useState(false);
   if (!lines.length) return null;
+  const more = lines.length - DAY_LINES_SHOWN;
   return (
     <View style={styles.card}>
       <Text style={styles.kicker}>¿Por qué esta sesión?</Text>
-      {lines.map((l, i) => (
+      {(open ? lines : lines.slice(0, DAY_LINES_SHOWN)).map((l, i) => (
         <Text key={i} style={styles.bullet}>
           • {l}
         </Text>
       ))}
+      {more > 0 && (
+        <Pressable onPress={() => setOpen(!open)} hitSlop={8}>
+          <Text style={styles.link}>{open ? 'Ver menos' : `Ver más (${more})`}</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -81,7 +95,7 @@ const styles = StyleSheet.create({
   title: { color: colors.text, fontSize: 16, fontWeight: '800' },
   text: { color: colors.text, fontSize: 14, lineHeight: 20 },
   bullet: { color: colors.textMuted, fontSize: 14, lineHeight: 20 },
-  link: { color: colors.accent, fontSize: 14, fontWeight: '700', marginTop: spacing.xs },
+  link: { color: colors.link, fontSize: 14, fontWeight: '700', marginTop: spacing.xs },
   change: {
     gap: 2,
     paddingVertical: spacing.xs,
