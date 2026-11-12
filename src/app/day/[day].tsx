@@ -18,7 +18,9 @@ import { type DayConfig, DayOfWeek, type DayPlan, type LocalProfile } from '@/do
 import { dayMinutes, leadPart, partCount, timeStatus } from '@/domain/timeBudget';
 import {
   applyDayChoice,
-  REST_FROM_STRENGTH_NOTE,
+  minutesRange,
+  strengthLimitNote,
+  toggleDayType,
   strengthDaysFull,
   weekChoicesOf,
   DAY_PARTS,
@@ -37,9 +39,7 @@ import {
   dayChoiceOf,
   dayIncludedNote,
   dayPartLabel,
-  minDayMinutes,
   sameChoice,
-  toggleDayPart,
   withAutoCounts,
   withGentleStrength,
 } from '@/domain/week';
@@ -89,7 +89,7 @@ export default function DayScreen() {
   const editing = draft ?? (cfg.active && !dayPlan && !weekEmpty ? cfg : null);
 
   // Los otros días ya tienen Fuerza 6 veces: este no puede llevarla (la semana necesita un día libre).
-  const strengthFull = strengthDaysFull(weekChoicesOf(week), day);
+  const strengthFull = strengthDaysFull(weekChoicesOf(week), day, profile?.level);
   const openAdjust = () =>
     setDraft(cfg.active ? cfg : applyDayChoice(cfg, strengthFull ? ['cooldown'] : [...STRENGTH_DAY]));
   const edit = (patch: (d: DayConfig) => DayConfig) => setDraft(patch(editing ?? cfg));
@@ -205,7 +205,8 @@ export default function DayScreen() {
             onFit={() => rebuild({ ...withAutoCounts(cfg), fitToTime: true })}
             onFull={() => rebuild({ ...cfg, fitToTime: undefined })}
             onAddGentle={() => rebuild(withGentleStrength(cfg))}
-            canAddStrength={!strengthFull}
+            // La Lesión ya no se junta con la Fuerza en un mismo día: no se ofrece sumar fuerza suave.
+            canAddStrength={false}
             onDismiss={dismissTimeNotice}
           />
           <Button
@@ -416,13 +417,20 @@ function AdjustPanel({
               // Agregar Fuerza cuando ya hay 6 días: no se aplica y se explica por qué.
               if (p === 'main' && !parts.includes('main') && strengthFull) return setRestNote(true);
               setRestNote(false);
-              onEdit((d) => applyDayChoice(d, toggleDayPart(dayChoiceOf(d), p)));
+              // Fuerza y Lesión van en días distintos: al elegir una, sale la otra. Los minutos se
+              // acomodan al tipo de día (Fuerza 30 a 90; apoyo 10 a 40).
+              onEdit((d) => {
+                const next = applyDayChoice(d, toggleDayType(dayChoiceOf(d), p));
+                const range = minutesRange(dayChoiceOf(next));
+                const availableMinutes = Math.min(range.max, Math.max(range.min, next.availableMinutes));
+                return next.active ? { ...next, availableMinutes } : next;
+              });
             }}
           />
         ))}
         <Chip label="Descanso" active={!parts.length} onPress={() => onEdit((d) => applyDayChoice(d, []))} />
       </View>
-      {restNote && <Text style={styles.restNote}>{REST_FROM_STRENGTH_NOTE}</Text>}
+      {restNote && <Text style={styles.restNote}>{strengthLimitNote(level)}</Text>}
       <Text style={styles.muted}>{parts.length ? dayChoiceLabel(parts, hasConditions) : 'Sin entrenamiento'}</Text>
       {parts.length > 0 && <Text style={styles.muted}>{dayIncludedNote(parts)}</Text>}
 
@@ -438,8 +446,8 @@ function AdjustPanel({
           <Row label="Tiempo disponible">
             <Stepper
               value={cfg.availableMinutes}
-              min={minDayMinutes(parts)}
-              max={120}
+              min={Math.min(cfg.availableMinutes, minutesRange(parts).min)}
+              max={Math.max(cfg.availableMinutes, minutesRange(parts).max)}
               step={5}
               suffix="'"
               onChange={(availableMinutes) => set({ availableMinutes })}

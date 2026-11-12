@@ -1,4 +1,4 @@
-import type { DayConfig, DayOfWeek, WeekConfig } from './schema';
+import type { DayConfig, DayOfWeek, LocalProfile, WeekConfig } from './schema';
 import { MAX_STRENGTH_DAYS, weekFocus } from './strength';
 
 export const DAYS: { id: DayOfWeek; short: string; long: string }[] = [
@@ -191,7 +191,6 @@ const SPREAD: Record<number, DayOfWeek[]> = {
   7: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
 };
 
-const STRENGTH_DAY: DayChoice = ['warmup', 'main', 'cooldown'];
 // La fuerza es la prioridad: los días de lesión también llevan fuerza, pero suave.
 const INJURY_DAY: DayChoice = ['warmup', 'prehab', 'main', 'cooldown'];
 export const GENTLE_MAX = 2; // ejercicios de fuerza en un día de fuerza suave
@@ -200,9 +199,67 @@ export const GENTLE_MAX = 2; // ejercicios de fuerza en un día de fuerza suave
 // Ese día se puede calentar, cuidar una lesión o elongar.
 export const REST_FROM_STRENGTH_NOTE =
   'Deja al menos un día sin Fuerza: es cuando el cuerpo asimila el trabajo. Ese día puedes hacer movilidad, cuidar una lesión o elongar.';
+// Cuántos días de Fuerza puede tener la semana: de 2 a 6, y el principiante hasta 3 (su cuerpo
+// aún aprende los movimientos y necesita más descanso entre sesiones).
+export const MIN_STRENGTH_DAYS = 2;
+export const BEGINNER_STRENGTH_DAYS = 3;
+export const maxStrengthDays = (level: LocalProfile['level'] | null | undefined) =>
+  level === 'beginner' ? BEGINNER_STRENGTH_DAYS : MAX_STRENGTH_DAYS;
+export const strengthLimitNote = (level: LocalProfile['level'] | null | undefined) =>
+  level === 'beginner'
+    ? 'Como principiante, tu máximo son 3 días de Fuerza: el cuerpo aprende los movimientos y necesita descanso entre sesiones. Los otros días puedes hacer movilidad, cuidar una lesión o elongar.'
+    : REST_FROM_STRENGTH_NOTE;
 // ¿Los otros días ya ocupan todos los días de Fuerza permitidos? (`day` es el que se está editando.)
-export const strengthDaysFull = (choices: Partial<Record<DayOfWeek, DayChoice>>, day: DayOfWeek) =>
-  Object.entries(choices).filter(([d, parts]) => d !== day && parts?.includes('main')).length >= MAX_STRENGTH_DAYS;
+export const strengthDaysFull = (
+  choices: Partial<Record<DayOfWeek, DayChoice>>,
+  day: DayOfWeek,
+  level?: LocalProfile['level'] | null,
+) =>
+  Object.entries(choices).filter(([d, parts]) => d !== day && parts?.includes('main')).length >= maxStrengthDays(level);
+
+// Minutos por tipo de día: Fuerza necesita al menos 30 para calentar, hacer 4 ejercicios y elongar.
+export const STRENGTH_MINUTES = { min: 30, max: 90, initial: 45 };
+export const EXTRA_MINUTES = { min: 10, max: 40, initial: 20 };
+export const minutesRange = (parts: DayChoice) => (parts.includes('main') ? STRENGTH_MINUTES : EXTRA_MINUTES);
+
+// Tipos de día que se eligen: Fuerza, o un día de apoyo. La Lesión (o la Movilidad, sin lesión)
+// nunca va el mismo día que la Fuerza: son días distintos.
+export const STRENGTH_DAY: DayChoice = ['warmup', 'main', 'cooldown'];
+export const CARE_DAY: DayChoice = ['warmup', 'prehab', 'cooldown']; // lesión o movilidad, con calentamiento y elongación
+export const STRETCH_DAY: DayChoice = ['cooldown'];
+export type DayKind = 'strength' | 'care' | 'stretch' | 'rest';
+export const dayKindOf = (parts: DayChoice): DayKind =>
+  parts.includes('main') ? 'strength' : parts.includes('prehab') ? 'care' : parts.length ? 'stretch' : 'rest';
+export const DAY_KIND_PARTS: Record<DayKind, DayChoice> = {
+  strength: STRENGTH_DAY,
+  care: CARE_DAY,
+  stretch: STRETCH_DAY,
+  rest: [],
+};
+
+// Marca o desmarca una parte sin juntar Fuerza con Lesión: al agregar una, sale la otra.
+export const toggleDayType = (parts: DayChoice, p: DayPart): DayChoice => {
+  const adding = !parts.includes(p);
+  const base = adding && p === 'main' ? parts.filter((x) => x !== 'prehab') : parts;
+  const clean = adding && p === 'prehab' ? base.filter((x) => x !== 'main') : base;
+  return toggleDayPart(clean, p);
+};
+
+// Días de Fuerza repartidos desde el día en que la persona parte, dejando los descansos entre medio.
+const FROM_START: Record<number, number[]> = {
+  2: [0, 3],
+  3: [0, 2, 4],
+  4: [0, 1, 3, 4],
+  5: [0, 1, 2, 4, 5],
+  6: [0, 1, 2, 3, 4, 5],
+};
+export function strengthDaysFrom(count: number, start: DayOfWeek): DayOfWeek[] {
+  const n = Math.min(MAX_STRENGTH_DAYS, Math.max(MIN_STRENGTH_DAYS, count));
+  const first = DAYS.findIndex((d) => d.id === start);
+  return FROM_START[n].map((offset) => DAYS[(first + offset) % 7].id);
+}
+export const weekWithStrength = (days: DayOfWeek[]) =>
+  Object.fromEntries(DAYS.map((d) => [d.id, days.includes(d.id) ? STRENGTH_DAY : []])) as Record<DayOfWeek, DayChoice>;
 export const weekChoicesOf = (week: WeekConfig) =>
   Object.fromEntries(week.days.map((d) => [d.day, dayChoiceOf(d)])) as Record<DayOfWeek, DayChoice>;
 

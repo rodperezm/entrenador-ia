@@ -478,6 +478,17 @@ function generateDay(
     }
     const shoulderPrep = main.length ? options.find((e) => e.tags.includes('shoulder_prep')) : undefined;
     if (shoulderPrep) forced.push(shoulderPrep);
+    // Con una lesión, el día de Fuerza no lleva bloque de Lesión, pero el calentamiento parte activando
+    // esa zona con uno de sus ejercicios indicados.
+    const activation =
+      main.length && !b.prehab.enabled
+        ? injuryActivation(
+            profile,
+            pool('prehab'),
+            forced.map((e) => e.id),
+          )
+        : undefined;
+    if (activation) forced.unshift(activation);
     // Después, uno que prepare cada movimiento de la Fuerza de hoy (el de A primero); la variedad
     // solo elige entre los que preparan lo mismo, y el resto viene detrás.
     const covered = coverFirst(
@@ -579,6 +590,14 @@ function generateDay(
   }
 
   return { day: cfg.day, location: cfg.location, blocks: blocks.filter((bl) => bl.slots.length > 0) };
+}
+
+// Un ejercicio de los indicados para la lesión de la persona, de los que puede hacer ese día.
+export function injuryActivation(profile: LocalProfile, allowedPrehab: Exercise[], skip: string[] = []) {
+  const own = profile.conditions.flatMap(
+    (c) => MEDICAL_CONDITIONS.find((m) => m.id === c.conditionId)?.prehabExerciseIds ?? [],
+  );
+  return own.flatMap((id) => allowedPrehab.find((e) => e.id === id) ?? []).find((e) => !skip.includes(e.id));
 }
 
 // Lo que hizo en los últimos 8 días (una semana y un poco): base de la variedad entre semanas.

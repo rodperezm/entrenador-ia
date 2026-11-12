@@ -20,7 +20,19 @@ import {
   WeekStep,
   WelcomeStep,
 } from '@/features/onboarding/steps';
-import { type DayChoice, dayChoiceOf, DAYS, GENTLE_MAX, minDayMinutes, proposeWeek, sameChoice } from '@/domain/week';
+import {
+  type DayChoice,
+  dayChoiceOf,
+  DAYS,
+  GENTLE_MAX,
+  maxStrengthDays,
+  MIN_STRENGTH_DAYS,
+  minDayMinutes,
+  sameChoice,
+  STRENGTH_MINUTES,
+  strengthDaysFrom,
+  weekWithStrength,
+} from '@/domain/week';
 import { CLOUD_BACKUP_READY } from '@/lib/cloudSync';
 import { usePlan } from '@/state/plan';
 import { useResetAllData } from '@/state/useResetAllData';
@@ -67,10 +79,16 @@ const STEPS = [
   },
   {
     title: 'Tu semana',
-    subtitle: 'Qué quieres hacer cada día. Lo puedes cambiar cuando quieras.',
-    newSubtitle: 'Te proponemos los días. Lo puedes cambiar cuando quieras.',
+    subtitle: 'Tus días de Fuerza y lo que quieras sumar. Lo puedes cambiar cuando quieras.',
+    newSubtitle: 'Dinos cuántos días y cuánto tiempo: nosotros armamos la semana.',
     Component: WeekStep,
-    valid: (d: Draft) => DAYS.some((day) => d.weekChoices[day.id].length > 0),
+    // Primera vez: entre 2 y el máximo de días de Fuerza de su nivel. Quien ya tenía su semana la conserva.
+    valid: (d: Draft) => {
+      const strength = DAYS.filter((day) => d.weekChoices[day.id].includes('main')).length;
+      return d.isNew
+        ? strength >= MIN_STRENGTH_DAYS && strength <= maxStrengthDays(d.level)
+        : DAYS.some((day) => d.weekChoices[day.id].length > 0);
+    },
   },
   {
     title: 'Resumen',
@@ -151,8 +169,16 @@ function OnboardingForm() {
   const next = () => {
     // Al llegar a «Tu semana» por primera vez, ya viene propuesta según lesiones.
     if (!profile && step === conditionsStep) {
-      const { choices, gentle } = proposeWeek(3, draft.conditions.length > 0);
-      update({ weekChoices: choices, gentleDays: gentle });
+      // 3 días de Fuerza desde hoy, con sus descansos. La Lesión va en días aparte, si la persona la suma.
+      const today = DAYS[(new Date().getDay() + 6) % 7].id;
+      const choices = weekWithStrength(strengthDaysFrom(3, today));
+      update({
+        weekChoices: choices,
+        gentleDays: [],
+        weekMinutes: Object.fromEntries(
+          DAYS.map((d) => [d.id, choices[d.id].length ? STRENGTH_MINUTES.initial : draft.weekMinutes[d.id]]),
+        ) as Draft['weekMinutes'],
+      });
     }
     setStep(step + 1);
   };

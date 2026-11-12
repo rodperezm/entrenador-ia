@@ -1,7 +1,15 @@
-import { equipmentAt } from './catalog';
+import { equipmentAt, MEDICAL_CONDITIONS } from './catalog';
 import { type CycleInfo, cycleInfo } from './cycle';
 import { filterExercisesForUser, isUnsafeWeight } from './filter';
-import { generateDayByRules, hadPain, isGentle, lastWeightOf, pickWeight, prescribe } from './generator';
+import {
+  generateDayByRules,
+  hadPain,
+  injuryActivation,
+  isGentle,
+  lastWeightOf,
+  pickWeight,
+  prescribe,
+} from './generator';
 import { feltTooMuch, progressSlot, wasTooHard } from './progression';
 import { dayIntensity, MIN_REST_SEC, offZone, POWER_REPS_MAX, slotRole, sortByRole, weekFocus } from './strength';
 import { fitPart, withMinCount } from './timeBudget';
@@ -114,6 +122,30 @@ function ensureShoulderPrep(blocks: PlannedBlock[], cfg: DayConfig, input: Guard
   );
   if (!prep) return blocks;
   const slots = [prescribe(prep, input.profile, null), ...warmup.slots.slice(0, -1)];
+  return blocks.map((b) => (b === warmup ? { ...b, slots } : b));
+}
+
+// Con una lesión, el día de Fuerza no lleva bloque de Lesión: el calentamiento parte activando esa
+// zona con uno de sus ejercicios indicados. Si la IA no lo puso, entra primero y sale el último.
+function ensureInjuryActivation(blocks: PlannedBlock[], cfg: DayConfig, input: GuardInput): PlannedBlock[] {
+  const warmup = blocks.find((b) => b.type === 'warmup');
+  const hasMain = blocks.some((b) => b.type === 'main_strength' && b.slots.length > 0);
+  if (!warmup?.slots.length || !hasMain || cfg.blocks.prehab.enabled || !input.profile.conditions.length) return blocks;
+  const own = new Set(
+    input.profile.conditions.flatMap(
+      (c) => MEDICAL_CONDITIONS.find((m) => m.id === c.conditionId)?.prehabExerciseIds ?? [],
+    ),
+  );
+  if (warmup.slots.some((s) => own.has(s.exerciseId))) return blocks;
+  const dayProfile = { ...input.profile, equipment: equipmentAt(cfg.location, input.profile) };
+  const used = blocks.flatMap((b) => b.slots.map((s) => s.exerciseId));
+  const activation = injuryActivation(
+    input.profile,
+    filterExercisesForUser(input.exercises, dayProfile, 'prehab'),
+    used,
+  );
+  if (!activation) return blocks;
+  const slots = [prescribe(activation, input.profile, null), ...warmup.slots.slice(0, -1)];
   return blocks.map((b) => (b === warmup ? { ...b, slots } : b));
 }
 
@@ -232,6 +264,7 @@ export function guardAiPlan(plan: GeneratedWeekPlan, input: GuardInput): Generat
       .filter((b): b is PlannedBlock => !!b);
     blocks = keepGentle(blocks, cfg, input, byRules);
     blocks = ensureShoulderPrep(blocks, cfg, input);
+    blocks = ensureInjuryActivation(blocks, cfg, input);
     blocks = ensureCoverage(blocks, cfg, input);
     blocks = blocks.map((b) => {
       const slots = b.slots.map((s) => withinLimits(s, b.type, input, cycle));
