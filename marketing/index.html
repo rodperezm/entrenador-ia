@@ -130,6 +130,31 @@
   .care span { color: var(--muted); }
   .care strong { font-size: 19px; }
 
+  .coach-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .coach-steps article { position: relative; background: var(--surface); border-radius: 18px; padding: 22px 20px; display: grid; gap: 6px; align-content: start; }
+  .coach-steps article.is-ai { outline: 1.5px solid var(--red); }
+  .coach-steps small { color: var(--lime); font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+  .coach-steps b { font-family: var(--display); font-size: 56px; line-height: .9; color: var(--red); font-weight: 400; }
+  .coach-steps p { color: var(--muted); font-size: 16px; }
+  .coach-steps article:not(:last-child)::after { content: "›"; position: absolute; right: -13px; top: 50%; translate: 0 -50%; width: 22px; height: 22px; border-radius: 50%; background: var(--bg); color: var(--muted); display: grid; place-items: center; font-size: 18px; line-height: 1; z-index: 1; }
+  .coach-back { margin-top: 12px; border: 1px dashed var(--line); border-radius: 14px; padding: 12px 18px; color: var(--muted); font-size: 16px; }
+  .coach-back b { color: var(--lime); font-weight: 700; }
+  .coach-says { margin-top: 44px; }
+  .coach-rows { display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; margin-top: 16px; }
+  .coach-rows div { background: var(--bg); display: grid; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1.25fr); gap: 12px; padding: 16px 20px; align-items: center; }
+  .coach-rows i { color: var(--red); font-style: normal; font-weight: 700; }
+  .coach-rows span:last-child { color: var(--muted); }
+
+  .hub { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .85fr) minmax(0, 1fr); gap: 12px; align-items: stretch; }
+  .hub-col { display: grid; gap: 12px; }
+  .hub article { background: var(--surface); border-radius: 18px; padding: 22px; display: grid; gap: 6px; align-content: start; }
+  .hub small { color: var(--lime); font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+  .hub article p { color: var(--muted); font-size: 16px; }
+  .hub-ai { background: var(--red); color: var(--red-ink); border-radius: 18px; padding: 28px 20px; display: grid; gap: 8px; align-content: center; text-align: center; }
+  .hub-ai b { font-family: var(--display); font-size: clamp(96px, 11vw, 148px); line-height: .85; font-weight: 400; }
+  .hub-ai p { font-weight: 600; font-size: 18px; }
+  .hub-foot { margin-top: 14px; border: 1px solid var(--line); border-radius: 14px; padding: 14px 20px; color: var(--muted); text-align: center; font-size: 16px; }
+
   .abc { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
   .abc article { background: var(--surface); border-radius: 18px; padding: 24px; display: grid; gap: 8px; align-content: start; }
   .abc b { font-family: var(--display); font-size: 68px; line-height: .9; color: var(--red); font-weight: 400; }
@@ -163,16 +188,24 @@
 
   @media (max-width: 880px) {
     .hero, .split { grid-template-columns: minmax(0, 1fr); gap: 40px; }
+    .hub { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .hub-ai { grid-column: 1 / -1; order: -1; }
     .hero { padding-bottom: 56px; }
     section { padding-block: 62px; }
   }
   @media (max-width: 680px) {
     .band .wrap, .abc, .history, .extras, .closing-options { grid-template-columns: minmax(0, 1fr); }
+    .coach-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .hub { grid-template-columns: minmax(0, 1fr); }
+    .coach-steps article:not(:last-child)::after { display: none; }
+    .coach-rows div { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+    .coach-rows i { display: none; }
     .weeks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     body { font-size: 17px; }
   }
   @media (max-width: 480px) {
     .weeks { grid-template-columns: minmax(0, 1fr); }
+    .coach-steps { grid-template-columns: minmax(0, 1fr); }
   }
   @media (prefers-reduced-motion: reduce) { .button { transition: none; } }
 </style>
@@ -189,7 +222,7 @@
       <p class="lead">Entrena en casa o en el parque, sin gimnasio. KETTAI cuida tus lesiones, ordena tu entrenamiento y ajusta cada semana con lo que registraste.</p>
       <div class="actions">
         <a class="button" href="/">Probar KETTAI</a>
-        <a class="quiet" href="#plan">Ver cómo se arma tu plan</a>
+        <a class="quiet" href="#como-trabaja">Ver cómo se arma tu plan</a>
       </div>
     </div>
     <div class="phone" role="img" aria-label="Pantalla del entrenamiento guiado en la app">
@@ -234,36 +267,51 @@
     </div>
   </section>
 
-  <section id="plan">
+  <section id="como-trabaja">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="label">Cómo trabaja</p>
+        <h2>Entrenamiento personalizado gracias a la IA</h2>
+        <p class="lead">Aprendemos de la información que nos entregas en cada entrenamiento.</p>
+      </div>
+      <div class="coach-steps">
+        <article><small>Tú</small><b>1</b><h3>Nos entregas</h3><p>Tus días, tu equipo, tu nivel y tus lesiones.</p></article>
+        <article><small>El método</small><b>2</b><h3>Planifica tu semana</h3><p>Las reglas de entrenamiento + IA arman tu semana segura.</p></article>
+        <article><small>Tú</small><b>3</b><h3>Entrenas</h3><p>Anotas repeticiones, esfuerzo y si algo dolió. De esta manera nos retroalimentas.</p></article>
+        <article class="is-ai"><small>La IA</small><b>4</b><h3>Corrige y te cuida</h3><p>Lee tu semana y ajusta la siguiente, como tu entrenador.</p></article>
+      </div>
+      <p class="coach-back"><b>↻</b> Cada semana se repite el ciclo, con lo que aprendió de ti.</p>
+      <div class="coach-says">
+        <h3>Tú le dices. KETTAI ajusta.</h3>
+        <div class="coach-rows">
+          <div><span>«Me molestó la rodilla»</span><i aria-hidden="true">→</i><span>Baja la carga o cambia el ejercicio.</span></div>
+          <div><span>«Me sobró energía»</span><i aria-hidden="true">→</i><span>Sube de a poco: repeticiones, luego peso.</span></div>
+          <div><span>«No puedo hacer este»</span><i aria-hidden="true">→</i><span>Te da un reemplazo en el momento.</span></div>
+          <div><span>«Quedé muy cansado»</span><i aria-hidden="true">→</i><span>Mantiene la exigencia hasta que te recuperes.</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="metodo">
     <div class="wrap">
       <div class="section-head">
         <p class="label">Método + IA</p>
-        <h2>Tu plan tiene un método</h2>
-        <p class="lead">Las reglas de entrenamiento ponen orden y seguridad. La IA usa tu perfil, tus lesiones y tu historial para armar tu semana.</p>
+        <h2>La IA decide con un método real</h2>
+        <p class="lead">No improvisa. Cada semana que arma sigue cuatro principios de entrenamiento de fuerza.</p>
       </div>
-      <div class="abc">
-        <article><b>A</b><h3>Potencia</h3><p>Ganas fuerza rápida con buena técnica.</p></article>
-        <article><b>B</b><h3>Fuerza</h3><p>Construyes la base para moverte mejor.</p></article>
-        <article><b>C</b><h3>Remate</h3><p>Si te queda energía, cierras fortaleciendo tu core.</p></article>
-      </div>
-      <div class="closing">
-        <div class="closing-head">
-          <h3>Cierra a tu manera</h3>
-          <p>Sigue tu bloque C normal o cámbialo por HIIT o AMRAP.</p>
+      <div class="hub">
+        <div class="hub-col">
+          <article><small>Cada sesión</small><h3>Tiene un orden</h3><p>Calientas, potencia, fuerza, remate y elongas. Siempre en ese orden.</p></article>
+          <article><small>Cada mes</small><h3>Ciclos de 4 semanas</h3><p>Subes gradual, llegas a tu semana más exigente y descargas.</p></article>
         </div>
-        <div class="closing-options">
-          <article><strong>HIIT</strong><p>El reloj te guía con trabajo y descanso.</p></article>
-          <article><strong>AMRAP</strong><p>Suma rondas y supera tu marca.</p></article>
+        <div class="hub-ai"><b>IA</b><p>Tu entrenador: lee tu semana y arma la siguiente</p></div>
+        <div class="hub-col">
+          <article><small>Cada ejercicio</small><h3>Avanzas a tu ritmo</h3><p>Tu esfuerzo decide si subes, mantienes o bajas. Nunca saltos bruscos de peso.</p></article>
+          <article><small>Siempre</small><h3>Tu cuerpo primero</h3><p>Tus lesiones y molestias mandan sobre cualquier plan.</p></article>
         </div>
-        <p class="closing-note">La IA te sugiere cuándo. Tú decides.</p>
       </div>
-      <div class="weeks" aria-label="Ciclo de cuatro semanas">
-        <div><span>Semana 1</span><strong>Introductoria</strong><span>Adaptación: tomas el ritmo</span></div>
-        <div><span>Semana 2</span><strong>Base</strong><span>Aumento gradual: sumas trabajo</span></div>
-        <div><span>Semana 3</span><strong>Máxima Intensidad</strong><span>La semana más exigente</span></div>
-        <div><span>Semana 4</span><strong>Descarga</strong><span>Recuperación: bajas el volumen</span></div>
-      </div>
-      <p class="weeks-note">Durante estas 4 semanas repites tus ejercicios de Fuerza para medir tu progreso. Cada semana, la app te avisa para armar la siguiente. Si estás empezando, en la Semana de Máxima Intensidad mantienes el peso y mejoras tu técnica.</p>
+      <p class="hub-foot">Método basado en principios de programación de fuerza, kettlebell y calistenia.</p>
     </div>
   </section>
 

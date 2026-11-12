@@ -9,6 +9,12 @@
         "start"
       ],
       "port": 3000
+    },
+    {
+      "name": "pagina",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--yes", "http-server", "marketing", "-p", "4321", "-c-1"],
+      "port": 4321
     }
   ]
 }
