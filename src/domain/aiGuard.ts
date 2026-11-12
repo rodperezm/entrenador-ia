@@ -10,7 +10,7 @@ import {
   pickWeight,
   prescribe,
 } from './generator';
-import { feltTooMuch, progressSlot, wasTooHard } from './progression';
+import { BIG_JUMP, feltTooMuch, progressSlot, wasTooHard } from './progression';
 import { dayIntensity, MIN_REST_SEC, offZone, POWER_REPS_MAX, slotRole, sortByRole, weekFocus } from './strength';
 import { fitPart, withMinCount } from './timeBudget';
 import { dayNeeds, prepares, stretchesMuscle } from './coverage';
@@ -96,7 +96,11 @@ function limitLoad(proposed: ExerciseSlot, input: GuardInput): ExerciseSlot {
   const { week } = cycleInfo(history, profile.level, input.days);
   const noRaise = week === 4 || (week === 3 && profile.level === 'beginner');
   const last = lastWeightOf(e.id, history);
-  if (!noRaise || last == null || slot.weightKg == null || slot.weightKg <= last) return slot;
+  if (last == null || slot.weightKg == null || slot.weightKg <= last) return slot;
+  if (!noRaise) {
+    if (week !== 3 || slot.weightKg <= last * BIG_JUMP) return slot;
+    return { ...slot, weightKg: last, rationale: 'Semana de máxima intensidad: misma pesa; el salto a la siguiente es grande.' };
+  }
   return {
     ...slot,
     weightKg: last,

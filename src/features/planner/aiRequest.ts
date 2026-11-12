@@ -5,7 +5,7 @@ import { effortKind, effortNote } from '@/domain/effort';
 import { filterExercisesForUser } from '@/domain/filter';
 import { avoidedIds, legsRestIds, recentExerciseIds, weekLocks } from '@/domain/generator';
 import { wasTooHard } from '@/domain/progression';
-import { A_STAGES, dayIntensity, focusGuide, strengthRole, weekFocus } from '@/domain/strength';
+import { dayIntensity, unlockedA, focusGuide, strengthRole, weekFocus } from '@/domain/strength';
 import { leadPart, partBudgets, partCount } from '@/domain/timeBudget';
 import { DAY_PARTS } from '@/domain/week';
 import {
@@ -63,9 +63,7 @@ export function buildAiRequest(
   }
   // En Fuerza solo entran patrones principales y los balísticos de la etapa alcanzada.
   const cycle = cycleInfo(history, profile.level, week.days);
-  const allowedA = A_STAGES[cycle.stage - 1].concat(
-    cycle.stage === A_STAGES.length ? A_STAGES[A_STAGES.length - 1] : [],
-  );
+  const allowedA = unlockedA(cycle.stage);
   const fitsStrength = (e: Exercise) =>
     allowedA.includes(e.id) ||
     strengthRole(e) === 'B' ||

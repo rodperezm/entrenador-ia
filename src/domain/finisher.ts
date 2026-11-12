@@ -12,7 +12,7 @@ import {
 } from './schema';
 import type { TabataConfig } from './session';
 import { isPerSide, workLabel } from './sides';
-import { isZoneAccessory, A_STAGES, strengthRole } from './strength';
+import { isZoneAccessory, A_STAGES, FREE_BALLISTIC_STAGE, strengthRole, unlockedA } from './strength';
 import { slotSeconds } from './timeBudget';
 import { dayDate } from './week';
 
@@ -131,7 +131,9 @@ export function finisherOffer(input: OfferInput): FinisherOffer | null {
       !isPerSide(e.id) &&
       !dayExerciseIds.includes(e.id) &&
       // Los balísticos en circuito, solo con el swing ya dominado.
-      (!e.restrictionFlags.includes('ballistic') || A_STAGES[cycle.stage - 1]?.includes('kb_swing_1h')),
+      (!e.restrictionFlags.includes('ballistic') ||
+        (cycle.stage >= FREE_BALLISTIC_STAGE &&
+          (!A_STAGES.flat().includes(e.id) || unlockedA(cycle.stage).includes(e.id)))),
   );
   const circuit = planned.map(({ key, slot, e }) => ({
     ...finisherExercise(key, e!, lighterWeight(e!, profile, slot.weightKg)),

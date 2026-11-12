@@ -15,9 +15,11 @@ import type {
   WorkoutSession,
 } from './schema';
 import { painOf } from './schema';
-import { feltTooMuch, progressSlot, wasTooHard } from './progression';
+import { BIG_JUMP, feltTooMuch, progressSlot, wasTooHard } from './progression';
 import {
   A_STAGES,
+  FREE_BALLISTIC_STAGE,
+  unlockedA,
   anchorIds,
   dayIntensity,
   type DayFocus,
@@ -273,12 +275,15 @@ function pickMain(pool: Exercise[], groups: MuscleGroupId[], count: number, prof
     const inRole = (role: StrengthRole) => open.filter((e) => strengthRole(e) === role);
     if (need.role === 'A') {
       if (need.explosive) {
-        if (!canUseBallistics || cycle.stage < A_STAGES.length) return undefined;
-        return choose(open.filter((e) => A_STAGES[A_STAGES.length - 1].includes(e.id)));
+        if (!canUseBallistics || cycle.stage < FREE_BALLISTIC_STAGE) return undefined;
+        return choose(open.filter((e) => unlockedA(cycle.stage).includes(e.id)));
       }
       const isStageOne = cycle.stage === 1;
       if (isStageOne ? allowsStageOne : canUseBallistics) {
-        const stage = choose(open.filter((e) => A_STAGES[cycle.stage - 1].includes(e.id)));
+        // Primero lo nuevo de su etapa (así puede confirmarlo); si no se puede, lo ya ganado.
+        const stage =
+          choose(open.filter((e) => A_STAGES[cycle.stage - 1].includes(e.id))) ??
+          choose(open.filter((e) => unlockedA(cycle.stage).includes(e.id)));
         if (stage) return stage;
       }
       return choose(inRole('B').filter((e) => e.movementPattern === 'hinge'));
@@ -330,7 +335,7 @@ function pickMain(pool: Exercise[], groups: MuscleGroupId[], count: number, prof
   // Dentro del bloque se conservan los fijos. Si uno ya no se puede, entra otro igual o más simple
   // de la misma familia; si no hay, se omite antes que repetir otro patrón.
   const staged = A_STAGES.flat();
-  const stageNow = A_STAGES[cycle.stage - 1];
+  const stageNow = unlockedA(cycle.stage);
   for (const id of locked) {
     const lockedEx = ctx.all.find((e) => e.id === id);
     if (lockedEx && offZone(lockedEx, ctx.focus)) continue; // la zona del día cambió: ese fijo ya no corresponde
@@ -712,7 +717,7 @@ function densityFinisher(slot: ExerciseSlot, e: Exercise, cycle: CycleInfo): Exe
 }
 
 // Semana del bloque sobre un ejercicio de Fuerza ya progresado.
-function applyCycleWeek(
+export function applyCycleWeek(
   slot: ExerciseSlot,
   prescribed: ExerciseSlot,
   e: Exercise,
@@ -755,7 +760,10 @@ function applyCycleWeek(
         rationale: `Semana de máxima intensidad: ${slot.weightKg != null ? 'mismo peso, ' : ''}prioridad a la técnica.`,
       };
     }
-    if (heavier != null) {
+    // Con un salto grande (de 12 a 16 kg es un 33 %) no se sube de golpe: se mantiene la pesa y la
+    // semana exige con tempo y menos descanso. El peso sube por los peldaños de la progresión.
+    const bigJump = heavier != null && slot.weightKg != null && heavier > slot.weightKg * BIG_JUMP;
+    if (heavier != null && !bigJump) {
       const reps = slot.reps && Math.max(minReps, slot.reps - CHOQUE_REPS_DOWN);
       return {
         ...slot,

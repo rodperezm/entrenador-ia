@@ -14,18 +14,17 @@ export const A_STAGES = [
   ['kb_deadlift', 'kb_sumo_deadlift'],
   ['kb_dead_stop_swing'],
   ['kb_swing_2h'],
-  [
-    'kb_swing_1h',
-    'kb_clean',
-    'kb_snatch',
-    'kb_high_pull',
-    'kb_push_press',
-    'kb_clean_press',
-    'kb_jerk',
-    'kb_long_cycle',
-    'kb_double_swing',
-  ],
+  // Desde aquí los balísticos libres se ganan de a uno: primero el swing a una mano, después el
+  // clean y sus parientes, al final el snatch y el jerk. Cada etapa pide confirmar su propia técnica.
+  ['kb_swing_1h'],
+  ['kb_clean', 'kb_high_pull', 'kb_push_press', 'kb_clean_press', 'kb_double_swing'],
+  ['kb_snatch', 'kb_jerk', 'kb_long_cycle'],
 ];
+export const FREE_BALLISTIC_STAGE = 4;
+// Lo que la persona ya puede usar en el bloque A: su etapa y, en los balísticos libres, también
+// las etapas que ya superó.
+export const unlockedA = (stage: number): string[] =>
+  stage < FREE_BALLISTIC_STAGE ? (A_STAGES[stage - 1] ?? []) : A_STAGES.slice(FREE_BALLISTIC_STAGE - 1, stage).flat();
 // El nivel es declarado: nadie parte en el swing libre sin haber confirmado antes la técnica en la app.
 const START_STAGE: Record<Level, number> = { beginner: 1, intermediate: 2, advanced: 2 };
 const SESSIONS_TO_ADVANCE = 2;
@@ -299,9 +298,11 @@ export function techniqueStage(history: WorkoutSession[], level: Level, blockSta
       closeBlock();
       block = sessionBlock;
     }
-    const logs = session.sets.filter((l) => A_STAGES[stage - 1].includes(l.exerciseId));
-    if (!logs.length) continue;
-    const pain = logs.some((l) => painOf(l) > 0);
+    // El dolor en cualquier balístico ya ganado retrocede; para avanzar cuenta solo la etapa actual.
+    const open = session.sets.filter((l) => unlockedA(stage).includes(l.exerciseId));
+    const logs = open.filter((l) => A_STAGES[stage - 1].includes(l.exerciseId));
+    const pain = open.some((l) => painOf(l) > 0);
+    if (!logs.length && !pain) continue;
     if (pain || logs.some((l) => l.techniqueOk === false)) {
       stage = Math.max(1, stage - (pain ? 1 : 0));
       good = 0;

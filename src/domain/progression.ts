@@ -20,7 +20,7 @@ const EASY_RPE = 8; // esfuerzo máximo para considerar que se puede progresar
 const WANTED_MORE_RPE = 9; // con «Me quedé con ganas», hasta 1 repetición en reserva
 const TOO_HARD_RPE = 9.5;
 const TIME_STEP_SEC = 5;
-const BIG_JUMP = 1.2; // subir más de un 20 % de peso de una vez pide peldaños antes
+export const BIG_JUMP = 1.2; // subir más de un 20 % de peso de una vez pide peldaños antes
 
 export function lastSessionOf(exerciseId: string, history: WorkoutSession[]) {
   for (const s of history) {
