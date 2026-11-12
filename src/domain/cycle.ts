@@ -43,8 +43,19 @@ const toIso = (ms: number) => {
 
 // Una semana del ciclo cuenta si se entrenó al menos la mitad de los días de fuerza planificados
 // (mínimo 1). Si no, se repite: la exigencia sube solo cuando el cuerpo hizo el trabajo previo.
-export const sessionsToCount = (days: DayConfig[]) =>
-  Math.max(1, Math.ceil(days.filter((d) => d.active && d.blocks.main.enabled).length / 2));
+const strengthDayCount = (days: DayConfig[]) => days.filter((d) => d.active && d.blocks.main.enabled).length;
+const neededOf = (planned: number) => Math.max(1, Math.ceil(planned / 2));
+export const sessionsToCount = (days: DayConfig[]) => neededOf(strengthDayCount(days));
+
+// Cuántos días de Fuerza tenía planificados la persona cada semana (lunes AAAA-MM-DD → cantidad).
+// Se anota al armar cada semana: así una semana pasada se juzga con lo que se planificó entonces,
+// no con la configuración de hoy (que pudo cambiar de 3 a 5 días, o al revés).
+let plannedByWeek: Record<string, number> = {};
+export const setPlannedHistory = (byWeek: Record<string, number>) => {
+  plannedByWeek = byWeek;
+};
+export const weekKey = (date = new Date()) => toIso(mondayOf(date));
+export const plannedThisWeek = (days: DayConfig[]) => strengthDayCount(days);
 
 export function cycleInfo(
   history: WorkoutSession[],
@@ -74,7 +85,9 @@ export function cycleInfo(
   for (let w = 0; w < elapsedWeeks; w++) {
     const from = startMonday + w * WEEK_MS;
     const trained = dates.filter((d) => d >= from && d < from + WEEK_MS).length;
-    if (trained < needed) continue;
+    // Lo planificado esa semana, si quedó anotado; si no, lo de hoy.
+    const planned = plannedByWeek[toIso(from)];
+    if (trained < (planned != null ? neededOf(planned) : needed)) continue;
     position++;
     if (position % 4 === 0) blockStarts.push(startMonday + (w + 1) * WEEK_MS);
   }

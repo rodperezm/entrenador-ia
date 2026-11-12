@@ -2,6 +2,7 @@ import { equipmentAt, MEDICAL_CONDITIONS, type MuscleGroupId } from './catalog';
 import { type CycleInfo, cycleInfo, previousBlockExercises } from './cycle';
 import { filterExercisesForUser, weightsFor } from './filter';
 import type {
+  CantDoReason,
   DayConfig,
   DayPlan,
   Exercise,
@@ -647,18 +648,32 @@ export function legsRestIds(exercises: Exercise[], history: WorkoutSession[], no
 
 // Ejercicios que la persona marcó «No puedo hacerlo» en el último ciclo (4 semanas): no se
 // proponen hasta que pase, y en su lugar entra uno más simple.
-export function cantDoIds(history: WorkoutSession[], now = Date.now()): string[] {
-  const since = now - 28 * 24 * 3600 * 1000;
-  const recent = history.filter((s) => Date.parse(s.finishedAt) >= since);
-  return [...new Set(recent.flatMap((s) => (s.cantDo ?? []).map((c) => c.exerciseId)))];
+// Cuánto dura depende del motivo: si no conocía el ejercicio, vuelve a las 2 semanas (ya vio la
+// técnica); si estaba muy difícil o no se sintió segura, un ciclo; si el lugar no se lo permitía,
+// un ciclo o hasta que cambie su perfil (equipamiento o lugar), lo que pase primero.
+const DAY_MS = 24 * 3600 * 1000;
+const CANT_DO_DAYS: Record<CantDoReason, number> = { dont_know: 14, too_hard: 28, not_safe: 28, no_place: 28 };
+export function cantDoIds(history: WorkoutSession[], now = Date.now(), profileUpdatedAt?: string): string[] {
+  const profileAt = profileUpdatedAt ? Date.parse(profileUpdatedAt) : NaN;
+  const ids = history.flatMap((s) => {
+    const at = Date.parse(s.finishedAt);
+    return (s.cantDo ?? [])
+      .filter((c) => at >= now - CANT_DO_DAYS[c.reason] * DAY_MS)
+      .filter((c) => c.reason !== 'no_place' || !(profileAt > at))
+      .map((c) => c.exerciseId);
+  });
+  return [...new Set(ids)];
 }
 
 // Lo que no se propone por ahora: dolor fuerte o repetido y lo que no pudo hacer.
-export const avoidedIds = (history: WorkoutSession[]) => [...strongPainIds(history), ...cantDoIds(history)];
+export const avoidedIds = (history: WorkoutSession[], profileUpdatedAt?: string) => [
+  ...strongPainIds(history),
+  ...cantDoIds(history, Date.now(), profileUpdatedAt),
+];
 
 const withoutPainful = (profile: LocalProfile, history: WorkoutSession[]): LocalProfile => ({
   ...profile,
-  excludedExerciseIds: [...profile.excludedExerciseIds, ...avoidedIds(history)],
+  excludedExerciseIds: [...profile.excludedExerciseIds, ...avoidedIds(history, profile.updatedAt)],
 });
 
 // Última molestia registrada en el ejercicio: con dolor, la semana del bloque no exige más.

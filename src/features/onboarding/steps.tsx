@@ -7,6 +7,7 @@ import { DateField } from '@/components/DateField';
 import { Button, CheckRow, OptionCard, Stepper } from '@/components/ui';
 import { EXERCISES } from '@/data/exercises.seed';
 import {
+  HEALTH_ALERTS,
   EQUIPMENT,
   type EquipmentId,
   MEDICAL_CONDITIONS,
@@ -19,7 +20,7 @@ import {
 import { filterExercisesForUser } from '@/domain/filter';
 import { CLOUD_BACKUP_READY } from '@/lib/cloudSync';
 import { BLOCK_LABELS } from '@/domain/labels';
-import type { BlockType, DayOfWeek, LocalProfile, Sex } from '@/domain/schema';
+import type { BlockType, DayOfWeek, HealthAlertId, LocalProfile, Sex } from '@/domain/schema';
 import {
   canBeGentle,
   DAY_KIND_PARTS,
@@ -54,6 +55,8 @@ export type Draft = {
   sex: Sex | null;
   birthText: string; // como lo escribe el usuario: DD-MM-AAAA
   heightText: string; // en cm
+  healthAlerts: HealthAlertId[] | null; // null = aún no responde
+  healthAck: boolean; // marcó alguna alerta y confirmó que consultó o entiende el riesgo
   weekChoices: Record<DayOfWeek, DayChoice>;
   gentleDays: DayOfWeek[]; // días de lesión con fuerza suave
   weekMinutes: Record<DayOfWeek, number>; // tiempo disponible por día
@@ -129,6 +132,42 @@ export function WelcomeStep({ draft, update }: StepProps) {
         checked={draft.disclaimerAccepted}
         onPress={() => update({ disclaimerAccepted: !draft.disclaimerAccepted })}
       />
+
+      <Text style={styles.label}>¿Te pasa algo de esto?</Text>
+      <Text style={styles.hint}>Marca lo que aplique. Sirve para saber si conviene consultar antes de empezar.</Text>
+      {(Object.keys(HEALTH_ALERTS) as HealthAlertId[]).map((id) => {
+        const on = !!draft.healthAlerts?.includes(id);
+        return (
+          <CheckRow
+            key={id}
+            label={HEALTH_ALERTS[id]}
+            checked={on}
+            onPress={() => {
+              const current = draft.healthAlerts ?? [];
+              update({ healthAlerts: on ? current.filter((x) => x !== id) : [...current, id], healthAck: false });
+            }}
+          />
+        );
+      })}
+      <CheckRow
+        label="Ninguna de las anteriores"
+        checked={draft.healthAlerts !== null && draft.healthAlerts.length === 0}
+        onPress={() => update({ healthAlerts: [], healthAck: false })}
+      />
+      {!!draft.healthAlerts?.length && (
+        <View style={styles.disclaimer}>
+          <Text style={styles.disclaimerTitle}>Consulta a tu médico antes de empezar</Text>
+          <Text style={styles.body}>
+            Con lo que marcaste, lo responsable es que un médico te diga si puedes entrenar fuerza y con qué cuidados.
+            Si ya lo conversaste, puedes continuar: la app no te ofrecerá circuitos de alta intensidad (HIIT ni AMRAP).
+          </Text>
+          <CheckRow
+            label="Ya lo conversé con mi médico, o entiendo el riesgo y quiero continuar."
+            checked={draft.healthAck}
+            onPress={() => update({ healthAck: !draft.healthAck })}
+          />
+        </View>
+      )}
     </View>
   );
 }

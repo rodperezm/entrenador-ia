@@ -45,7 +45,9 @@ const STEPS = [
     title: 'Empecemos',
     subtitle: 'Armemos tu perfil de entrenamiento.',
     Component: WelcomeStep,
-    valid: (d: Draft) => d.disclaimerAccepted,
+    // Primera vez: responde las preguntas de alerta; con alguna marcada, confirma que consultó o entiende el riesgo.
+    valid: (d: Draft) =>
+      d.disclaimerAccepted && (!d.isNew || d.healthAlerts !== null) && (!d.healthAlerts?.length || d.healthAck),
   },
   {
     title: 'Sobre ti',
@@ -125,6 +127,8 @@ function OnboardingForm() {
   const [draft, setDraft] = useState<Draft>(() => ({
     displayName: profile?.displayName ?? '',
     disclaimerAccepted: !!profile,
+    healthAlerts: profile?.healthAlerts ?? null,
+    healthAck: !!profile?.healthAlerts?.length,
     level: profile?.level ?? null,
     equipment: profile?.equipment ?? BASE_EQUIPMENT,
     parkEquipment: profile?.parkEquipment ?? [],
@@ -197,6 +201,7 @@ function OnboardingForm() {
         dumbbellWeightsKg: draft.equipment.includes('dumbbells') ? draft.dumbbellWeightsKg : [],
         dumbbellPairsKg: draft.equipment.includes('dumbbells') ? draft.dumbbellPairsKg : [],
         conditions: draft.conditions,
+        ...(draft.healthAlerts ? { healthAlerts: draft.healthAlerts } : {}),
         sex: draft.sex,
         birthDate: parseBirth(draft.birthText),
         heightCm: parseHeight(draft.heightText),

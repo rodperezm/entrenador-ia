@@ -108,8 +108,10 @@ export function finisherOffer(input: OfferInput): FinisherOffer | null {
   const level = profile.level;
   if (level === 'beginner' || cycle.preparation || cycle.week === 4 || !slots.length) return null;
   if (recentPain(history, now)) return null;
+  // Con una señal de alerta de salud marcada, sin circuitos de alta intensidad.
+  if (profile.healthAlerts?.length) return null;
 
-  const painful = [...strongPainIds(history, now), ...cantDoIds(history, now)];
+  const painful = [...strongPainIds(history, now), ...cantDoIds(history, now, profile.updatedAt)];
   const fits = (e: Exercise) =>
     e.complexityLevel <= MAX_COMPLEXITY && !painful.includes(e.id) && !hadPain(e.id, history);
   const byId = new Map(exercises.map((e) => [e.id, e]));

@@ -52,7 +52,7 @@ export function buildAiRequest(
   const anywhere = {
     ...profile,
     equipment: [...new Set([...profile.equipment, ...equipmentAt('park', profile)])],
-    excludedExerciseIds: [...profile.excludedExerciseIds, ...avoidedIds(history)],
+    excludedExerciseIds: [...profile.excludedExerciseIds, ...avoidedIds(history, profile.updatedAt)],
   };
   const allowed = new Map<string, Set<BlockType>>();
   for (const block of BLOCKS) {

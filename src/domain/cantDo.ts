@@ -17,9 +17,10 @@ import { MIN_REST_SEC, strengthRole } from './strength';
 // ejercicio no se vuelve a proponer durante un ciclo (ver cantDoIds), hasta que esté lista.
 
 export const CANT_DO_OPTIONS: { id: CantDoReason; label: string }[] = [
-  { id: 'dont_know', label: 'No sé hacerlo bien' },
+  { id: 'no_place', label: 'El lugar no me lo permite' },
+  { id: 'dont_know', label: 'No conozco el ejercicio' },
+  { id: 'too_hard', label: 'Está muy difícil' },
   { id: 'not_safe', label: 'No me siento seguro' },
-  { id: 'no_place', label: 'No tengo dónde hacerlo bien' },
 ];
 
 const sharedGroups = (a: Exercise, b: Exercise) => a.muscleGroups.filter((g) => b.muscleGroups.includes(g)).length;
@@ -40,7 +41,7 @@ export function easierAlternative(
     history: WorkoutSession[];
   },
 ): Exercise | null {
-  const avoid = new Set([...ctx.used, ...cantDoIds(ctx.history), original.id]);
+  const avoid = new Set([...ctx.used, ...cantDoIds(ctx.history, Date.now(), ctx.profile.updatedAt), original.id]);
   const pool = filterExercisesForUser(
     ctx.exercises,
     { ...ctx.profile, equipment: equipmentAt(ctx.location, ctx.profile) },

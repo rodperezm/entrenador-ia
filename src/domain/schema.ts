@@ -178,7 +178,13 @@ export type UserProfile = z.infer<typeof UserProfile>;
 
 // Perfil guardado en el teléfono mientras no hay cuenta en Supabase.
 // Al crear la cuenta se sube y recibe su `id`.
+// Señales de alerta que la persona marcó al crear su perfil (ver HEALTH_ALERTS en catalog).
+// Con alguna marcada se le recomienda consultar antes de empezar y no se ofrecen circuitos HIIT ni AMRAP.
+export const HealthAlertId = z.enum(['chest', 'dizzy', 'heart', 'surgery', 'doctor']);
+export type HealthAlertId = z.infer<typeof HealthAlertId>;
+
 export const LocalProfile = UserProfile.omit({ id: true }).extend({
+  healthAlerts: z.array(HealthAlertId).optional(), // sin responder = undefined; respondió «ninguna» = []
   disclaimerAcceptedAt: z.string(),
   updatedAt: z.string(),
 });
@@ -318,8 +324,9 @@ export const Feeling = z.enum(['wanted_more', 'right', 'too_much']);
 export type Feeling = z.infer<typeof Feeling>;
 export const PainFollowUp = z.enum(['better', 'same', 'worse']);
 export type PainFollowUp = z.infer<typeof PainFollowUp>;
-// «No puedo hacerlo»: no sabe, no se siente seguro o no tiene dónde hacerlo bien.
-export const CantDoReason = z.enum(['dont_know', 'not_safe', 'no_place']);
+// «No puedo hacerlo»: no conoce el ejercicio, le resulta muy difícil, no se siente seguro o el
+// lugar no se lo permite.
+export const CantDoReason = z.enum(['dont_know', 'not_safe', 'no_place', 'too_hard']);
 export type CantDoReason = z.infer<typeof CantDoReason>;
 
 export const WorkoutSession = z.object({

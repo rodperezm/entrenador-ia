@@ -72,6 +72,18 @@ export function wasTooHard(exerciseId: string, history: WorkoutSession[]) {
   );
 }
 
+// Molestia leve repetida: tres sesiones seguidas con molestia en el mismo ejercicio ya no es
+// casualidad. Se trata como dolor moderado (baja la carga) antes de que duela de verdad.
+const MILD_STREAK = 3;
+export function mildPainStreak(exerciseId: string, history: WorkoutSession[]) {
+  const pains = history
+    .map((s) => s.sets.filter((l) => l.exerciseId === exerciseId))
+    .filter((logs) => logs.length > 0)
+    .slice(0, MILD_STREAK)
+    .map((logs) => Math.max(...logs.map(painOf)));
+  return pains.length === MILD_STREAK && pains.every((p) => p >= 1);
+}
+
 const nextUp = (owned: number[], w: number) => owned.filter((x) => x > w).sort((a, b) => a - b)[0] ?? null;
 const nextDown = (owned: number[], w: number) => owned.filter((x) => x < w).sort((a, b) => b - a)[0] ?? null;
 
@@ -96,7 +108,8 @@ export function progressSlot(
 
   // Dolor moderado o fuerte: bajar la exigencia y avisarlo. (Con dolor fuerte el
   // generador además prefiere cambiar el ejercicio; si vuelve, llega aquí más suave.)
-  if (pain >= 2) {
+  const repeatedMild = pain === 1 && mildPainStreak(e.id, history);
+  if (pain >= 2 || repeatedMild) {
     const lighter = lastWeight != null ? nextDown(owned, lastWeight) : null;
     return {
       ...slot,
@@ -106,7 +119,9 @@ export function progressSlot(
       rationale:
         pain === 3
           ? 'Más suave: la última vez marcaste dolor fuerte. Si se repite, consulta a un profesional.'
-          : 'Bajamos la exigencia: la última vez marcaste dolor moderado.',
+          : repeatedMild
+            ? 'Bajamos la exigencia: marcaste una molestia leve tres veces seguidas. Si sigue, consulta a un profesional.'
+            : 'Bajamos la exigencia: la última vez marcaste dolor moderado.',
     };
   }
 

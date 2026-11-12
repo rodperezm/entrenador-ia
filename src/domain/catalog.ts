@@ -87,6 +87,15 @@ export function equipmentAt(
 
 // Banderas que describen la exigencia de un ejercicio. El usuario activa las
 // que quiere evitar; el filtro descarta los ejercicios que tengan alguna.
+// Preguntas de alerta antes de empezar: si alguna aplica, conviene consultar a un médico primero.
+export const HEALTH_ALERTS = {
+  chest: 'Dolor u opresión en el pecho al hacer esfuerzo',
+  dizzy: 'Mareos o desmayos sin explicación',
+  heart: 'Una enfermedad del corazón o presión alta sin controlar',
+  surgery: 'Una cirugía o lesión importante en los últimos 3 meses',
+  doctor: 'Un médico te indicó no hacer ejercicio, o hacerlo solo con supervisión',
+} as const;
+
 export const RESTRICTION_FLAGS = {
   jumping: 'Saltos',
   high_impact: 'Alto impacto',

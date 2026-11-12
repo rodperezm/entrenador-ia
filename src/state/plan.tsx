@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { type DayConfig, type DayOfWeek, StoredWeekPlan, WeekConfig } from '@/domain/schema';
+import { plannedThisWeek, setPlannedHistory, weekKey } from '@/domain/cycle';
 import { withEvenAlternating } from '@/domain/sides';
 import { backupBeforeOverwrite, loadSafely, parseWhole } from '@/lib/safeStore';
 import {
@@ -18,6 +19,8 @@ const PLAN_KEY = 'week-plan.v1';
 // (la huella de la semana se calcula sobre su contenido). El respaldo las usa para saber cuál es más nuevo.
 const WEEK_AT_KEY = 'week-config.updatedAt';
 const PLAN_AT_KEY = 'week-plan.updatedAt';
+// Días de Fuerza planificados cada semana: con eso el ciclo sabe si una semana pasada se cumplió.
+const PLANNED_KEY = 'week-planned.v1';
 
 type PlanState = {
   week: WeekConfig;
@@ -51,6 +54,11 @@ export function PlanProvider({ children }: { children: ReactNode }) {
   const [planUpdatedAt, setPlanUpdatedAt] = useState<string | null>(null);
   // Hasta terminar la carga no se escribe: se guardaría la semana por defecto sobre la real.
   const loaded = useRef(false);
+  const plannedRef = useRef<Record<string, number>>({});
+  const weekRef = useRef(week);
+  useEffect(() => {
+    weekRef.current = week;
+  }, [week]);
   // Claves cuya carga no dejó copia de lo que había: antes de escribirlas se reintenta la copia.
   const unsafe = useRef(new Set<string>());
 
@@ -81,7 +89,17 @@ export function PlanProvider({ children }: { children: ReactNode }) {
       loadSafely(AsyncStorage, PLAN_KEY, parseWhole(StoredWeekPlan)),
       AsyncStorage.getItem(WEEK_AT_KEY).catch(() => null),
       AsyncStorage.getItem(PLAN_AT_KEY).catch(() => null),
-    ]).then(([weekRes, planRes, weekAt, planAt]) => {
+      AsyncStorage.getItem(PLANNED_KEY).catch(() => null),
+    ]).then(([weekRes, planRes, weekAt, planAt, plannedRaw]) => {
+      try {
+        const planned = JSON.parse(plannedRaw ?? '{}');
+        if (planned && typeof planned === 'object') {
+          plannedRef.current = planned;
+          setPlannedHistory(planned);
+        }
+      } catch {
+        // Sin registro: el ciclo usa la configuración de hoy, como antes.
+      }
       setWeekUpdatedAt(weekAt);
       setPlanUpdatedAt(planAt);
       if (!weekRes.safe) unsafe.current.add(WEEK_KEY);
@@ -147,6 +165,10 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     async (raw: StoredWeekPlan) => {
       const p = withEvenAlternating(raw);
       await write(PLAN_KEY, p);
+      // Deja anotado cuántos días de Fuerza tiene esta semana, para juzgarla después con eso.
+      plannedRef.current = { ...plannedRef.current, [weekKey()]: plannedThisWeek(weekRef.current.days) };
+      setPlannedHistory(plannedRef.current);
+      AsyncStorage.setItem(PLANNED_KEY, JSON.stringify(plannedRef.current)).catch(() => {});
       setPlan(p);
       stamp(PLAN_AT_KEY, setPlanUpdatedAt, new Date().toISOString());
     },
@@ -154,7 +176,9 @@ export function PlanProvider({ children }: { children: ReactNode }) {
   );
 
   const resetPlan = useCallback(async () => {
-    await AsyncStorage.multiRemove([WEEK_KEY, PLAN_KEY, WEEK_AT_KEY, PLAN_AT_KEY]);
+    await AsyncStorage.multiRemove([WEEK_KEY, PLAN_KEY, WEEK_AT_KEY, PLAN_AT_KEY, PLANNED_KEY]);
+    plannedRef.current = {};
+    setPlannedHistory({});
     setWeekUpdatedAt(null);
     setPlanUpdatedAt(null);
     setWeek(defaultWeekConfig());
