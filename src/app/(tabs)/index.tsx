@@ -12,6 +12,7 @@ import { dayMinutes } from '@/domain/timeBudget';
 import { weekFocus } from '@/domain/strength';
 import { DAY_LONG, isFromPastWeek, isToday, staleDays } from '@/domain/week';
 import { countExercises, describeDayConfig } from '@/features/planner/describe';
+import { KettlebellAdviceCard } from '@/features/planner/KettlebellAdviceCard';
 import { useGenerateWeek } from '@/features/planner/useGenerateWeek';
 import { WeekCard } from '@/features/planner/WeekCard';
 import { WeekStrip } from '@/features/planner/WeekStrip';
@@ -95,6 +96,7 @@ export default function TodayScreen() {
       <PainFollowUpCard />
       <TodayCard generating={generating} onGenerate={generate} />
       <WeekCard generating={generating} onGenerate={generate} />
+      <KettlebellAdviceCard />
 
       {stale && !pendingWeek && (
         <Link href="/week" style={styles.warnLink}>
