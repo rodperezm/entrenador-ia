@@ -785,7 +785,11 @@ export function applyCycleWeek(
   }
   // Primer peldaño del bloque nuevo: mismo ejercicio, un paso más arriba que antes.
   if (cycle.week === 1 && cycle.block > 1 && previousBlock.has(e.id)) {
-    if (heavier != null) return { ...slot, weightKg: heavier, rationale: `Nuevo ciclo: subimos a ${heavier} kg.` };
+    // Igual que en la semana 3: un salto grande de pesa no se da de golpe, ni al empezar un ciclo.
+    const jump = heavier != null && slot.weightKg != null && heavier > slot.weightKg * BIG_JUMP;
+    if (heavier != null && !jump) {
+      return { ...slot, weightKg: heavier, rationale: `Nuevo ciclo: subimos a ${heavier} kg.` };
+    }
     const same = slot.weightKg != null ? 'mismo peso' : 'mismo ejercicio';
     if (cycle.block % 2 || slot.durationSec != null) {
       return {

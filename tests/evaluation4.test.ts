@@ -87,3 +87,11 @@ test('semana 3: un salto chico (de 12 a 14 kg) sí sube', () => {
   const out = applyCycleWeek(slot as never, slot as never, squat, profileWith([12, 14]), week3, [], new Set());
   assert.equal(out.weightKg, 14);
 });
+
+test('ciclo nuevo: tampoco se salta de 12 a 16 kg de golpe', () => {
+  const week1 = { ...week3, block: 2, week: 1 } as unknown as CycleInfo;
+  const big = applyCycleWeek(slot as never, slot as never, squat, profileWith([12, 16]), week1, [], new Set([squat.id]));
+  assert.equal(big.weightKg, 12);
+  const small = applyCycleWeek(slot as never, slot as never, squat, profileWith([12, 14]), week1, [], new Set([squat.id]));
+  assert.equal(small.weightKg, 14);
+});
