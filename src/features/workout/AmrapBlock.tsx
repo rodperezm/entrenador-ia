@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button, Stepper } from '@/components/ui';
-import { type AmrapMark, type AmrapOffer, finisherWork, markLabel, markScore } from '@/domain/finisher';
+import { type AmrapMark, type AmrapOffer, markLabel, markScore } from '@/domain/finisher';
 import { fmtClock, type Phase } from '@/domain/session';
-import { weightLabel } from '@/domain/sides';
 import { FinisherFeedback, type FinisherFeedbackResult } from '@/features/workout/FinisherFeedback';
+import { FinisherExerciseCard, FinisherWhy } from '@/features/workout/FinisherGuide';
 import type { useCues } from '@/features/workout/useCues';
 import { useTrackRunner } from '@/features/workout/useTrackRunner';
 import { colors, radius, spacing } from '@/theme';
@@ -17,6 +17,7 @@ const MAX_EXTRA_REPS = 40;
 // Desafío AMRAP: tantas rondas como se pueda en el tiempo, descansando cuando haga falta.
 export function AmrapBlock({
   offer,
+  reason = null,
   cues,
   onFinish,
   onCancel,
@@ -24,6 +25,8 @@ export function AmrapBlock({
   bottomInset,
 }: {
   offer: AmrapOffer;
+  /** Por qué hoy toca este cierre. */
+  reason?: string | null;
   cues: ReturnType<typeof useCues>;
   onFinish: (result: AmrapResult) => void;
   onCancel: () => void;
@@ -60,15 +63,16 @@ export function AmrapBlock({
     runner.reset();
   };
 
-  const list = exercises.map((e) => (
-    <View key={e.key} style={styles.item}>
-      <Text style={styles.itemName}>{e.name}</Text>
-      <Text style={styles.itemWork}>
-        {finisherWork(e)}
-        {e.weightKg ? ` · ${weightLabel(e.exerciseId, e.weightKg)}` : ''}
-      </Text>
-    </View>
-  ));
+  // Antes de empezar, cada ejercicio completo; durante el desafío, una indicación para leer de un vistazo.
+  const list = (compact: boolean) =>
+    exercises.map((e) => (
+      <FinisherExerciseCard
+        key={e.key}
+        exercise={e}
+        compact={compact}
+        onBeforeTechnique={() => status === 'running' && runner.pause()}
+      />
+    ));
 
   if (status === 'done' || stopped) {
     const mark = { rounds, extraReps };
@@ -101,10 +105,9 @@ export function AmrapBlock({
         <Text style={styles.block}>Bloque C · AMRAP</Text>
         <ScrollView contentContainerStyle={styles.intro}>
           <Text style={styles.title}>{minutes} minutos</Text>
-          <Text style={styles.hint}>
-            Completa todas las rondas que puedas, en orden. Descansa cuando lo necesites.
-          </Text>
-          {list}
+          <Text style={styles.hint}>Completa todas las rondas que puedas, en orden. Descansa cuando lo necesites.</Text>
+          <FinisherWhy reason={reason} exercises={exercises} />
+          {list(false)}
           {previous && <Text style={styles.record}>Tu marca: {markLabel(previous)}. ¿La superas?</Text>}
           <Text style={styles.hint}>Si pierdes la técnica, descansa. Si algo duele, detente.</Text>
         </ScrollView>
@@ -130,7 +133,7 @@ export function AmrapBlock({
           {fmtClock(remainingSec)}
         </Text>
       </View>
-      {list}
+      {list(true)}
       {working && (
         <View style={styles.counter}>
           <Pressable
@@ -167,9 +170,6 @@ const styles = StyleSheet.create({
   label: { color: colors.textMuted, fontSize: 14, fontWeight: '600', flex: 1 },
   hint: { color: colors.textMuted, fontSize: 14, lineHeight: 20 },
   extra: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  item: { backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, gap: 2 },
-  itemName: { color: colors.text, fontSize: 16, fontWeight: '700' },
-  itemWork: { color: colors.textMuted, fontSize: 14 },
   stage: {
     alignItems: 'center',
     gap: spacing.xs,

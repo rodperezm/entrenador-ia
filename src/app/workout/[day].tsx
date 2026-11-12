@@ -756,6 +756,8 @@ export default function WorkoutScreen() {
     return (
       <HiitBlock
         offer={closing.offer.hiit}
+        // La razón es la del cierre sugerido: si la persona eligió el otro, no se muestra.
+        reason={closing.offer.suggested === closing.format ? closing.offer.reason : null}
         cues={cues}
         onFinish={finishHiit}
         onCancel={() => setClosing(null)}
@@ -769,6 +771,8 @@ export default function WorkoutScreen() {
     return (
       <AmrapBlock
         offer={closing.offer.amrap}
+        // La razón es la del cierre sugerido: si la persona eligió el otro, no se muestra.
+        reason={closing.offer.suggested === closing.format ? closing.offer.reason : null}
         cues={cues}
         onFinish={finishAmrap}
         onCancel={() => setClosing(null)}

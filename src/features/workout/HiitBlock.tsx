@@ -5,6 +5,7 @@ import type { FinisherExercise, HiitOffer } from '@/domain/finisher';
 import { buildTabata, fmtClock } from '@/domain/session';
 import { isPerSide, weightLabel } from '@/domain/sides';
 import { FinisherFeedback, type FinisherFeedbackResult } from '@/features/workout/FinisherFeedback';
+import { FinisherExerciseCard, FinisherWhy } from '@/features/workout/FinisherGuide';
 import type { useCues } from '@/features/workout/useCues';
 import { useTrackRunner } from '@/features/workout/useTrackRunner';
 import { colors, radius, spacing } from '@/theme';
@@ -19,6 +20,7 @@ const exerciseText = (e: FinisherExercise) =>
 // Circuito del bloque C con el reloj del temporizador. Lo hecho se registra al terminar.
 export function HiitBlock({
   offer,
+  reason = null,
   cues,
   onFinish,
   onCancel,
@@ -26,6 +28,8 @@ export function HiitBlock({
   bottomInset,
 }: {
   offer: HiitOffer;
+  /** Por qué hoy toca este cierre. */
+  reason?: string | null;
   cues: ReturnType<typeof useCues>;
   onFinish: (result: HiitResult) => void;
   onCancel: () => void;
@@ -106,18 +110,18 @@ export function HiitBlock({
     <View style={[styles.screen, { paddingTop: topInset + spacing.lg, paddingBottom: bottomInset + spacing.lg }]}>
       <Text style={styles.block}>Bloque C · HIIT</Text>
       {idle ? (
-        <View style={styles.list}>
+        <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
           <Text style={styles.title}>Tu circuito</Text>
           <Text style={styles.hint}>
-            {config.rounds} rondas · {config.workSec} s de trabajo y {config.restSec} s de descanso · ≈ {offer.minutes} min
+            {config.rounds} rondas · {config.workSec} s de trabajo y {config.restSec} s de descanso · ≈ {offer.minutes}{' '}
+            min
           </Text>
+          <FinisherWhy reason={reason} exercises={exercises} />
           {exercises.map((e) => (
-            <Text key={e.key} style={styles.item}>
-              {exerciseText(e)}
-            </Text>
+            <FinisherExerciseCard key={e.key} exercise={e} timed />
           ))}
-          <Text style={styles.hint}>Si algo duele, detente y termina el bloque.</Text>
-        </View>
+          <Text style={styles.hint}>Si pierdes la técnica o algo duele, detente y termina el bloque.</Text>
+        </ScrollView>
       ) : (
         <View style={[styles.stage, working && { backgroundColor: colors.accent }]}>
           <Text style={[styles.phase, working && { color: colors.onAccent }]}>
@@ -131,7 +135,18 @@ export function HiitBlock({
           </Text>
         </View>
       )}
-      {!idle && nextExercise && <Text style={styles.hint}>A continuación: {nextExercise.name}</Text>}
+      {/* Al trabajar, la indicación del ejercicio en curso; al descansar, la del que viene. */}
+      {!idle && (working ? current : nextExercise) && (
+        <>
+          <Text style={styles.hint}>{working ? 'Ahora' : 'A continuación'}</Text>
+          <FinisherExerciseCard
+            exercise={(working ? current : nextExercise)!}
+            compact
+            timed
+            onBeforeTechnique={() => status === 'running' && runner.pause()}
+          />
+        </>
+      )}
       <View style={styles.actions}>
         {idle ? (
           <>
@@ -158,8 +173,8 @@ const styles = StyleSheet.create({
   block: { color: colors.accent, fontSize: 12, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
   title: { color: colors.text, fontSize: 26, fontWeight: '900' },
   hint: { color: colors.textMuted, fontSize: 14, lineHeight: 20 },
-  list: { flex: 1, gap: spacing.md },
-  item: { color: colors.text, fontSize: 17, fontWeight: '700' },
+  list: { flex: 1 },
+  listContent: { gap: spacing.md, paddingBottom: spacing.md },
   stage: {
     flex: 1,
     alignItems: 'center',
