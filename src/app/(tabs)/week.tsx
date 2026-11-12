@@ -7,6 +7,7 @@ import { EXERCISES } from '@/data/exercises.seed';
 import { cycleInfo } from '@/domain/cycle';
 import { explainWeek } from '@/domain/explain';
 import { WhyWeek } from '@/features/planner/WhyCards';
+import { weekFocus } from '@/domain/strength';
 import { DAY_LONG, dayDate, DAYS, isFromPastWeek, isToday, staleDays } from '@/domain/week';
 import { countExercises, dayTypeLabel } from '@/features/planner/describe';
 import { useGenerateWeek } from '@/features/planner/useGenerateWeek';
@@ -32,6 +33,7 @@ export default function WeekScreen() {
   const preparing = cycle.preparation;
   const hasCurrentPlan = !!plan?.days.length && !(activeDays > 0 && isFromPastWeek(plan.generatedAt));
   const hasConditions = profile.conditions.length > 0;
+  const zones = weekFocus(week.days);
   const trainedOn = new Set(sessions.map((s) => new Date(s.finishedAt).toDateString()));
 
   return (
@@ -47,6 +49,7 @@ export default function WeekScreen() {
             // Lo que hizo antes de armar la semana: contra eso se compara lo que cambia.
             history: sessions.filter((s) => s.finishedAt < plan.generatedAt),
             exercises: EXERCISES,
+            weekDays: week.days,
           })}
           aiNote={plan.generator === 'llm' ? plan.summary : null}
         />
@@ -84,7 +87,9 @@ export default function WeekScreen() {
                 <Text style={[styles.dateNumber, !d.active && styles.muted]}>{date.getDate()}</Text>
               </View>
               <View style={styles.info}>
-                <Text style={[styles.dayType, !d.active && styles.muted]}>{dayTypeLabel(d, hasConditions)}</Text>
+                <Text style={[styles.dayType, !d.active && styles.muted]}>
+                  {dayTypeLabel(d, hasConditions, zones[d.day]?.focus)}
+                </Text>
                 {d.active && (
                   <Text style={[styles.meta, staleSet.has(d.day) && styles.metaStale]}>
                     {staleSet.has(d.day) ? 'Hay que rehacer este día' : meta.filter(Boolean).join(' · ')}

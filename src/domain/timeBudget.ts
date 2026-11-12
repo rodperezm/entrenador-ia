@@ -134,6 +134,7 @@ export function fitPart(
   level: Level,
   cycle?: CycleInfo,
   intensity: Intensity = 'intense',
+  keepFinisher = false,
 ): ExerciseSlot[] {
   const cycled = part === 'main' && !cfg.gentleStrength ? cycle : undefined;
   const shorter = cycled?.week === 4 || (cycled && intensity === 'light');
@@ -161,7 +162,11 @@ export function fitPart(
   // que es opcional. La app avisa que toma más tiempo; si la persona pide ajustarla, se recorta.
   const keepFull = part === 'main' && !cfg.gentleStrength && !cfg.fitToTime;
   if (keepFull) {
-    while (out.length > 1 && total() > budget && out.some((s) => s.role === 'C')) {
+    // El remate C es opcional en cuerpo completo; con la semana dividida solo sale si pasa del margen.
+    const cLimit = budget * (keepFinisher ? MAIN_TOLERANCE : 1);
+    // Antes de sacar el remate de un día dividido, se baja una serie a los que tengan más.
+    if (keepFinisher) trimSets(out, cLimit);
+    while (out.length > 1 && total() > cLimit && out.some((s) => s.role === 'C')) {
       const c = out.findLastIndex((s) => s.role === 'C');
       reserve.unshift(...out.splice(c, 1));
     }

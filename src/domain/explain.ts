@@ -5,7 +5,8 @@ import { recentExerciseIds } from './generator';
 import { lastSessionOf } from './progression';
 import type { DayConfig, DayPlan, Exercise, ExerciseSlot, LocalProfile, WorkoutSession } from './schema';
 import { weightLabel } from './sides';
-import { anchorIds, type Intensity, isArmAccessory } from './strength';
+import { anchorIds, type DayFocus, FOCUS_LABEL, type Intensity, isArmAccessory, weekFocus } from './strength';
+import { DAY_LONG } from './week';
 
 // Por qué la semana y el día son como son. Lo arma la app con los datos reales (semana del ciclo,
 // lo que hizo la última vez, lo que trabaja cada día), así nunca dice algo que no pasó.
@@ -83,6 +84,8 @@ export function explainWeek(input: {
   cycle: CycleInfo;
   history: WorkoutSession[];
   exercises: Exercise[];
+  /** La semana configurada: con 4 a 6 días de Fuerza se explica la división por zonas. */
+  weekDays?: DayConfig[];
 }): WeekExplanation {
   const { days, cycle, history } = input;
   const byId = new Map(input.exercises.map((e) => [e.id, e]));
@@ -99,16 +102,25 @@ export function explainWeek(input: {
   // Anclas: el ejercicio de potencia y el principal de piernas de cada día. Se mantienen todo el ciclo
   // para medir el avance; el resto de la Fuerza rota cada semana dentro de los mismos patrones.
   const anchors = new Set(
-    strengthDays.flatMap((d) =>
-      anchorIds(d.blocks.find((b) => b.type === 'main_strength')?.slots ?? [], byId),
-    ),
+    strengthDays.flatMap((d) => anchorIds(d.blocks.find((b) => b.type === 'main_strength')?.slots ?? [], byId)),
   );
   const recent = recentExerciseIds(history);
   const mainIds = [...new Set(mainSlots.map((s) => s.exerciseId))];
   const fresh = recent.size ? mainIds.filter((id) => !anchors.has(id) && !recent.has(id)) : [];
   const nameOf = (id: string) => byId.get(id)?.name.es ?? id;
 
+  const zones = weekFocus(input.weekDays ?? []);
+  const zoned = strengthDays.filter((d) => zones[d.day] && zones[d.day]!.focus !== 'full');
+  const split = zoned.length > 0;
+
   const why: string[] = [];
+  if (split) {
+    why.push(
+      `Entrenas Fuerza ${strengthDays.length} días: con tantos días, repetir cuerpo completo no deja recuperar. Por eso la semana va por zonas, y cada una descansa mientras trabaja la otra: ${zoned
+        .map((d) => `${DAY_LONG[d.day].toLowerCase()} ${FOCUS_LABEL[zones[d.day]!.focus].toLowerCase()}`)
+        .join(', ')}.`,
+    );
+  }
   if (strengthDays.length) {
     if (cycle.week === 1 && cycle.block > 1) {
       why.push(
@@ -120,7 +132,9 @@ export function explainWeek(input: {
         `Anclas del ciclo: ${join([...anchors].map(nameOf))}. Se mantienen las 4 semanas para medir tu avance: lo que cambia es la carga.`,
       );
       why.push(
-        'El resto de la Fuerza rota cada semana con los mismos patrones (empuje, tirón, piernas y bisagra), para que entrenes todo el cuerpo sin que sea siempre lo mismo.',
+        split
+          ? 'El resto de la Fuerza rota cada semana dentro de la zona de cada día, para que no sea siempre lo mismo.'
+          : 'El resto de la Fuerza rota cada semana con los mismos patrones (empuje, tirón, piernas y bisagra), para que entrenes todo el cuerpo sin que sea siempre lo mismo.',
       );
     }
     if (fresh.length) {
@@ -195,7 +209,7 @@ export function explainWeek(input: {
   const works: string[] = [];
   if (familyDays.size) {
     works.push(
-      'Cuerpo completo: ' +
+      (split ? 'En la semana: ' : 'Cuerpo completo: ') +
         join([...familyDays].map(([f, n]) => `${FAMILY_LABEL[f].toLowerCase()} ${n} ${n === 1 ? 'día' : 'días'}`)) +
         '.',
     );
@@ -216,6 +230,12 @@ const INTENSITY_NOTE: Record<Intensity, string> = {
   light: 'Día suave: técnica y movimiento, sin buscar más carga.',
 };
 
+const FOCUS_NOTE: Record<Exclude<DayFocus, 'full'>, string> = {
+  lower: 'Hoy toca tren inferior: piernas y cadera. Brazos, pecho y espalda descansan para su día.',
+  upper: 'Hoy toca tren superior: empuje, tirón y brazos. Las piernas descansan de su día.',
+  power_core: 'Hoy toca potencia y core: técnica de bisagra, acarreos y tronco firme, sin repetir piernas ni brazos.',
+};
+
 // Por qué cada parte del día tiene lo que tiene, en una línea por parte.
 export function explainDay(input: {
   dayPlan: DayPlan;
@@ -223,6 +243,8 @@ export function explainDay(input: {
   profile: LocalProfile;
   exercises: Exercise[];
   intensity: Intensity | null;
+  /** Zona del día cuando la Fuerza de la semana va dividida. */
+  focus?: DayFocus;
 }): string[] {
   const { dayPlan, cfg, profile } = input;
   const byId = new Map(input.exercises.map((e) => [e.id, e]));
@@ -231,6 +253,8 @@ export function explainDay(input: {
   const main = block('main_strength');
   const lines: string[] = [];
 
+  const focus = !cfg.gentleStrength && main.length ? (input.focus ?? 'full') : 'full';
+  if (focus !== 'full') lines.push(FOCUS_NOTE[focus]);
   if (main.length && input.intensity && !cfg.gentleStrength) lines.push(INTENSITY_NOTE[input.intensity]);
 
   const families = [...new Set(main.flatMap((s) => (ex(s) ? [familyOf(ex(s)!)] : [])).filter((f): f is Family => !!f))];

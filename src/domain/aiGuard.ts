@@ -3,7 +3,7 @@ import { type CycleInfo, cycleInfo } from './cycle';
 import { filterExercisesForUser, isUnsafeWeight } from './filter';
 import { generateDayByRules, hadPain, isGentle, lastWeightOf, pickWeight, prescribe } from './generator';
 import { feltTooMuch, progressSlot, wasTooHard } from './progression';
-import { dayIntensity, MIN_REST_SEC, POWER_REPS_MAX, slotRole, sortByRole } from './strength';
+import { dayIntensity, MIN_REST_SEC, offZone, POWER_REPS_MAX, slotRole, sortByRole, weekFocus } from './strength';
 import { fitPart, withMinCount } from './timeBudget';
 import { dayNeeds, prepares, stretchesMuscle } from './coverage';
 import type {
@@ -37,6 +37,8 @@ type GuardInput = {
 // Si la IA cambió ejercicios de Fuerza a mitad del ciclo, se restauran y se dice por qué. Su resumen
 // no se usa porque podría hablar de los ejercicios que se quitaron; la explicación de la semana la
 // arma la app con los datos reales.
+const REZONED_SUMMARY =
+  'Entrenas 4 días o más: la Fuerza va dividida en tren inferior y tren superior. Ajustamos los días en que la IA mezcló zonas, para que cada una descanse.';
 const FIXED_KEPT_SUMMARY =
   'La IA propuso cambiar tus ejercicios ancla de Fuerza a mitad del ciclo; los mantuvimos para que puedas medir tu avance.';
 const PARTS: [BlockType, DayPart][] = [
@@ -193,14 +195,32 @@ export function guardAiPlan(plan: GeneratedWeekPlan, input: GuardInput): Generat
   const { days, profile, exercises, history, lockedByDay } = input;
   const cycle = cycleInfo(history, profile.level, days);
   let restored = false;
+  const zones = weekFocus(days);
+  let rezoned = false;
   const guarded = plan.days.map((day) => {
     const cfg = days.find((d) => d.day === day.day);
     if (!cfg) return day;
     let blocks = day.blocks;
     const others = plan.days.filter((d) => d.day !== day.day);
-    const byRules = () => generateDayByRules(cfg, others, profile, exercises, history, 1, lockedByDay[day.day], days, !!input.rotate);
+    const byRules = () =>
+      generateDayByRules(cfg, others, profile, exercises, history, 1, lockedByDay[day.day], days, !!input.rotate);
     if (changedWithoutReason(day, cfg, input)) {
       restored = true;
+      const main = byRules().blocks.find((b) => b.type === 'main_strength');
+      blocks = main ? blocks.map((b) => (b.type === 'main_strength' ? main : b)) : blocks;
+    }
+    // Semana dividida por zonas: si la IA mezcló zonas en un día (piernas en el de tren superior,
+    // por ejemplo), la Fuerza de ese día la arman las reglas. Sin eso no hay recuperación entre días.
+    const focus = (!cfg.gentleStrength && zones[day.day]?.focus) || 'full';
+    const mixed = blocks
+      .filter((b) => b.type === 'main_strength')
+      .flatMap((b) => b.slots)
+      .some((s) => {
+        const e = exercises.find((x) => x.id === s.exerciseId);
+        return !!e && offZone(e, focus);
+      });
+    if (mixed) {
+      rezoned = true;
       const main = byRules().blocks.find((b) => b.type === 'main_strength');
       blocks = main ? blocks.map((b) => (b.type === 'main_strength' ? main : b)) : blocks;
     }
@@ -231,10 +251,18 @@ export function guardAiPlan(plan: GeneratedWeekPlan, input: GuardInput): Generat
       const slots = part === 'main' ? sortByRole(b.slots) : b.slots;
       return {
         ...b,
-        slots: fitPart(part, slots, part === 'cooldown' ? cooldownCfg : cfg, profile.level, cycle, intensity),
+        slots: fitPart(
+          part,
+          slots,
+          part === 'cooldown' ? cooldownCfg : cfg,
+          profile.level,
+          cycle,
+          intensity,
+          part === 'main' && focus !== 'full',
+        ),
       };
     });
     return { ...day, blocks };
   });
-  return { ...plan, days: guarded, summary: restored ? FIXED_KEPT_SUMMARY : plan.summary };
+  return { ...plan, days: guarded, summary: restored ? FIXED_KEPT_SUMMARY : rezoned ? REZONED_SUMMARY : plan.summary };
 }

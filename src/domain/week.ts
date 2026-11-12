@@ -1,4 +1,5 @@
 import type { DayConfig, DayOfWeek, WeekConfig } from './schema';
+import { weekFocus } from './strength';
 
 export const DAYS: { id: DayOfWeek; short: string; long: string }[] = [
   { id: 'mon', short: 'Lun', long: 'Lunes' },
@@ -228,10 +229,18 @@ const hashOf = (value: unknown) => {
 };
 
 export const configHash = (week: WeekConfig, profileUpdatedAt: string) => hashOf({ week, profileUpdatedAt });
-export const dayConfigHash = (cfg: DayConfig, profileUpdatedAt: string) => hashOf({ cfg, profileUpdatedAt });
+// La zona del día (tren inferior, superior...) depende de cuántos días de Fuerza tiene la semana:
+// si eso cambia, la rutina del día ya no corresponde. En cuerpo completo la huella es la de siempre.
+export const dayConfigHash = (cfg: DayConfig, profileUpdatedAt: string, week?: WeekConfig) => {
+  const zone = week ? weekFocus(week.days)[cfg.day] : undefined;
+  return zone && zone.focus !== 'full' ? hashOf({ cfg, profileUpdatedAt, zone }) : hashOf({ cfg, profileUpdatedAt });
+};
 
 export const dayHashes = (week: WeekConfig, profileUpdatedAt: string) =>
-  Object.fromEntries(week.days.map((d) => [d.day, dayConfigHash(d, profileUpdatedAt)])) as Record<DayOfWeek, string>;
+  Object.fromEntries(week.days.map((d) => [d.day, dayConfigHash(d, profileUpdatedAt, week)])) as Record<
+    DayOfWeek,
+    string
+  >;
 
 // Días cuya rutina ya no corresponde a su configuración (o que aún no tienen rutina).
 // Los planes antiguos sin huella por día se comparan con la huella de toda la semana.
@@ -247,7 +256,9 @@ export function staleDays(
   return new Set(
     active
       .filter(
-        (d) => !plan.days.some((p) => p.day === d.day) || plan.dayHashes![d.day] !== dayConfigHash(d, profileUpdatedAt),
+        (d) =>
+          !plan.days.some((p) => p.day === d.day) ||
+          plan.dayHashes![d.day] !== dayConfigHash(d, profileUpdatedAt, week),
       )
       .map((d) => d.day),
   );

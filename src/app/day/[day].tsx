@@ -8,7 +8,7 @@ import { EXERCISES, EXERCISES_BY_ID } from '@/data/exercises.seed';
 import { averageMet, kcalRangeLabel, latestWeight } from '@/domain/calories';
 import { cycleInfo } from '@/domain/cycle';
 import { generateDayByRules, strongPainIds } from '@/domain/generator';
-import { dayIntensity, strengthInfo } from '@/domain/strength';
+import { dayIntensity, strengthInfo, weekFocus } from '@/domain/strength';
 import { explainDay } from '@/domain/explain';
 import { supportNote } from '@/domain/coverage';
 import { WhyDay } from '@/features/planner/WhyCards';
@@ -127,7 +127,7 @@ export default function DayScreen() {
       generator: plan?.generator ?? 'rules',
       configHash: plan?.configHash ?? configHash(nextWeek, profile.updatedAt),
       cycleBlock,
-      dayHashes: { ...previousHashes, [day]: dayConfigHash(next, profile.updatedAt) },
+      dayHashes: { ...previousHashes, [day]: dayConfigHash(next, profile.updatedAt, nextWeek) },
     });
   };
 
@@ -217,6 +217,7 @@ export default function DayScreen() {
                     ? 'light'
                     : dayIntensity(week.days, day, profile.level)
                   : null,
+                focus: weekFocus(week.days)[day]?.focus,
               })}
             />
           )}
@@ -503,7 +504,7 @@ function AdjustPanel({
               )}
               <Text style={styles.rowLabel}>Zonas con preferencia</Text>
               <Text style={styles.muted}>
-                La sesión es de cuerpo completo; esto solo inclina la elección de ejercicios.
+                Esto solo inclina la elección de ejercicios; la estructura del día la arma la app.
               </Text>
               <View style={styles.chips}>
                 {MUSCLE_GROUPS.map((g) => (

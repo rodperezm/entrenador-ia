@@ -5,7 +5,7 @@ import { effortKind, effortNote } from '@/domain/effort';
 import { filterExercisesForUser } from '@/domain/filter';
 import { avoidedIds, legsRestIds, recentExerciseIds, weekLocks } from '@/domain/generator';
 import { wasTooHard } from '@/domain/progression';
-import { A_STAGES, dayIntensity, strengthRole } from '@/domain/strength';
+import { A_STAGES, dayIntensity, focusGuide, strengthRole, weekFocus } from '@/domain/strength';
 import { leadPart, partBudgets, partCount } from '@/domain/timeBudget';
 import { DAY_PARTS } from '@/domain/week';
 import {
@@ -137,7 +137,7 @@ export function buildAiRequest(
   });
 
   // Dentro del ciclo: misma semana, se conserva la Fuerza; semana nueva, solo las anclas y el resto rota.
-  const { lockedByDay: fixedByDay, rotate } = weekLocks(plan, cycle.blockStart, exercises);
+  const { lockedByDay: fixedByDay, rotate } = weekLocks(plan, cycle.blockStart, exercises, week.days);
 
   return {
     cycle: {
@@ -176,6 +176,12 @@ export function buildAiRequest(
         ) as typeof d.blocks,
         availableEquipment: equipmentAt(d.location, profile),
         intensity: dayIntensity(week.days, d.day, profile.level),
+        // Con 4 a 6 días de Fuerza la semana se divide por zonas: cada día dice cuál le toca y cómo se arma.
+        ...(() => {
+          const zone = weekFocus(week.days)[d.day];
+          const guide = zone && focusGuide(zone.focus, zone.turn);
+          return zone && guide ? { focus: zone.focus, focusGuide: guide } : {};
+        })(),
         leadPart: leadPart({ ...d, active: true }),
         minutesByPart: Object.fromEntries(
           Object.entries(partBudgets({ ...d, active: true }, profile.level)).map(([part, sec]) => [

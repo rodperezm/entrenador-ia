@@ -12,7 +12,7 @@ import {
 } from './schema';
 import type { TabataConfig } from './session';
 import { isPerSide, workLabel } from './sides';
-import { A_STAGES, strengthRole } from './strength';
+import { isZoneAccessory, A_STAGES, strengthRole } from './strength';
 import { slotSeconds } from './timeBudget';
 import { dayDate } from './week';
 
@@ -123,6 +123,8 @@ export function finisherOffer(input: OfferInput): FinisherOffer | null {
   ).filter(
     (e) =>
       strengthRole(e) === 'C' &&
+      // Los accesorios de zona (aislados lentos) no van en un circuito.
+      !isZoneAccessory(e) &&
       fits(e) &&
       !isPerSide(e.id) &&
       !dayExerciseIds.includes(e.id) &&

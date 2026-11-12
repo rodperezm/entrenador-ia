@@ -28,7 +28,9 @@ export default function PlanInfoScreen() {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Text style={styles.lead}>
-        Entrenas todo el cuerpo por patrones de movimiento. Las lesiones, el dolor y tu equipamiento siempre mandan.
+        Entrenas todo el cuerpo por patrones de movimiento. Con 1 a 3 días de Fuerza, cada sesión es de cuerpo completo.
+        Con 4 a 6, la semana se divide en tren inferior y tren superior, para que cada zona descanse mientras trabaja la
+        otra. Siempre queda al menos un día sin Fuerza. Las lesiones, el dolor y tu equipamiento siempre mandan.
       </Text>
 
       <Text style={styles.section}>Cómo se arma cada día</Text>

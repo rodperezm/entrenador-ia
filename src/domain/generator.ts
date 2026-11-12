@@ -19,7 +19,10 @@ import {
   A_STAGES,
   anchorIds,
   dayIntensity,
+  type DayFocus,
   isArmAccessory,
+  isZoneAccessory,
+  offZone,
   type Intensity,
   type SessionNeed,
   sessionNeeds,
@@ -28,6 +31,8 @@ import {
   slotRole,
   sortByRole,
   strengthRole,
+  weekFocus,
+  zoneOf,
 } from './strength';
 import { capMainTime, fitPart, maxCount, withMinCount } from './timeBudget';
 import { coverFirst, coverMuscles, dayNeeds, prepares } from './coverage';
@@ -47,6 +52,9 @@ type DayStrengthPlan = {
   locked: Set<string>;
   mainSeed?: number;
   rotate?: boolean;
+  // Zona del día cuando la semana se divide (4 a 6 días de Fuerza) y qué vuelta de esa zona es.
+  focus?: DayFocus;
+  turn?: number;
 };
 
 const MAX_COMPLEXITY: Record<Level, number> = { beginner: 2, intermediate: 3, advanced: 5 };
@@ -147,6 +155,8 @@ type MainContext = {
   locked: Set<string>;
   intensity: Intensity;
   dayIndex: number;
+  focus: DayFocus;
+  turn: number;
   // Semana nueva del mismo ciclo: lo fijo son las anclas y el resto se elige de nuevo, rotando.
   rotate: boolean;
   recentMain: Map<string, number>; // castigo por haberlo hecho hace poco, para variar
@@ -155,7 +165,9 @@ type MainContext = {
 // Brazos de la semana: si aún no hay bíceps o tríceps en los días ya armados, este día pide el que falta.
 const worksMuscle = (e: Exercise, m: 'biceps' | 'triceps') => e.anatomy.primary.some((a) => a.muscle === m);
 function armFocus(ctx: MainContext): 'biceps' | 'triceps' | null {
-  const done = [...ctx.usedThisWeek.keys()].flatMap((id) => ctx.all.find((e) => e.id === id) ?? []).filter(isArmAccessory);
+  const done = [...ctx.usedThisWeek.keys()]
+    .flatMap((id) => ctx.all.find((e) => e.id === id) ?? [])
+    .filter(isArmAccessory);
   const hasBiceps = done.some((e) => worksMuscle(e, 'biceps'));
   const hasTriceps = done.some((e) => worksMuscle(e, 'triceps'));
   if (hasBiceps && hasTriceps) return null;
@@ -182,14 +194,24 @@ export function recentMainPenalty(history: WorkoutSession[], now = Date.now()) {
 
 // Lo que se conserva al armar una semana: misma semana, todo (rehacer no cambia los ejercicios);
 // semana nueva del mismo ciclo, solo las anclas, y el resto rota; ciclo nuevo, nada.
-export function weekLocks(plan: StoredWeekPlan | null, cycleBlock: string, exercises: Exercise[]) {
+// `days`: la semana tal como está configurada ahora. Si la zona de un día cambió (por ejemplo, al pasar
+// de 3 a 4 días de Fuerza), lo fijado que no es de esa zona se suelta.
+export function weekLocks(
+  plan: StoredWeekPlan | null,
+  cycleBlock: string,
+  exercises: Exercise[],
+  days: DayConfig[] = [],
+) {
   if (!plan || plan.cycleBlock !== cycleBlock) return { lockedByDay: {}, rotate: false };
   const byId = new Map(exercises.map((e) => [e.id, e]));
   const rotate = isFromPastWeek(plan.generatedAt);
+  const zones = weekFocus(days);
   const lockedByDay: Partial<Record<DayConfig['day'], string[]>> = Object.fromEntries(
     plan.days.map((d) => {
       const slots = d.blocks.filter((b) => b.type === 'main_strength').flatMap((b) => b.slots);
-      return [d.day, rotate ? anchorIds(slots, byId) : slots.map((x) => x.exerciseId)];
+      const ids = rotate ? anchorIds(slots, byId) : slots.map((x) => x.exerciseId);
+      const focus = zones[d.day]?.focus ?? 'full';
+      return [d.day, ids.filter((id) => !byId.has(id) || !offZone(byId.get(id)!, focus))];
     }),
   );
   return { lockedByDay, rotate };
@@ -201,8 +223,10 @@ const patternFamily = (e: Exercise) =>
 // Elige por patrón. Cada lugar de la sesión busca primero lo ya fijado en este bloque.
 function pickMain(pool: Exercise[], groups: MuscleGroupId[], count: number, profile: LocalProfile, ctx: MainContext) {
   const { cycle, previousBlock, usedThisWeek, rand, locked } = ctx;
-  const cap = MAX_COMPLEXITY[profile.level];
-  const target = TARGET_COMPLEXITY[profile.level];
+  // Día suave de una semana dividida: técnica y control, con ejercicios un punto más simples.
+  const easier = ctx.focus !== 'full' && ctx.intensity === 'light' ? 1 : 0;
+  const cap = Math.max(2, MAX_COMPLEXITY[profile.level] - easier);
+  const target = Math.max(1, TARGET_COMPLEXITY[profile.level] - easier);
   // Orden fijo: el azar del puntaje no debe depender de cómo llegó barajada la lista.
   const candidates = pool
     .filter((e) => e.complexityLevel <= cap && strengthRole(e) !== null)
@@ -259,16 +283,44 @@ function pickMain(pool: Exercise[], groups: MuscleGroupId[], count: number, prof
       return choose(inRole('B').filter((e) => e.movementPattern === 'hinge'));
     }
     if (need.role === 'C') {
+      const calm = (list: Exercise[]) =>
+        canUseBallistics ? list : list.filter((e) => !e.restrictionFlags.includes('ballistic'));
+      // Semana dividida: cada día pide su remate (brazos, acarreo, core o accesorio de la zona).
+      if (need.kind === 'arms') {
+        // Bíceps y tríceps se alternan dentro del día y en la semana.
+        const had = picked.filter((p) => isArmAccessory(p.exercise));
+        const want = had.some((p) => worksMuscle(p.exercise, 'biceps'))
+          ? 'triceps'
+          : had.some((p) => worksMuscle(p.exercise, 'triceps'))
+            ? 'biceps'
+            : (need.muscle ?? armFocus(ctx) ?? 'biceps');
+        const armsPool = inRole('C').filter(isArmAccessory);
+        return choose(armsPool.filter((e) => worksMuscle(e, want))) ?? choose(armsPool);
+      }
+      if (need.kind === 'carry') return choose(calm(inRole('C').filter((e) => e.movementPattern === 'carry')));
+      if (need.kind === 'core') {
+        const core = calm(inRole('C').filter((e) => e.movementPattern.startsWith('core_')));
+        // Primero un tipo de core que el día aún no tenga (anti-extensión, anti-rotación, rotación, flexión).
+        const fresh = core.filter((e) => !picked.some((p) => p.exercise.movementPattern === e.movementPattern));
+        return choose(fresh) ?? choose(core);
+      }
+      if (need.kind === 'lower' || need.kind === 'upper') {
+        return choose(inRole('C').filter((e) => isZoneAccessory(e) && zoneOf(e) === need.kind));
+      }
       // Brazos: un día bíceps y otro tríceps en la semana, si la lesión lo permite (el filtro ya lo cuida).
       const arm = armFocus(ctx);
       const arms = arm ? choose(inRole('C').filter((e) => isArmAccessory(e) && worksMuscle(e, arm))) : undefined;
       if (arms) return arms;
-      const options = inRole('C').filter((e) => !isArmAccessory(e));
+      // En cuerpo completo no entran los accesorios de zona: el remate es acarreo, core o cierre.
+      const options = inRole('C').filter((e) => !isArmAccessory(e) && !isZoneAccessory(e));
       if (!canUseBallistics) return choose(options.filter((e) => !e.restrictionFlags.includes('ballistic')));
       return choose(options.filter((e) => e.movementPattern === 'carry')) ?? choose(options);
     }
+    // Etapa 1: el bloque A ya es un peso muerto; la bisagra de fuerza no repite otro peso muerto básico.
+    const sameAsA = (e: Exercise) =>
+      cycle.stage === 1 && A_STAGES[0].includes(e.id) && picked.some((p) => A_STAGES[0].includes(p.exercise.id));
     for (const pattern of need.patterns ?? []) {
-      const exercise = choose(inRole('B').filter((e) => e.movementPattern === pattern));
+      const exercise = choose(inRole('B').filter((e) => e.movementPattern === pattern && !sameAsA(e)));
       if (exercise) return exercise;
     }
     return undefined;
@@ -279,6 +331,8 @@ function pickMain(pool: Exercise[], groups: MuscleGroupId[], count: number, prof
   const staged = A_STAGES.flat();
   const stageNow = A_STAGES[cycle.stage - 1];
   for (const id of locked) {
+    const lockedEx = ctx.all.find((e) => e.id === id);
+    if (lockedEx && offZone(lockedEx, ctx.focus)) continue; // la zona del día cambió: ese fijo ya no corresponde
     const fixed = candidates.find((e) => e.id === id && (!staged.includes(id) || stageNow.includes(id)));
     const original = ctx.all.find((e) => e.id === id);
     const role = original && strengthRole(original);
@@ -307,8 +361,10 @@ function pickMain(pool: Exercise[], groups: MuscleGroupId[], count: number, prof
   // no se agrega otro igual.
   const used = new Set<number>();
   const fills = (p: (typeof picked)[number], need: SessionNeed) =>
-    need.role === 'B' ? p.role === 'B' && (need.patterns ?? []).includes(p.exercise.movementPattern) : p.role === need.role;
-  for (const need of sessionNeeds(cycle.phase === 'power', ctx.dayIndex)) {
+    need.role === 'B'
+      ? p.role === 'B' && (need.patterns ?? []).includes(p.exercise.movementPattern)
+      : p.role === need.role;
+  for (const need of sessionNeeds(cycle.phase === 'power', ctx.dayIndex, ctx.focus, ctx.turn)) {
     if (picked.length >= count) break;
     const match = picked.findIndex((p, i) => !used.has(i) && fills(p, need));
     if (match >= 0) {
@@ -356,13 +412,24 @@ function generateDay(
         locked: plan.locked,
         intensity,
         dayIndex: DAYS.findIndex((x) => x.id === cfg.day),
+        focus: (!cfg.gentleStrength && plan.focus) || 'full',
+        turn: plan.turn ?? 0,
         rotate: !!plan.rotate,
         recentMain: recentMainPenalty(plan.history),
       })
     : [];
   // Cada parte recibe opciones de sobra y se queda con las que caben en sus minutos.
   const fit = (part: Parameters<typeof fitPart>[0], slots: ExerciseSlot[]) =>
-    fitPart(part, slots, cfg, profile.level, cycle, intensity);
+    // Dividida por zonas, el remate (brazos, core, accesorios) es parte del día: no se quita por poco.
+    fitPart(
+      part,
+      slots,
+      cfg,
+      profile.level,
+      cycle,
+      intensity,
+      part === 'main' && !!plan.focus && plan.focus !== 'full',
+    );
   const mainSlots = sortByRole(
     fit(
       'main',
@@ -706,24 +773,26 @@ function applyProgression(
   const swappedFamilies = locked.filter((id) => painful.includes(id)).map((id) => patternFamily(byId.get(id)!));
   return {
     ...d,
-    blocks: d.blocks.map((b) => ({
-      ...b,
-      slots: b.slots.map((s) => {
-        const e = byId.get(s.exerciseId)!;
-        const progressed = progressSlot(s, e, profile, history);
-        if (
-          b.type === 'main_strength' &&
-          !locked.includes(s.exerciseId) &&
-          swappedFamilies.includes(patternFamily(e))
-        ) {
-          return { ...progressed, rationale: 'Cambiado por el dolor que marcaste.' };
-        }
-        const cycled = b.type === 'main_strength' && !cfg?.gentleStrength;
-        return cycled ? applyCycleWeek(progressed, s, e, profile, cycle, history, previousBlock) : progressed;
-      }),
-    })).map((b) =>
-      b.type === 'main_strength' && cfg ? { ...b, slots: capMainTime(b.slots, cfg, profile.level, cycle) } : b,
-    ),
+    blocks: d.blocks
+      .map((b) => ({
+        ...b,
+        slots: b.slots.map((s) => {
+          const e = byId.get(s.exerciseId)!;
+          const progressed = progressSlot(s, e, profile, history);
+          if (
+            b.type === 'main_strength' &&
+            !locked.includes(s.exerciseId) &&
+            swappedFamilies.includes(patternFamily(e))
+          ) {
+            return { ...progressed, rationale: 'Cambiado por el dolor que marcaste.' };
+          }
+          const cycled = b.type === 'main_strength' && !cfg?.gentleStrength;
+          return cycled ? applyCycleWeek(progressed, s, e, profile, cycle, history, previousBlock) : progressed;
+        }),
+      }))
+      .map((b) =>
+        b.type === 'main_strength' && cfg ? { ...b, slots: capMainTime(b.slots, cfg, profile.level, cycle) } : b,
+      ),
   };
 }
 
@@ -752,6 +821,7 @@ export function generateDayByRules(
     history,
     locked: new Set(lockedIds),
     rotate,
+    ...weekFocus(weekDays)[cfg.day],
   });
   return applyProgression(day, cfg, profile, exercises, history, cycle, lockedIds);
 }
@@ -778,6 +848,7 @@ export function generateWeekByRules(
         history,
         locked: new Set(lockedByDay[d.day]),
         rotate,
+        ...weekFocus(week.days)[d.day],
         // Mismo bloque y día: mismas anclas de Fuerza, para poder medir el progreso.
         mainSeed: cycle.block * 1000 + DAYS.findIndex((x) => x.id === d.day) + 1,
       }),

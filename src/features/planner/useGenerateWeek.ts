@@ -33,7 +33,7 @@ export function useGenerateWeek() {
     };
     // Misma semana: la Fuerza se conserva. Semana nueva del mismo ciclo: se conservan las anclas
     // (para medir el progreso) y el resto rota, para que la semana no sea una copia.
-    const { lockedByDay, rotate } = weekLocks(plan, meta.cycleBlock, EXERCISES);
+    const { lockedByDay, rotate } = weekLocks(plan, meta.cycleBlock, EXERCISES, week.days);
     // La preparación previa al lunes es técnica: la arman las reglas, sin gastar IA.
     if (cycleInfo(sessions, profile.level, week.days).preparation) {
       const result = generateWeekByRules(week, profile, EXERCISES, sessions, Date.now(), lockedByDay, rotate);

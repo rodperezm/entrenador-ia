@@ -9,6 +9,7 @@ import { EXERCISES, EXERCISES_BY_ID } from '@/data/exercises.seed';
 import { finisherOffer } from '@/domain/finisher';
 import { strongPainIds } from '@/domain/generator';
 import { dayMinutes } from '@/domain/timeBudget';
+import { weekFocus } from '@/domain/strength';
 import { DAY_LONG, isFromPastWeek, isToday, staleDays } from '@/domain/week';
 import { countExercises, describeDayConfig } from '@/features/planner/describe';
 import { useGenerateWeek } from '@/features/planner/useGenerateWeek';
@@ -149,7 +150,7 @@ function TodayCard({ generating, onGenerate }: { generating: boolean; onGenerate
   const openDay = () => router.push({ pathname: '/day/[day]', params: { day: cfg.day } });
 
   let title = `Hoy, ${DAY_LONG[cfg.day].toLowerCase()}`;
-  let detail = describeDayConfig(cfg, profile.conditions.length > 0);
+  let detail = describeDayConfig(cfg, profile.conditions.length > 0, weekFocus(week.days)[cfg.day]?.focus);
   let action: { label: string; onPress: () => void; ghost?: boolean } | null = null;
   let tooLong = false;
   let closingNote: string | null = null;
