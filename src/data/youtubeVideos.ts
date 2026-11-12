@@ -169,4 +169,17 @@ export const YOUTUBE_VIDEO_IDS: Record<string, string> = {
   bar_supine_shoulder_flexion: 'wpBOsg2FPvw',
   stretch_bar_chest_opener: 'Epg8vkn5ySk',
   stretch_bar_side_bend: 'MFCl9KQZQjs',
+  // Tanda 3 (12-11-2026): elegidos por búsqueda y verificados uno a uno.
+  kb_concentration_curl: '37ZUoKL_ntc',
+  kb_reverse_curl: '4N656mWC-58',
+  kb_close_grip_floor_press: 'Lsq8EYzll88',
+  sphinx_push_up: 'Xn4g0G2rS44',
+  kb_shrug: 'X0d_gL6jkSg',
+  kb_rdl: 'paZiQQkLaGI',
+  kb_kickstand_rdl: 'IXzdtAeM1qk',
+  kb_glute_bridge: 'Yao9ShODVZA',
+  towel_hamstring_curl: 'QWw-iY-ef6c',
+  kb_wall_sit: 'VipQgYnFrUk',
+  plank_kb_drag: 'uWn2uvYl-lY',
+  bear_crawl: 'CqKgj_2uDoo',
 };
