@@ -249,18 +249,27 @@
   </section>
 </div>
 <div id="toast" class="toast" role="status"></div>
+<div id="envBanner" class="hidden" style="position:fixed;top:0;left:0;right:0;z-index:50;background:#FFB020;color:#000;font-weight:800;font-size:12px;text-align:center;padding:4px 12px">PRUEBAS · este panel mira la base de pruebas, no la real</div>
 
 <script>
   // Claves públicas del proyecto (las mismas que usa la app). Los datos los protege la base:
   // cada función del panel revisa que quien la llama sea administrador.
-  const SUPABASE_URL = 'https://uzehvdheatciusnhfyjr.supabase.co';
-  const SUPABASE_KEY = 'sb_publishable_yYM3d_2uI9j80fws4tDKoQ_U5i3k7Fb';
+  // Dos ambientes, igual que la app. En kettaiapp.com el panel mira la base real; en cualquier otra
+  // dirección (la copia de pruebas de Cloudflare o el computador de desarrollo) mira la de pruebas.
+  const IS_PROD = /(^|\.)kettaiapp\.com$/.test(location.hostname);
+  const SUPABASE_URL = IS_PROD ? 'https://uzehvdheatciusnhfyjr.supabase.co' : 'https://pbmwojrlgvunndlxtcgi.supabase.co';
+  const SUPABASE_KEY = IS_PROD ? 'sb_publishable_yYM3d_2uI9j80fws4tDKoQ_U5i3k7Fb' : 'sb_publishable_9LYt-Qh_rOEea0bZlTSuCg_op3UVEu2';
   const CODE_LENGTH = 8;
+  if (!IS_PROD) {
+    document.getElementById('envBanner').classList.remove('hidden');
+    document.body.style.paddingTop = '24px';
+    document.title = 'KETTAI · Panel (pruebas)';
+  }
   const TABS = ['hoy', 'usuarios', 'metodo', 'negocio', 'reportes', 'documentos'];
   const DAY = 864e5;
   // Umbrales de las alertas: sobre o bajo esto, el panel lo pone arriba.
   const PAIN_MAX = 15, TOO_MUCH_MAX = 25, STICK_MIN = 50, W2_MIN = 40, W4_MIN = 25, INACTIVE_DAYS = 14, BACKUP_MAX_DAYS = 2;
-  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storageKey: 'kettai-panel' } });
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storageKey: IS_PROD ? 'kettai-panel' : 'kettai-panel-pruebas' } });
 
   const $ = (id) => document.getElementById(id);
   const show = (el, on) => el.classList.toggle('hidden', !on);
