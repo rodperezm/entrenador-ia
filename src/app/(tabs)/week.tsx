@@ -8,6 +8,7 @@ import { EXERCISES } from '@/data/exercises.seed';
 import { cycleInfo } from '@/domain/cycle';
 import { explainWeek } from '@/domain/explain';
 import { AiProgress } from '@/features/planner/AiProgress';
+import { CalendarReminder } from '@/features/planner/CalendarReminder';
 import { WhyWeek } from '@/features/planner/WhyCards';
 import { weekFocus } from '@/domain/strength';
 import { DAY_LONG, dayDate, DAYS, isFromPastWeek, isToday, staleDays } from '@/domain/week';
@@ -157,6 +158,7 @@ export default function WeekScreen() {
           )}
         </>
       )}
+      <CalendarReminder />
     </ScrollView>
   );
 }
