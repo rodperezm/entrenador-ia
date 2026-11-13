@@ -10,6 +10,7 @@ const ITEMS: Item[] = [
   { label: 'Mi perfil', icon: 'person-outline', href: '/profile' },
   { label: 'Cuenta y respaldo', icon: 'shield-checkmark-outline', href: '/account' },
   { label: 'Enviar un comentario', icon: 'chatbubble-ellipses-outline', href: '/feedback' },
+  { label: 'Términos y condiciones', icon: 'document-text-outline', href: '/terms' },
 ];
 
 // Botón de la esquina superior: abre un menú corto con el perfil y la cuenta,

@@ -167,6 +167,8 @@ function BackupActive() {
         <ActionRow icon="download-outline" label="Descargar respaldo completo (JSON)" onPress={download} />
         <View style={styles.rowDivider} />
         <ActionRow icon="lock-closed-outline" label="Cómo cuidamos tus datos" onPress={() => router.push('/privacy')} />
+        <View style={styles.rowDivider} />
+        <ActionRow icon="document-text-outline" label="Términos y condiciones" onPress={() => router.push('/terms')} />
       </View>
 
       <Text style={styles.section}>Tu cuenta</Text>

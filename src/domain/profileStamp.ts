@@ -11,6 +11,8 @@ const NOT_TRAINING: (keyof LocalProfile)[] = [
   'heightCm',
   'healthAlerts',
   'disclaimerAcceptedAt',
+  'termsVersion',
+  'termsAcceptedAt',
   'updatedAt',
   'trainingUpdatedAt',
 ];

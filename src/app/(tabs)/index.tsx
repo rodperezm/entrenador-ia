@@ -17,6 +17,7 @@ import { KettlebellAdviceCard } from '@/features/planner/KettlebellAdviceCard';
 import { useGenerateWeek } from '@/features/planner/useGenerateWeek';
 import { WeekCard } from '@/features/planner/WeekCard';
 import { WeekStrip } from '@/features/planner/WeekStrip';
+import { TermsNotice } from '@/features/account/TermsNotice';
 import { UnfinishedWorkoutCard } from '@/features/workout/draft';
 import { PainFollowUpCard } from '@/features/workout/PainFollowUpCard';
 import { useOnline } from '@/lib/online';
@@ -103,6 +104,7 @@ export default function TodayScreen() {
           </Text>
         </View>
       )}
+      <TermsNotice />
       <UnfinishedWorkoutCard />
       <PainFollowUpCard />
       <TodayCard generating={generating} onGenerate={generate} />

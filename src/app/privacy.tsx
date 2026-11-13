@@ -1,7 +1,8 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, spacing } from '@/theme';
 
-// Texto de trabajo durante las pruebas: debe revisarlo un abogado antes de lanzar o cobrar.
+// BORRADOR, igual que los Términos (content/terms): debe revisarlo un abogado antes de lanzar o cobrar.
+// Forma parte de los Términos y condiciones.
 const SECTIONS = [
   {
     title: 'Qué guardamos',

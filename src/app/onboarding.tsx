@@ -36,6 +36,7 @@ import {
   weekWithStrength,
 } from '@/domain/week';
 import { type OnboardingStep, trackOnboarding } from '@/lib/onboardingTrack';
+import { TERMS_VERSION } from '@/content/terms';
 import { usePlan } from '@/state/plan';
 import { useProfile } from '@/state/profile';
 import { useSync } from '@/state/sync';
@@ -236,6 +237,12 @@ function OnboardingForm() {
         heightCm: parseHeight(draft.heightText),
         excludedExerciseIds: profile?.excludedExerciseIds ?? [],
         disclaimerAcceptedAt: profile?.disclaimerAcceptedAt ?? new Date().toISOString(),
+        // Quien se registra acepta la versión vigente; quien edita su perfil conserva lo que ya aceptó.
+        ...(profile
+          ? profile.termsVersion
+            ? { termsVersion: profile.termsVersion, termsAcceptedAt: profile.termsAcceptedAt }
+            : {}
+          : { termsVersion: TERMS_VERSION, termsAcceptedAt: new Date().toISOString() }),
       });
       // Solo los días que cambiaron: así no se pisa lo que el usuario afinó.
       applyDayChoices(

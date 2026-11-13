@@ -131,8 +131,16 @@ export function WelcomeStep({ draft, update }: StepProps) {
           de un médico, kinesiólogo o profesional de la salud. Si sientes dolor durante un ejercicio, detente.
         </Text>
       </View>
+      <View style={styles.legalLinks}>
+        <Text style={styles.link} accessibilityRole="link" onPress={() => router.push('/terms')}>
+          Leer los Términos y condiciones
+        </Text>
+        <Text style={styles.link} accessibilityRole="link" onPress={() => router.push('/privacy')}>
+          Leer cómo cuidamos tus datos
+        </Text>
+      </View>
       <CheckRow
-        label="Entiendo y acepto que entreno bajo mi propia responsabilidad."
+        label="Leí y acepto los Términos y condiciones, y entiendo que entreno bajo mi propia responsabilidad."
         checked={draft.disclaimerAccepted}
         onPress={() => update({ disclaimerAccepted: !draft.disclaimerAccepted })}
       />
@@ -924,6 +932,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
   },
   link: { color: colors.link, fontWeight: '600', marginTop: spacing.sm },
+  legalLinks: { gap: spacing.xs },
   restNote: { color: colors.warning, fontSize: 13, lineHeight: 18 },
   moreLink: { paddingVertical: spacing.sm },
   summaryRow: { backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, gap: 2 },

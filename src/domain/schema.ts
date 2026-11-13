@@ -189,6 +189,10 @@ export const LocalProfile = UserProfile.omit({ id: true }).extend({
   // (ver domain/experience).
   kettlebellExperience: z.enum(['none', 'basic', 'skilled']).optional(),
   disclaimerAcceptedAt: z.string(),
+  // Versión de los Términos y condiciones que aceptó (content/terms) y cuándo. Sin valor: perfil
+  // anterior a los Términos; la app le pide aceptarlos.
+  termsVersion: z.string().optional(),
+  termsAcceptedAt: z.string().optional(),
   updatedAt: z.string(),
   // Último cambio que afecta a la rutina (ver domain/profileStamp). Sin él vale `updatedAt`.
   trainingUpdatedAt: z.string().optional(),
