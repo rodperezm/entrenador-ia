@@ -1,0 +1,22 @@
+# Supabase pausa un proyecto gratuito tras una semana sin uso. Esta tarea hace una consulta diaria a
+# la base del ambiente de pruebas (kettai-pruebas) para que siga despierta. La clave es la pública
+# de ese proyecto: no da acceso a nada que no sea público.
+# Las tareas programadas de GitHub solo corren desde la rama principal.
+name: Mantener despierta la base de pruebas
+
+on:
+  schedule:
+    - cron: '20 9 * * *' # todos los días, 09:20 UTC
+  workflow_dispatch:
+
+jobs:
+  consulta:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Consultar la base de pruebas
+        run: |
+          estado=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://pbmwojrlgvunndlxtcgi.supabase.co/rest/v1/muscles?select=id&limit=1" \
+            -H "apikey: sb_publishable_9LYt-Qh_rOEea0bZlTSuCg_op3UVEu2")
+          echo "Respuesta: $estado"
+          test "$estado" = "200"
