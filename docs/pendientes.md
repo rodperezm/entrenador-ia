@@ -180,6 +180,16 @@ Publicado: UX 1 a 4, 6 y 7 (pantalla de error, menú de perfil y cuenta, «Mi pe
 - [ ] Probar en el teléfono: barra superior en iPhone (el título se cortaba arriba), una semana real con IA, y el lector de pantalla (VoiceOver).
 - [ ] Prueba inicial de capacidad: mediría solo la condición física, ahora que la experiencia con kettlebell es una pregunta aparte. Faltan los umbrales; llevarlos al experto.
 
+## 10. Operación (13-11-2026)
+- [x] Trabajo subido a GitHub (rama `mejoras-evaluacion-3`).
+- [x] Registro de errores y comentarios, con pestaña «Reportes» en el panel.
+- [x] Copia diaria de la base en el servidor de casa (`~/kettai-copia`, 04:30 de Chile, 30 días).
+- [ ] Confirmar el 14-11 que la copia automática corrió sola (el panel muestra «Última copia de seguridad»).
+- [ ] Cambiar la clave del acceso de copia, que quedó visible en una captura del chat.
+- [ ] Aviso por mensaje cuando falla la copia o llega un reporte (se puede armar con n8n).
+- [ ] Reunión con el experto, textos legales y, antes de abrir la app, plan Pro de Supabase.
+- [ ] Unir las ramas a la principal (`main` está 60 registros atrás).
+
 ## Para retomar
 - Arrancar el servidor: `$env:NODE_OPTIONS='--max-old-space-size=3072'; npx expo start` en `C:\dev\entrenador-ia`.
 - En el iPhone: Expo Go → `exp://192.168.1.106:8081`.
