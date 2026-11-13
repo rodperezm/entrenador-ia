@@ -64,6 +64,8 @@ export type Draft = {
   isNew: boolean; // primera vez: el perfil parte con lo mínimo y la semana propuesta
 };
 type StepProps = { draft: Draft; update: (patch: Partial<Draft>) => void };
+// Pasos que «Mi perfil» puede abrir sueltos para cambiar una sola cosa.
+export type EditStep = 'welcome' | 'about' | 'level' | 'equipment' | 'conditions' | 'week';
 
 export const BASE_EQUIPMENT: EquipmentId[] = ['mat', 'kettlebell'];
 const OPTIONAL_EQUIPMENT = (Object.keys(EQUIPMENT) as EquipmentId[]).filter((e) => !BASE_EQUIPMENT.includes(e));
@@ -252,7 +254,7 @@ export function AboutStep({ draft, update }: StepProps) {
 
 // ---------- 3. Nivel ----------
 
-const LEVELS: { id: Level; title: string; description: string }[] = [
+export const LEVELS: { id: Level; title: string; description: string }[] = [
   { id: 'beginner', title: 'Principiante', description: 'Entreno poco o nunca he usado kettlebell.' },
   {
     id: 'intermediate',

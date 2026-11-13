@@ -1,4 +1,4 @@
-import { router, Stack } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ import {
   BASE_EQUIPMENT,
   ConditionsStep,
   type Draft,
+  type EditStep,
   EquipmentStep,
   formatBirth,
   IntroScreen,
@@ -33,15 +34,23 @@ import {
   strengthDaysFrom,
   weekWithStrength,
 } from '@/domain/week';
-import { CLOUD_BACKUP_READY } from '@/lib/cloudSync';
 import { usePlan } from '@/state/plan';
-import { useResetAllData } from '@/state/useResetAllData';
 import { useProfile } from '@/state/profile';
 import { useSync } from '@/state/sync';
 import { colors, spacing } from '@/theme';
 
-const STEPS = [
+// `key`: nombre del paso cuando «Mi perfil» lo abre suelto (`/onboarding?edit=<key>`).
+const STEPS: {
+  key?: EditStep;
+  title: string;
+  subtitle: string;
+  newSubtitle?: string;
+  Component: (props: { draft: Draft; update: (patch: Partial<Draft>) => void }) => React.JSX.Element;
+  valid: (d: Draft) => boolean;
+  profileOnly?: boolean;
+}[] = [
   {
+    key: 'welcome',
     title: 'Empecemos',
     subtitle: 'Armemos tu perfil de entrenamiento.',
     Component: WelcomeStep,
@@ -50,6 +59,7 @@ const STEPS = [
       d.disclaimerAccepted && (!d.isNew || d.healthAlerts !== null) && (!d.healthAlerts?.length || d.healthAck),
   },
   {
+    key: 'about',
     title: 'Sobre ti',
     subtitle: 'Solo el sexo es obligatorio; lo demás es opcional.',
     newSubtitle: 'Con esto ajustamos tus ejercicios.',
@@ -61,6 +71,7 @@ const STEPS = [
       (!d.heightText || parseHeight(d.heightText) !== null),
   },
   {
+    key: 'level',
     title: 'Tu nivel',
     subtitle: 'Define la complejidad inicial de los ejercicios.',
     Component: LevelStep,
@@ -68,18 +79,21 @@ const STEPS = [
     profileOnly: true, // la primera vez va junto a «Sobre ti»
   },
   {
+    key: 'equipment',
     title: 'Tu kettlebell',
     subtitle: 'Solo te propondremos ejercicios que puedas hacer.',
     Component: EquipmentStep,
     valid: (d: Draft) => d.kettlebellWeightsKg.length > 0,
   },
   {
+    key: 'conditions',
     title: 'Lesiones y condiciones',
     subtitle: 'Opcional. Ajustamos los ejercicios a tus limitaciones.',
     Component: ConditionsStep,
     valid: () => true,
   },
   {
+    key: 'week',
     title: 'Tu semana',
     subtitle: 'Tus días de Fuerza y lo que quieras sumar. Lo puedes cambiar cuando quieras.',
     newSubtitle: 'Dinos cuántos días y cuánto tiempo: nosotros armamos la semana.',
@@ -112,8 +126,10 @@ export default function Onboarding() {
 function OnboardingForm() {
   const { profile, saveProfile } = useProfile();
   const { week, applyDayChoices, updateAllDays } = usePlan();
-  const resetAll = useResetAllData();
   const { enabled: hasAccount } = useSync();
+  // Desde «Mi perfil» se abre un solo paso: se cambia eso, se guarda y se vuelve.
+  const { edit } = useLocalSearchParams<{ edit?: string }>();
+  const single = profile ? STEPS.find((s) => s.key && s.key === edit) : undefined;
   // Partes de cada día al abrir.
   const [initialChoices] = useState(
     () =>
@@ -165,7 +181,7 @@ function OnboardingForm() {
 
   const update = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }));
   // Perfil nuevo: menos pasos; del último se pasa directo a crear la semana.
-  const steps = profile ? STEPS : STEPS.filter((s) => !s.profileOnly);
+  const steps = single ? [single] : profile ? STEPS : STEPS.filter((s) => !s.profileOnly);
   const { title, subtitle, newSubtitle, Component, valid } = steps[step];
   const isLast = step === steps.length - 1;
   const conditionsStep = steps.findIndex((s) => s.Component === ConditionsStep);
@@ -250,6 +266,11 @@ function OnboardingForm() {
               },
         };
       });
+      if (single) {
+        if (router.canGoBack()) router.back();
+        else router.replace('/profile');
+        return;
+      }
       router.replace(profile ? '/' : { pathname: '/', params: { generate: '1' } });
     } finally {
       setSaving(false);
@@ -303,27 +324,23 @@ function OnboardingForm() {
           options={{ headerShown: true, title: profile ? 'Mi perfil' : '', headerBackVisible: !!profile }}
         />
 
-        <View style={styles.progress}>
-          {steps.map((_, i) => (
-            <View key={i} style={[styles.progressBar, i <= step && styles.progressOn]} />
-          ))}
-        </View>
+        {!single && (
+          <View style={styles.progress}>
+            {steps.map((_, i) => (
+              <View key={i} style={[styles.progressBar, i <= step && styles.progressOn]} />
+            ))}
+          </View>
+        )}
 
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <Text style={styles.stepCount}>
-            Paso {step + 1} de {steps.length}
-          </Text>
-          <Text style={styles.title}>{title}</Text>
+          {!single && (
+            <Text style={styles.stepCount}>
+              Paso {step + 1} de {steps.length}
+            </Text>
+          )}
+          <Text style={styles.title}>{single?.key === 'welcome' ? 'Tu nombre y alertas médicas' : title}</Text>
           <Text style={styles.subtitle}>{(!profile && newSubtitle) || subtitle}</Text>
           <Component draft={draft} update={update} />
-          {profile && step === 0 && (
-            <>
-              {CLOUD_BACKUP_READY && (
-                <Button label="Cuenta y respaldo" variant="ghost" onPress={() => router.push('/account')} />
-              )}
-              <Button label="Borrar mis datos y empezar de cero" variant="ghost" onPress={resetAll} />
-            </>
-          )}
         </ScrollView>
 
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>

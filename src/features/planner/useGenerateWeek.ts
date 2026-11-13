@@ -9,6 +9,7 @@ import { useBody } from '@/state/body';
 import { useHistory } from '@/state/history';
 import { usePlan } from '@/state/plan';
 import { useProfile } from '@/state/profile';
+import { isOnline } from '@/lib/online';
 import { AiPlanError, buildAiRequest, generateWeekWithAi } from './aiPlan';
 
 // Arma la semana completa: primero con la IA y, si falla, con las reglas de la app.
@@ -38,6 +39,21 @@ export function useGenerateWeek() {
     if (cycleInfo(sessions, profile.level, week.days).preparation) {
       const result = generateWeekByRules(week, profile, EXERCISES, sessions, Date.now(), lockedByDay, rotate);
       await savePlan({ ...result, ...meta, generator: 'rules' });
+      setGenerating(false);
+      return;
+    }
+    // Sin conexión se avisa de inmediato, en vez de esperar a que la consulta falle.
+    if (!isOnline()) {
+      const hasCurrentWeek = !!plan?.days.length && !isFromPastWeek(plan.generatedAt);
+      if (!hasCurrentWeek) {
+        const result = generateWeekByRules(week, profile, EXERCISES, sessions, Date.now(), lockedByDay, rotate);
+        await savePlan({ ...result, ...meta, generator: 'rules' });
+      }
+      setNotice(
+        hasCurrentWeek
+          ? 'Estás sin conexión: tu semana sigue igual. Cuando vuelva, podrás armarla con IA.'
+          : 'Estás sin conexión: armamos tu semana con las reglas de la app. Cuando vuelva, puedes pedirla con IA.',
+      );
       setGenerating(false);
       return;
     }

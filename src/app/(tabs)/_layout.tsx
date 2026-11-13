@@ -1,9 +1,12 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Link, Redirect, router, Tabs } from 'expo-router';
-import { StyleSheet } from 'react-native';
+import { Redirect, router, Tabs } from 'expo-router';
+import { HeaderMenu } from '@/components/HeaderMenu';
 import { usePlan } from '@/state/plan';
 import { useProfile } from '@/state/profile';
-import { colors, spacing } from '@/theme';
+import { colors } from '@/theme';
+
+// Si una pantalla falla, se muestra este aviso en vez de quedar en blanco.
+export { ErrorScreen as ErrorBoundary } from '@/components/ErrorScreen';
 
 export default function TabsLayout() {
   const { profile, loading } = useProfile();
@@ -21,11 +24,7 @@ export default function TabsLayout() {
         tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textMuted,
-        headerRight: () => (
-          <Link href="/onboarding" style={styles.profileLink}>
-            Mi perfil
-          </Link>
-        ),
+        headerRight: () => <HeaderMenu />,
       }}
     >
       <Tabs.Screen
@@ -74,7 +73,3 @@ export default function TabsLayout() {
     </Tabs>
   );
 }
-
-const styles = StyleSheet.create({
-  profileLink: { color: colors.link, fontWeight: '700', fontSize: 15, paddingHorizontal: spacing.lg },
-});

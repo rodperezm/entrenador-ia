@@ -6,6 +6,7 @@ import { Button } from '@/components/ui';
 import { EXERCISES } from '@/data/exercises.seed';
 import { cycleInfo } from '@/domain/cycle';
 import { explainWeek } from '@/domain/explain';
+import { AiProgress } from '@/features/planner/AiProgress';
 import { WhyWeek } from '@/features/planner/WhyCards';
 import { weekFocus } from '@/domain/strength';
 import { DAY_LONG, dayDate, DAYS, isFromPastWeek, isToday, staleDays } from '@/domain/week';
@@ -130,18 +131,21 @@ export default function WeekScreen() {
               <Button label="Cancelar" variant="ghost" onPress={() => setConfirming(false)} />
             </View>
           ) : (
-            <Button
-              label={
-                generating
-                  ? 'Armando tu semana…'
-                  : preparing
-                    ? 'Volver a armar mi preparación'
-                    : 'Volver a generar mi semana con IA'
-              }
-              variant="secondary"
-              onPress={() => setConfirming(true)}
-              disabled={generating || activeDays === 0}
-            />
+            <>
+              <Button
+                label={
+                  generating
+                    ? 'Armando tu semana…'
+                    : preparing
+                      ? 'Volver a armar mi preparación'
+                      : 'Volver a generar mi semana con IA'
+                }
+                variant="secondary"
+                onPress={() => setConfirming(true)}
+                disabled={generating || activeDays === 0}
+              />
+              <AiProgress active={generating && !preparing} />
+            </>
           )}
           {!confirming && (
             <Text style={styles.note}>

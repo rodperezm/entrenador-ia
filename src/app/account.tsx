@@ -1,7 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { type ComponentProps, useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { confirmAction } from '@/components/ConfirmDialog';
 import { KeyboardDoneBar } from '@/components/KeyboardDoneBar';
 import { Button } from '@/components/ui';
 import { BackupSetup } from '@/features/account/BackupSetup';
@@ -21,17 +22,6 @@ function saveFile(blob: Blob, name: string) {
   link.download = name;
   link.click();
   setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-}
-
-function confirmAction(title: string, message: string, label: string, onConfirm: () => void) {
-  if (Platform.OS === 'web') {
-    if (window.confirm(`${title}\n\n${message}`)) onConfirm();
-    return;
-  }
-  Alert.alert(title, message, [
-    { text: 'Cancelar', style: 'cancel' },
-    { text: label, style: 'destructive', onPress: onConfirm },
-  ]);
 }
 
 export default function AccountScreen() {
@@ -108,33 +98,37 @@ function BackupActive() {
   };
 
   const askSignOut = () =>
-    confirmAction(
-      '¿Cerrar sesión en este teléfono?',
-      'Dejará de sincronizar. Tu respaldo y lo guardado en este teléfono se mantienen.',
-      'Cerrar sesión',
-      signOut,
-    );
+    confirmAction({
+      title: '¿Cerrar sesión en este teléfono?',
+      message: 'Dejará de sincronizar. Tu respaldo y lo guardado en este teléfono se mantienen.',
+      label: 'Cerrar sesión',
+      onConfirm: signOut,
+    });
 
   const askWipe = () =>
-    confirmAction(
-      '¿Borrar los datos de este teléfono?',
-      pending
+    confirmAction({
+      title: '¿Borrar los datos de este teléfono?',
+      message: pending
         ? 'Hay cambios que todavía no se copian a tu respaldo: si borras ahora, se pierden. Se cierra la sesión y este teléfono queda como nuevo.'
         : 'Se cierra la sesión y este teléfono queda como nuevo. Tu respaldo en la nube se mantiene: lo recuperas entrando con tu correo.',
-      'Borrar de este teléfono',
-      () =>
+      label: 'Borrar de este teléfono',
+      danger: true,
+      onConfirm: () =>
         wipeLocal()
           .then(() => router.replace('/onboarding'))
           .catch(() => setError('No se pudo borrar. Inténtalo de nuevo.')),
-    );
+    });
 
   const askDelete = () =>
-    confirmAction(
-      '¿Borrar tu cuenta y tu respaldo?',
-      'Se borra todo lo guardado en la nube y no se puede recuperar. Lo que está en este teléfono se mantiene.',
-      'Borrar',
-      () => removeAccount().catch(() => setError('No se pudo borrar. Revisa tu conexión e inténtalo de nuevo.')),
-    );
+    confirmAction({
+      title: '¿Borrar tu cuenta y tu respaldo?',
+      message:
+        'Se borra todo lo guardado en la nube y no se puede recuperar. Lo que está en este teléfono se mantiene.',
+      label: 'Borrar mi cuenta',
+      danger: true,
+      onConfirm: () =>
+        removeAccount().catch(() => setError('No se pudo borrar. Revisa tu conexión e inténtalo de nuevo.')),
+    });
 
   return (
     <>

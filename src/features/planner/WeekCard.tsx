@@ -9,6 +9,7 @@ import { useHistory } from '@/state/history';
 import { usePlan } from '@/state/plan';
 import { useProfile } from '@/state/profile';
 import { colors, radius, spacing } from '@/theme';
+import { AiProgress } from './AiProgress';
 
 // Recuadro semanal de Hoy: siempre visible, se activa cuando toca armar la semana.
 export function WeekCard({ generating, onGenerate }: { generating: boolean; onGenerate: () => void }) {
@@ -45,13 +46,15 @@ export function WeekCard({ generating, onGenerate }: { generating: boolean; onGe
           <Text style={styles.title}>Tu Semana {cycle.week} está lista para armarse</Text>
         </View>
         <Text style={styles.detail}>
-          La IA usa lo que registraste: pesos, esfuerzo y molestias. Puede tardar hasta un minuto y medio.
+          La IA usa lo que registraste: pesos, esfuerzo y molestias.
+          {generating ? '' : ' Puede tardar hasta un minuto y medio.'}
         </Text>
         <Button
           label={generating ? 'La IA está armando tu semana…' : `Armar mi Semana ${cycle.week} con IA`}
           onPress={onGenerate}
           disabled={generating}
         />
+        <AiProgress active={generating} />
       </View>
     );
   }

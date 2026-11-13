@@ -11,6 +11,7 @@ import { generateDayByRules, strongPainIds } from '@/domain/generator';
 import { dayIntensity, strengthInfo, weekFocus } from '@/domain/strength';
 import { explainDay } from '@/domain/explain';
 import { supportNote } from '@/domain/coverage';
+import { AiProgress } from '@/features/planner/AiProgress';
 import { WhyDay } from '@/features/planner/WhyCards';
 import { MUSCLE_GROUP_LABELS, MUSCLE_GROUPS } from '@/domain/catalog';
 import { BLOCK_LABELS, ROLE_LABELS } from '@/domain/labels';
@@ -159,10 +160,11 @@ export default function DayScreen() {
             completo y varía los ejercicios entre días.
           </Text>
           <Button
-            label={generating ? 'Armando tu semana… (hasta 1 minuto y medio)' : 'Generar mi semana con IA'}
+            label={generating ? 'Armando tu semana…' : 'Generar mi semana con IA'}
             onPress={generate}
             disabled={generating}
           />
+          <AiProgress active={generating} />
           {notice && <Text style={styles.stale}>{notice}</Text>}
           {!generating && <Button label="Armar solo este día" variant="ghost" onPress={() => setDraft(cfg)} />}
         </>

@@ -18,6 +18,7 @@ import { WeekCard } from '@/features/planner/WeekCard';
 import { WeekStrip } from '@/features/planner/WeekStrip';
 import { UnfinishedWorkoutCard } from '@/features/workout/draft';
 import { PainFollowUpCard } from '@/features/workout/PainFollowUpCard';
+import { useOnline } from '@/lib/online';
 import { CLOUD_BACKUP_READY } from '@/lib/cloudSync';
 import { useHistory } from '@/state/history';
 import { usePlan } from '@/state/plan';
@@ -33,6 +34,7 @@ export default function TodayScreen() {
   const { sessions } = useHistory();
   const { enabled: syncEnabled, status: syncStatus } = useSync();
   const { generate, generating, notice } = useGenerateWeek();
+  const online = useOnline();
   const { generate: generateOnOpen } = useLocalSearchParams<{ generate?: string }>();
   const generatedOnOpen = useRef(false);
   const [seenBlock, setSeenBlock] = useState<string | null>(null);
@@ -92,6 +94,14 @@ export default function TodayScreen() {
         </View>
       )}
 
+      {!online && (
+        <View style={styles.offline} accessibilityRole="alert">
+          <Ionicons name="cloud-offline-outline" size={18} color={colors.warning} />
+          <Text style={styles.offlineText}>
+            Sin conexión. Puedes entrenar igual; tu semana con IA y el respaldo esperan a que vuelva.
+          </Text>
+        </View>
+      )}
       <UnfinishedWorkoutCard />
       <PainFollowUpCard />
       <TodayCard generating={generating} onGenerate={generate} />
@@ -268,6 +278,15 @@ const styles = StyleSheet.create({
   hello: { color: colors.text, fontSize: 26, fontWeight: '800' },
   lead: { color: colors.textMuted, fontSize: 14, marginBottom: spacing.sm },
   warn: { backgroundColor: colors.warningSoft, borderRadius: radius.md, padding: spacing.md },
+  offline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.warningSoft,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  offlineText: { color: colors.warning, fontSize: 13, lineHeight: 18, flex: 1 },
   warnText: { color: colors.warning, fontSize: 13, lineHeight: 18 },
   warnLink: { color: colors.warning, fontSize: 14, fontWeight: '700' },
 });

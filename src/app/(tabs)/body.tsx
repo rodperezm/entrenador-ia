@@ -46,7 +46,7 @@ export default function BodyScreen() {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       {missingProfile && (
-        <Link href="/onboarding" asChild>
+        <Link href={{ pathname: "/onboarding", params: { edit: "about" } }} asChild>
           <Pressable style={styles.notice}>
             <Text style={styles.noticeText}>
               Completa tu sexo, fecha de nacimiento y altura en tu perfil para calcular el IMC y el % de grasa.

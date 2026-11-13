@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { ConfirmHost } from '@/components/ConfirmDialog';
 import { WebSafeArea } from '@/components/WebSafeArea';
 import { BodyProvider } from '@/state/body';
 import { HistoryProvider } from '@/state/history';
@@ -7,6 +8,9 @@ import { PlanProvider } from '@/state/plan';
 import { ProfileProvider } from '@/state/profile';
 import { SyncProvider } from '@/state/sync';
 import { colors } from '@/theme';
+
+// Si una pantalla falla, se muestra este aviso en vez de quedar en blanco.
+export { ErrorScreen as ErrorBoundary } from '@/components/ErrorScreen';
 
 export default function RootLayout() {
   return (
@@ -28,6 +32,7 @@ export default function RootLayout() {
                 >
                   <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                   <Stack.Screen name="onboarding" options={{ title: '' }} />
+                  <Stack.Screen name="profile" options={{ title: 'Mi perfil' }} />
                   <Stack.Screen name="day/[day]" options={{ title: '' }} />
                   <Stack.Screen name="exercise/[id]" options={{ title: '' }} />
                   <Stack.Screen name="workout/[day]" options={{ headerShown: false, gestureEnabled: false }} />
@@ -39,6 +44,7 @@ export default function RootLayout() {
                   <Stack.Screen name="plan-info" options={{ title: 'Cómo funciona tu plan' }} />
                   <Stack.Screen name="progress" options={{ title: 'Tu progreso' }} />
                 </Stack>
+                <ConfirmHost />
               </WebSafeArea>
             </SyncProvider>
           </BodyProvider>

@@ -174,6 +174,13 @@ Notas dentro del alcance: Gemini 9,2 y 9,0; ChatGPT 8,0 y 8,1. Meta de 8 cumplid
 - [x] Publicado el 12-11-2026: semana 3 y ciclo nuevo sin saltos grandes de pesa, y balísticos de a uno.
 - [ ] Quinta evaluación (Gemini 9,3 y 9,1; ChatGPT 8,3 y 8,4; Claude 8,3 y 8,0), por decidir: alertas médicas graves que bloqueen en vez de solo avisar; intermedio partiendo en la etapa 1 del swing; confirmar técnica solo con esfuerzo 8 o menos; rangos de repeticiones más amplios con pesas livianas. Detalle en `docs/Evaluacion-5-resultados.md`.
 
+## 9. UX y UI (revisión del 12-11-2026)
+Hechos, sin publicar: pantalla de error, menú de perfil y cuenta, pantalla «Mi perfil» con pasos sueltos, avance mientras la IA arma la semana.
+- [ ] UX 5, pestaña «Tabata/HIIT»: en espera. Primero probar el HIIT y el AMRAP con reloj dentro del entrenamiento; si cubren ese uso, sacar la pestaña y dejar el temporizador como acceso en Hoy.
+- [ ] UX 6: confirmaciones con el estilo de la app en vez del cuadro del navegador.
+- [ ] UX 7: aviso de «sin conexión».
+- [ ] UI 1 a 6: colores iguales a la página, letra de la marca en toda la app, textos muy chicos, descripciones para lectores de pantalla, colores fuera de la paleta, indicador de carga al abrir.
+
 ## Para retomar
 - Arrancar el servidor: `$env:NODE_OPTIONS='--max-old-space-size=3072'; npx expo start` en `C:\dev\entrenador-ia`.
 - En el iPhone: Expo Go → `exp://192.168.1.106:8081`.
