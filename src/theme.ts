@@ -22,10 +22,11 @@ export const radius = { sm: 8, md: 12, lg: 20, pill: 999 };
 // Letra de la marca (la del logo y la página): solo mayúsculas y un solo grosor. Va en los títulos;
 // el texto corrido, los botones y los números siguen con la letra del sistema, que se lee mejor.
 export const DISPLAY_FONT = 'BebasNeue_400Regular';
+// Sin alto de línea fijo: con uno ajustado, Safari en iPhone corta la parte de arriba de las letras
+// en los títulos de una sola línea (las barras superiores). El alto natural de la letra no se corta.
 export const display = (fontSize: number) => ({
   fontFamily: DISPLAY_FONT,
   fontWeight: '400' as const,
   fontSize,
-  lineHeight: Math.round(fontSize * 1.1),
   letterSpacing: 0.4,
 });
