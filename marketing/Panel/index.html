@@ -183,6 +183,15 @@
         <div class="list" id="listFeel"></div>
         <div class="list" id="listRetention"></div>
       </div>
+      <h2>Ejercicios que piden atención</h2>
+      <p class="muted small" id="insightsNote"></p>
+      <div class="table-wrap" style="margin-top:12px"><table>
+        <thead><tr><th>Ejercicio</th><th class="num">Sesiones</th><th class="num">Con dolor</th><th class="num">Con molestia</th><th class="num">«No puedo»</th><th>Motivo más frecuente</th></tr></thead>
+        <tbody id="insightRows"></tbody>
+      </table></div>
+      <h2>Embudo del inicio</h2>
+      <p class="muted small">De quienes crean su cuenta con correo, cuántos llegan a cada etapa. Desde siempre, no solo los últimos días.</p>
+      <div class="list" id="funnel" style="margin-top:12px; max-width:560px"></div>
     </div>
 
     <div id="tab-negocio" class="hidden">
@@ -258,6 +267,8 @@
   let filter = 'todos';
   let reports = null; // null = la base aún no tiene los reportes (migración 0006)
   let reportFilter = 'abiertos';
+  let insights = null; // null = la base aún no tiene la consulta (migración 0008)
+  let exerciseNames = {};
   let lastMetrics = null; // lo último que se cargó, para el Excel
 
   // ---------- Entrar ----------
@@ -322,6 +333,14 @@
     const r = await sb.rpc('admin_reports', { max_rows: 200 });
     reports = r.error ? null : r.data;
     renderReports();
+    // Resultados del método: también aparte, por si la base aún no tiene la consulta.
+    const [ins, names] = await Promise.all([
+      sb.rpc('admin_insights', { days: 90 }),
+      fetch('/Panel/ejercicios.json').then((r) => (r.ok ? r.json() : {})).catch(() => ({})),
+    ]);
+    insights = ins.error ? null : ins.data;
+    exerciseNames = names || {};
+    renderInsights();
     $('updated').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
   }
 
@@ -507,6 +526,46 @@
   }
   $('search').oninput = renderUsers;
 
+  // ---------- Resultados del método ----------
+  const REASONS = { no_conoce: 'No lo conoce', muy_dificil: 'Muy difícil', inseguro: 'No se siente seguro', sin_lugar: 'El lugar no lo permite' };
+  function renderInsights() {
+    if (insights === null) {
+      $('insightsNote').textContent = 'Esta medición aún no está activada en la base.';
+      $('insightRows').innerHTML = '';
+      $('funnel').innerHTML = '';
+      return;
+    }
+    const list = insights.exercises || [];
+    $('insightsNote').textContent = `Últimos ${insights.days} días: ${insights.sessions} sesiones de ${insights.people} ${insights.people === 1 ? 'persona' : 'personas'} con respaldo. Con dolor = moderado o fuerte.${insights.people < 10 ? ' Con tan pocas personas, tómalo como pista y no como conclusión.' : ''}`;
+    $('insightRows').innerHTML = list.map((e) => {
+      const top = Object.keys(REASONS).map((k) => [k, e[k] || 0]).sort((a, b) => b[1] - a[1])[0];
+      const share = e.sesiones ? Math.round(100 * e.con_dolor / e.sesiones) : 0;
+      return `<tr>
+        <td>${esc(exerciseNames[e.id] || e.id)}</td>
+        <td class="num">${e.sesiones}</td>
+        <td class="num ${e.con_dolor ? 'warn' : ''}">${e.con_dolor}${e.con_dolor ? ` · ${share} %` : ''}</td>
+        <td class="num">${e.con_molestia}</td>
+        <td class="num ${e.no_puedo ? 'warn' : ''}">${e.no_puedo}</td>
+        <td>${top && top[1] ? `${REASONS[top[0]]} (${top[1]})` : '—'}</td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="6" class="muted">Ningún ejercicio con dolor, molestia ni «No puedo hacerlo» en este período.</td></tr>';
+
+    const f = insights.funnel || {};
+    const steps = [
+      ['Crearon su cuenta con correo', f.accounts],
+      ['Completaron su perfil', f.with_profile],
+      ['Armaron su semana', f.with_week],
+      ['Hicieron su primera sesión', f.first_session],
+      ['Volvieron en una segunda semana', f.second_week],
+    ];
+    const base = Number(f.accounts) || 0;
+    $('funnel').innerHTML = '<h3>Del registro a la constancia</h3>' + steps.map(([label, n], i) => {
+      const prev = i ? Number(steps[i - 1][1]) || 0 : null;
+      const lost = prev != null && prev > 0 ? prev - (Number(n) || 0) : 0;
+      return line(label, `${n ?? 0}${base ? ` · ${Math.round(100 * (Number(n) || 0) / base)} %` : ''}`, lost > 0 ? `Se quedan aquí ${lost}` : '', lost > 0 && prev && lost / prev >= 0.5 ? 'warn' : '');
+    }).join('') + line('Sin cuenta (anónimos)', f.anonymous ?? 0, 'Usan la app sin correo; no se sabe más de ellos');
+  }
+
   // ---------- Reportes ----------
   const REPORT_GROUPS = {
     abiertos: { label: 'Por revisar', test: (r) => !r.resolved },
@@ -640,7 +699,18 @@
       ['Fecha (hora de Chile)', 'Tipo', 'Mensaje', 'Correo', 'Pantalla', 'Versión', 'Equipo', 'Revisado'],
       ...(reports || []).map((r) => { const c = r.context || {}; return [stamp(r.created_at), r.kind === 'error' ? 'Error' : 'Comentario', r.message, r.email || '', c.screen || '', c.version || '', c.platform || '', r.resolved ? 'Sí' : '']; }),
     ];
-    return [{ name: 'Resumen', rows: resumen }, { name: 'Usuarios', rows: usuarios }, { name: 'Semanas', rows: semanas }, { name: 'Planes', rows: planes }, { name: 'Reportes', rows: reportes }];
+    const ins = insights || {};
+    const ejercicios = [
+      ['Ejercicio', 'Sesiones', 'Personas', 'Con dolor', 'Con molestia', '«No puedo»', 'No lo conoce', 'Muy difícil', 'No se siente seguro', 'El lugar no lo permite'],
+      ...(ins.exercises || []).map((e) => [exerciseNames[e.id] || e.id, e.sesiones, e.personas, e.con_dolor, e.con_molestia, e.no_puedo, e.no_conoce, e.muy_dificil, e.inseguro, e.sin_lugar]),
+    ];
+    const fu = ins.funnel || {};
+    const embudo = [
+      ['Etapa', 'Personas'],
+      ['Crearon su cuenta con correo', fu.accounts ?? ''], ['Completaron su perfil', fu.with_profile ?? ''], ['Armaron su semana', fu.with_week ?? ''],
+      ['Hicieron su primera sesión', fu.first_session ?? ''], ['Volvieron en una segunda semana', fu.second_week ?? ''], ['Sin cuenta (anónimos)', fu.anonymous ?? ''],
+    ];
+    return [{ name: 'Resumen', rows: resumen }, { name: 'Usuarios', rows: usuarios }, { name: 'Semanas', rows: semanas }, { name: 'Planes', rows: planes }, { name: 'Ejercicios', rows: ejercicios }, { name: 'Embudo', rows: embudo }, { name: 'Reportes', rows: reportes }];
   }
   $('excel').onclick = () => {
     if (!lastMetrics) { toast('Todavía no hay datos cargados'); return; }
