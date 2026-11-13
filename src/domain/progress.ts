@@ -30,7 +30,13 @@ export type ProgressSummary = {
   exercises: ExerciseProgress[];
   pains: PainNote[];
   amrap: AmrapProgress[];
+  /** Sesiones de cada una de las últimas semanas, de la más antigua a la actual. */
+  weeks: { monday: number; count: number }[];
+  /** Últimas 4 semanas: sesiones sin ninguna molestia, y cómo dijo la persona que terminó. */
+  body: { sessions: number; painFree: number; answered: number; right: number; wantedMore: number; tooMuch: number };
 };
+
+export const PROGRESS_WEEKS = 6;
 
 // El mejor esfuerzo de un ejercicio en una sesión: primero el peso, luego reps o segundos.
 const score = (s: SetLog) => [s.weightKg ?? 0, s.repsDone ?? 0, s.durationSec ?? 0];
@@ -123,7 +129,29 @@ export function progressSummary(history: WorkoutSession[], exercises: Exercise[]
     };
   });
 
+  // Constancia: cuántas sesiones hubo en cada una de las últimas semanas.
+  const thisMonday = mondayMs(now);
+  const weeks = Array.from({ length: PROGRESS_WEEKS }, (_, i) => {
+    let monday = thisMonday;
+    for (let n = 0; n < PROGRESS_WEEKS - 1 - i; n++) monday = mondayMs(new Date(monday - DAY_MS));
+    return { monday, count: sessions.filter((x) => mondayMs(new Date(x.finishedAt)) === monday).length };
+  });
+
+  // Cómo responde el cuerpo: lo que la persona marcó en las últimas 4 semanas.
+  const recent = sessions.filter((x) => now.getTime() - Date.parse(x.finishedAt) <= PAIN_WINDOW_MS);
+  const feelings = recent.flatMap((x) => (x.feeling ? [x.feeling] : []));
+  const body = {
+    sessions: recent.length,
+    painFree: recent.filter((x) => x.sets.every((l) => painOf(l) === 0)).length,
+    answered: feelings.length,
+    right: feelings.filter((f) => f === 'right').length,
+    wantedMore: feelings.filter((f) => f === 'wanted_more').length,
+    tooMuch: feelings.filter((f) => f === 'too_much').length,
+  };
+
   return {
+    weeks,
+    body,
     sessions: sessions.length,
     minutes: Math.round(
       sessions.reduce((t, s) => t + Math.max(0, Date.parse(s.finishedAt) - Date.parse(s.startedAt)), 0) / 60000,
