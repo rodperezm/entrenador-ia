@@ -6,11 +6,11 @@
     "baseUrl": "/entrenador-ia",
     "claves": ".env",
     "papel": "produccion",
-    "mudanza": "",
+    "mudanza": "https://app.kettaiapp.com/",
     "publicar": "gh-pages"
   },
   "kettaiapp": {
-    "nombre": "kettaiapp.com (producción futura)",
+    "nombre": "kettaiapp.com (producción)",
     "direccion": "https://app.kettaiapp.com/",
     "baseUrl": "",
     "claves": ".env",
