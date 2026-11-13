@@ -5,7 +5,7 @@ import { Button, CheckRow } from '@/components/ui';
 import { requestBackupCode, requestLoginCode, verifyBackupCode, verifyLoginCode } from '@/lib/cloudSync';
 import { ensureSession } from '@/lib/supabase';
 import { useSync } from '@/state/sync';
-import { colors, radius, spacing } from '@/theme';
+import { colors, display, radius, spacing } from '@/theme';
 
 // Correo con código, sin contraseña. Sirve para crear la cuenta (convierte la sesión
 // anónima en una con correo) o para entrar a una que ya existe.
@@ -241,7 +241,7 @@ export function BackupSetup({ initialMode = 'new', signup = false, onCreated }: 
 }
 
 const styles = StyleSheet.create({
-  title: { color: colors.text, fontSize: 24, fontWeight: '800' },
+  title: { color: colors.text, ...display(28) },
   body: { color: colors.textMuted, fontSize: 15, lineHeight: 21 },
   label: { color: colors.text, fontSize: 15, fontWeight: '700', marginTop: spacing.sm },
   segment: {

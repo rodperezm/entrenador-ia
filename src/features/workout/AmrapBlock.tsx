@@ -7,7 +7,7 @@ import { FinisherFeedback, type FinisherFeedbackResult } from '@/features/workou
 import { FinisherExerciseCard, FinisherWhy } from '@/features/workout/FinisherGuide';
 import type { useCues } from '@/features/workout/useCues';
 import { useTrackRunner } from '@/features/workout/useTrackRunner';
-import { colors, radius, spacing } from '@/theme';
+import { colors, display, radius, spacing } from '@/theme';
 
 export type AmrapResult = FinisherFeedbackResult & AmrapMark;
 
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
   end: { gap: spacing.md },
   intro: { gap: spacing.md, paddingBottom: spacing.md },
   block: { color: colors.accent, fontSize: 12, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
-  title: { color: colors.text, fontSize: 26, fontWeight: '900' },
+  title: { color: colors.text, ...display(30) },
   score: { color: colors.accent, fontSize: 34, fontWeight: '900' },
   record: { color: colors.accent, fontSize: 15, fontWeight: '800' },
   label: { color: colors.textMuted, fontSize: 14, fontWeight: '600', flex: 1 },

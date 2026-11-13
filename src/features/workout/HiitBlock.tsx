@@ -8,7 +8,7 @@ import { FinisherFeedback, type FinisherFeedbackResult } from '@/features/workou
 import { FinisherExerciseCard, FinisherWhy } from '@/features/workout/FinisherGuide';
 import type { useCues } from '@/features/workout/useCues';
 import { useTrackRunner } from '@/features/workout/useTrackRunner';
-import { colors, radius, spacing } from '@/theme';
+import { colors, display, radius, spacing } from '@/theme';
 
 export type HiitResult = FinisherFeedbackResult & { sets: { exercise: FinisherExercise; round: number }[] };
 
@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: spacing.lg, gap: spacing.md },
   end: { paddingHorizontal: spacing.lg, gap: spacing.md },
   block: { color: colors.accent, fontSize: 12, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
-  title: { color: colors.text, fontSize: 26, fontWeight: '900' },
+  title: { color: colors.text, ...display(30) },
   hint: { color: colors.textMuted, fontSize: 14, lineHeight: 20 },
   list: { flex: 1 },
   listContent: { gap: spacing.md, paddingBottom: spacing.md },

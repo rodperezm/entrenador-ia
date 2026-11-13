@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, radius, spacing } from '@/theme';
+import { colors, display, radius, spacing } from '@/theme';
 
 // Confirmación con el estilo de la app, en vez del cuadro del navegador o del sistema.
 // El botón dice lo que hace («Borrar de este teléfono»), no «Aceptar».
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     gap: spacing.md,
   },
-  title: { color: colors.text, fontSize: 20, fontWeight: '800', lineHeight: 26 },
+  title: { color: colors.text, ...display(24) },
   message: { color: colors.textMuted, fontSize: 15, lineHeight: 22 },
   actions: { gap: spacing.sm, marginTop: spacing.sm },
   button: {

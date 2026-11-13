@@ -50,7 +50,7 @@ import { useBody } from '@/state/body';
 import { useHistory } from '@/state/history';
 import { usePlan } from '@/state/plan';
 import { useProfile } from '@/state/profile';
-import { colors, radius, spacing } from '@/theme';
+import { colors, display, radius, spacing } from '@/theme';
 
 const SIDE_NOTE: Record<PainSide, string> = {
   left: ' (lado izquierdo)',
@@ -1533,7 +1533,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   topRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  exName: { color: colors.text, fontSize: 26, fontWeight: '900' },
+  exName: { color: colors.text, ...display(30) },
   panel: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.md },
   panelTitle: { color: colors.text, fontSize: 16, fontWeight: '800' },
   setLabel: { color: colors.textMuted, fontSize: 14, fontWeight: '700', textAlign: 'center' },
@@ -1648,7 +1648,7 @@ const styles = StyleSheet.create({
   },
   restBtnText: { color: colors.text, fontWeight: '700' },
   summary: { padding: spacing.xl, gap: spacing.lg },
-  summaryTitle: { color: colors.text, fontSize: 32, fontWeight: '900', textAlign: 'center' },
+  summaryTitle: { color: colors.text, ...display(38), textAlign: 'center' },
   checkInNote: { color: colors.accent, fontSize: 15, fontWeight: '700', lineHeight: 21 },
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'center' },
   stat: {

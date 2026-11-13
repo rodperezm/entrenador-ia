@@ -24,7 +24,7 @@ import { useHistory } from '@/state/history';
 import { usePlan } from '@/state/plan';
 import { useProfile } from '@/state/profile';
 import { useSync } from '@/state/sync';
-import { colors, radius, spacing } from '@/theme';
+import { colors, display, radius, spacing } from '@/theme';
 
 const SEEN_BLOCK_KEY = 'seen-block.v1';
 
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
   closing: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs },
   closingText: { color: colors.text, fontSize: 14, fontWeight: '700' },
   closingHint: { color: colors.textMuted, fontSize: 13 },
-  todayTitle: { color: colors.text, fontSize: 24, fontWeight: '800' },
+  todayTitle: { color: colors.text, ...display(28) },
   todayDetail: { color: colors.textMuted, fontSize: 14, lineHeight: 20 },
   notice: { backgroundColor: colors.accentSoft, borderRadius: radius.md, padding: spacing.md, gap: spacing.xs },
   noticeTitle: { color: colors.text, fontSize: 16, fontWeight: '800' },
@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
   progress: { color: colors.link, fontSize: 15, fontWeight: '700', textAlign: 'center', padding: spacing.sm },
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing.lg, gap: spacing.md, paddingBottom: 40 },
-  hello: { color: colors.text, fontSize: 26, fontWeight: '800' },
+  hello: { color: colors.text, ...display(32) },
   lead: { color: colors.textMuted, fontSize: 14, marginBottom: spacing.sm },
   warn: { backgroundColor: colors.warningSoft, borderRadius: radius.md, padding: spacing.md },
   offline: {

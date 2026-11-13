@@ -5,7 +5,7 @@ import { EXERCISES } from '@/data/exercises.seed';
 import { progressSummary } from '@/domain/progress';
 import { fmtDayDate } from '@/domain/week';
 import { useHistory } from '@/state/history';
-import { colors, radius, spacing } from '@/theme';
+import { colors, display, radius, spacing } from '@/theme';
 
 const PAIN_LABEL = ['', 'Molestia leve', 'Dolor moderado', 'Dolor fuerte'];
 
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing.lg, gap: spacing.sm, paddingBottom: 40 },
   empty: { alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.sm },
-  emptyTitle: { color: colors.text, fontSize: 22, fontWeight: '800', textAlign: 'center' },
+  emptyTitle: { color: colors.text, ...display(26), textAlign: 'center' },
   emptyText: { color: colors.textMuted, fontSize: 15, lineHeight: 22, textAlign: 'center' },
   stats: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   stat: { flexBasis: '48%', flexGrow: 1, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md },

@@ -4,7 +4,7 @@ import Svg, { Circle, G, Line, Text as SvgText } from 'react-native-svg';
 import { BodyMap } from '@/components/BodyMap';
 import { ageAt, fatCuts, todayISO } from '@/domain/body';
 import type { Sex } from '@/domain/schema';
-import { colors, radius, spacing } from '@/theme';
+import { colors, display, radius, spacing } from '@/theme';
 
 // Guía de medición (cinta y caliper), basada en la de MetricBody.
 
@@ -509,7 +509,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing.lg, paddingBottom: 48, gap: spacing.md },
   eyebrow: { color: colors.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 1 },
-  title: { color: colors.text, fontSize: 30, fontWeight: '800' },
+  title: { color: colors.text, ...display(36) },
   lead: { color: colors.textMuted, fontSize: 15 },
   segment: {
     flexDirection: 'row',
@@ -525,7 +525,7 @@ const styles = StyleSheet.create({
   segText: { color: colors.textMuted, fontWeight: '700', fontSize: 15 },
   section: { gap: spacing.md, marginTop: spacing.md },
   sectionHead: { alignSelf: 'flex-start', gap: 6 },
-  sectionTitle: { color: colors.text, fontSize: 20, fontWeight: '800' },
+  sectionTitle: { color: colors.text, ...display(24) },
   underline: { height: 2, backgroundColor: colors.accent, borderRadius: 1 },
   bullet: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.text, marginTop: 9 },

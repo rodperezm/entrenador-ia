@@ -15,7 +15,7 @@ import { useGenerateWeek } from '@/features/planner/useGenerateWeek';
 import { useHistory } from '@/state/history';
 import { usePlan } from '@/state/plan';
 import { useProfile } from '@/state/profile';
-import { colors, radius, spacing } from '@/theme';
+import { colors, display, radius, spacing } from '@/theme';
 
 const SHORT_DAY = Object.fromEntries(DAYS.map((d) => [d.id, d.short]));
 
@@ -163,7 +163,7 @@ export default function WeekScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing.lg, gap: spacing.sm, paddingBottom: 40 },
-  title: { color: colors.text, fontSize: 22, fontWeight: '800' },
+  title: { color: colors.text, ...display(26) },
   summary: { color: colors.textMuted, fontSize: 14, lineHeight: 20, marginBottom: spacing.sm },
   pending: { color: colors.link, fontSize: 15, fontWeight: '700', marginBottom: spacing.sm },
   warn: { backgroundColor: colors.warningSoft, borderRadius: radius.md, padding: spacing.md },

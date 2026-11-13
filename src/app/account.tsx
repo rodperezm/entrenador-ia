@@ -11,7 +11,7 @@ import { useBody } from '@/state/body';
 import { useHistory } from '@/state/history';
 import { useProfile } from '@/state/profile';
 import { useSync } from '@/state/sync';
-import { colors, radius, spacing } from '@/theme';
+import { colors, display, radius, spacing } from '@/theme';
 
 const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
@@ -205,11 +205,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: spacing.sm,
   },
-  statusTitle: { color: colors.text, fontSize: 24, fontWeight: '800' },
+  statusTitle: { color: colors.text, ...display(28) },
   statusText: { color: colors.text, fontSize: 15, fontWeight: '700', textAlign: 'center' },
   small: { color: colors.textMuted, fontSize: 13 },
   divider: { alignSelf: 'stretch', height: 1, backgroundColor: colors.border, marginVertical: spacing.md },
-  section: { color: colors.text, fontSize: 20, fontWeight: '800', marginTop: spacing.md },
+  section: { color: colors.text, ...display(24), marginTop: spacing.md },
   group: { backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.border },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.lg },
   rowLabel: { color: colors.text, fontSize: 16, fontWeight: '600', flex: 1 },

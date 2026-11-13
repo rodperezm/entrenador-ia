@@ -9,7 +9,7 @@ import { EQUIPMENT, MUSCLES, RESTRICTION_FLAGS } from '@/domain/catalog';
 import { BLOCK_LABELS, GRIP_LABELS } from '@/domain/labels';
 import type { Exercise } from '@/domain/schema';
 import { sideLabel } from '@/domain/sides';
-import { colors, radius, spacing } from '@/theme';
+import { colors, display, radius, spacing } from '@/theme';
 
 export default function ExerciseDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   heroText: { color: colors.textMuted, fontWeight: '700' },
-  title: { color: colors.text, fontSize: 24, fontWeight: '800' },
+  title: { color: colors.text, ...display(28) },
   body: { color: colors.text, fontSize: 15, lineHeight: 21 },
   meta: { color: colors.textMuted, fontSize: 13, lineHeight: 19 },
   note: { color: colors.textMuted, fontSize: 13, fontStyle: 'italic' },

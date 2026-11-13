@@ -1,7 +1,7 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { dayPartLabel } from '@/domain/week';
 import { useProfile } from '@/state/profile';
-import { colors, radius, spacing } from '@/theme';
+import { colors, display, radius, spacing } from '@/theme';
 
 const WEEKS = [
   { title: 'Semana 1: Introductoria (Adaptación)', body: 'Tomas el ritmo y ajustas tus pesos.' },
@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing.lg, gap: spacing.md, paddingBottom: 48 },
   lead: { color: colors.text, fontSize: 16, lineHeight: 23 },
-  section: { color: colors.text, fontSize: 20, fontWeight: '800', marginTop: spacing.md },
+  section: { color: colors.text, ...display(24), marginTop: spacing.md },
   row: { backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, gap: 2 },
   rowTitle: { color: colors.text, fontSize: 15, fontWeight: '800' },
   body: { color: colors.textMuted, fontSize: 14, lineHeight: 20 },

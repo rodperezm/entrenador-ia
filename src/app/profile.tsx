@@ -8,7 +8,7 @@ import { type EditStep, formatBirth, LEVELS } from '@/features/onboarding/steps'
 import { usePlan } from '@/state/plan';
 import { useProfile } from '@/state/profile';
 import { useResetAllData } from '@/state/useResetAllData';
-import { colors, radius, spacing } from '@/theme';
+import { colors, display, radius, spacing } from '@/theme';
 
 // Resumen del perfil: cada tarjeta abre directo el paso que la cambia, sin recorrer todo el registro.
 export default function ProfileScreen() {
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
-  cardTitle: { color: colors.text, fontSize: 18, fontWeight: '800', flex: 1 },
+  cardTitle: { color: colors.text, ...display(22), flex: 1 },
   change: { color: colors.link, fontSize: 15, fontWeight: '700' },
   line: { color: colors.textMuted, fontSize: 15, lineHeight: 21 },
   actions: { gap: spacing.xs, marginTop: spacing.md },

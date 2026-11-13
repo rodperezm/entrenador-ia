@@ -37,7 +37,7 @@ import {
 import { usePlan } from '@/state/plan';
 import { useProfile } from '@/state/profile';
 import { useSync } from '@/state/sync';
-import { colors, spacing } from '@/theme';
+import { colors, display, spacing } from '@/theme';
 
 // `key`: nombre del paso cuando «Mi perfil» lo abre suelto (`/onboarding?edit=<key>`).
 const STEPS: {
@@ -374,7 +374,7 @@ const styles = StyleSheet.create({
   progressOn: { backgroundColor: colors.accent },
   content: { padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xl },
   stepCount: { color: colors.accent, fontSize: 12, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
-  title: { color: colors.text, fontSize: 28, fontWeight: '800' },
+  title: { color: colors.text, ...display(34) },
   subtitle: { color: colors.textMuted, fontSize: 15, marginBottom: spacing.md },
   footer: {
     paddingHorizontal: spacing.lg,

@@ -1,5 +1,7 @@
+import { BebasNeue_400Regular, useFonts } from '@expo-google-fonts/bebas-neue';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 import { ConfirmHost } from '@/components/ConfirmDialog';
 import { WebSafeArea } from '@/components/WebSafeArea';
 import { BodyProvider } from '@/state/body';
@@ -7,12 +9,24 @@ import { HistoryProvider } from '@/state/history';
 import { PlanProvider } from '@/state/plan';
 import { ProfileProvider } from '@/state/profile';
 import { SyncProvider } from '@/state/sync';
-import { colors } from '@/theme';
+import { colors, display } from '@/theme';
 
 // Si una pantalla falla, se muestra este aviso en vez de quedar en blanco.
 export { ErrorScreen as ErrorBoundary } from '@/components/ErrorScreen';
 
+// Si la letra no llega en este tiempo (sin conexión la primera vez), la app parte igual con la del sistema.
+const FONT_WAIT_MS = 2500;
+
 export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts({ BebasNeue_400Regular });
+  const [waited, setWaited] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setWaited(true), FONT_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, []);
+  // Se espera la letra para que los títulos no aparezcan primero con otra y salten.
+  if (!fontsLoaded && !fontError && !waited) return null;
+
   return (
     <ProfileProvider>
       <PlanProvider>
@@ -25,6 +39,7 @@ export default function RootLayout() {
                   screenOptions={{
                     headerStyle: { backgroundColor: colors.bg },
                     headerTintColor: colors.text,
+                    headerTitleStyle: display(24),
                     headerShadowVisible: false,
                     headerBackTitle: 'Atrás',
                     contentStyle: { backgroundColor: colors.bg },

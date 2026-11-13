@@ -7,7 +7,7 @@ import { DAY_LONG } from '@/domain/week';
 import { canResume, parseDraft, sessionFromDraft, type WorkoutDraft } from '@/domain/workoutDraft';
 import { useHistory } from '@/state/history';
 import { usePlan } from '@/state/plan';
-import { colors, radius, spacing } from '@/theme';
+import { colors, display, radius, spacing } from '@/theme';
 
 // El entrenamiento en curso se guarda en el teléfono tras cada serie. Si el sistema cierra la
 // app a mitad de la sesión, al volver se ofrece retomarlo, guardar lo hecho o descartarlo.
@@ -168,6 +168,6 @@ const styles = StyleSheet.create({
   },
   screen: { flex: 1, backgroundColor: colors.bg, padding: spacing.lg, gap: spacing.md },
   title: { color: colors.text, fontSize: 16, fontWeight: '800' },
-  big: { color: colors.text, fontSize: 24, fontWeight: '800' },
+  big: { color: colors.text, ...display(28) },
   text: { color: colors.textMuted, fontSize: 15, lineHeight: 21 },
 });

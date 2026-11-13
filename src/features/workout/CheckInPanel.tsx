@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, Text } from 'react-native';
 import { Button, OptionCard } from '@/components/ui';
 import { AFTER_WARMUP_OPTIONS, ARRIVAL_OPTIONS, ZONES } from '@/domain/checkIn';
 import type { BodyZone, CheckIn } from '@/domain/schema';
-import { colors, spacing } from '@/theme';
+import { colors, display, spacing } from '@/theme';
 
 const PAIN_LEVELS: { level: 1 | 2 | 3; label: string; description: string }[] = [
   { level: 1, label: 'Leve', description: 'Se nota, pero no limita' },
@@ -101,6 +101,6 @@ export function checkInMessage(c: CheckIn, day: { warmup: boolean; strength: boo
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing.lg, gap: spacing.md, paddingBottom: 48 },
-  title: { color: colors.text, fontSize: 28, fontWeight: '900', marginBottom: spacing.sm },
+  title: { color: colors.text, ...display(34), marginBottom: spacing.sm },
   body: { color: colors.textMuted, fontSize: 15, lineHeight: 21 },
 });

@@ -2,7 +2,7 @@ import * as Linking from 'expo-linking';
 import { type ErrorBoundaryProps, router } from 'expo-router';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui';
-import { colors, spacing } from '@/theme';
+import { colors, display, spacing } from '@/theme';
 
 // Lo que se ve si una pantalla falla: en vez de quedar en blanco, explica y deja salir.
 // Lo registrado no se pierde: el entrenamiento en curso se guarda después de cada serie.
@@ -33,7 +33,7 @@ export function ErrorScreen({ error, retry }: ErrorBoundaryProps) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg, justifyContent: 'center', padding: spacing.xl, gap: spacing.md },
-  title: { color: colors.text, fontSize: 26, fontWeight: '800', lineHeight: 32 },
+  title: { color: colors.text, ...display(32) },
   body: { color: colors.textMuted, fontSize: 16, lineHeight: 23 },
   actions: { gap: spacing.sm, marginTop: spacing.lg },
 });

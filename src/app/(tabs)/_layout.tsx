@@ -3,7 +3,7 @@ import { Redirect, router, Tabs } from 'expo-router';
 import { HeaderMenu } from '@/components/HeaderMenu';
 import { usePlan } from '@/state/plan';
 import { useProfile } from '@/state/profile';
-import { colors } from '@/theme';
+import { colors, display } from '@/theme';
 
 // Si una pantalla falla, se muestra este aviso en vez de quedar en blanco.
 export { ErrorScreen as ErrorBoundary } from '@/components/ErrorScreen';
@@ -19,6 +19,7 @@ export default function TabsLayout() {
       screenOptions={{
         headerStyle: { backgroundColor: colors.bg },
         headerTintColor: colors.text,
+        headerTitleStyle: display(26),
         headerShadowVisible: false,
         sceneStyle: { backgroundColor: colors.bg },
         tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
