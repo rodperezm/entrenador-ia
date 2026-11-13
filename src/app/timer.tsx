@@ -225,12 +225,12 @@ export default function TimerScreen() {
 
       {/* Encabezado */}
       <View style={styles.head}>
-        <Pressable onPress={() => router.back()} style={styles.close} hitSlop={10} accessibilityLabel="Cerrar">
+        <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.close} hitSlop={10} accessibilityLabel="Cerrar">
           <Ionicons name="chevron-down" size={26} color={T.mut} />
         </Pressable>
         <Text style={f(styles.headTitle)}>TABATA/HIIT</Text>
         <Text style={f(styles.headTotal)}>{fmtClock(totalLeft)}</Text>
-        <Pressable onPress={runner.reset} style={styles.reset} accessibilityLabel="Reiniciar">
+        <Pressable accessibilityRole="button" onPress={runner.reset} style={styles.reset} accessibilityLabel="Reiniciar">
           <Ionicons name="refresh" size={24} color={T.n2} />
         </Pressable>
       </View>
@@ -266,7 +266,7 @@ export default function TimerScreen() {
               <Text style={f(styles.counterLabel)}>{'Rondas\nrestantes'}</Text>
             </View>
             <View style={styles.goCol}>
-              <Pressable onPress={onGo} style={styles.go} accessibilityLabel={goLabel}>
+              <Pressable accessibilityRole="button" onPress={onGo} style={styles.go} accessibilityLabel={goLabel}>
                 <View style={styles.goRing}>
                   <Ionicons
                     name={status === 'running' ? 'pause' : status === 'done' ? 'refresh' : 'play'}
@@ -293,7 +293,7 @@ export default function TimerScreen() {
             <View key={field.key} style={styles.row}>
               <Text style={styles.rowLabel}>{field.label}</Text>
               <View style={styles.step}>
-                <Pressable
+                <Pressable accessibilityRole="button"
                   style={styles.stepBtn}
                   onPress={() => update(field.key, Math.max(field.min, cfg[field.key] - field.step))}
                   accessibilityLabel="Menos"
@@ -301,7 +301,7 @@ export default function TimerScreen() {
                   <Text style={styles.stepBtnText}>−</Text>
                 </Pressable>
                 <Text style={f(styles.stepValue)}>{cfg[field.key]}</Text>
-                <Pressable
+                <Pressable accessibilityRole="button"
                   style={styles.stepBtn}
                   onPress={() => update(field.key, Math.min(field.max, cfg[field.key] + field.step))}
                   accessibilityLabel="Más"
@@ -311,7 +311,7 @@ export default function TimerScreen() {
               </View>
             </View>
           ))}
-          <Pressable
+          <Pressable accessibilityRole="button"
             style={styles.test}
             onPress={() => {
               cues.play('work');
@@ -339,7 +339,7 @@ export default function TimerScreen() {
         ).map(([id, label, icon]) => {
           const on = tab === id;
           return (
-            <Pressable key={id} onPress={() => showTab(id)} style={[styles.tab, on && styles.tabOn]}>
+            <Pressable accessibilityRole="button" aria-selected={!!(on)} key={id} onPress={() => showTab(id)} style={[styles.tab, on && styles.tabOn]}>
               <Ionicons name={icon} size={26} color={on ? T.ink : T.mut} />
               <Text style={f([styles.tabText, { color: on ? T.ink : T.mut }])}>{label}</Text>
             </Pressable>

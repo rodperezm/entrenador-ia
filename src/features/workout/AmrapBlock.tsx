@@ -136,14 +136,14 @@ export function AmrapBlock({
       {list(true)}
       {working && (
         <View style={styles.counter}>
-          <Pressable
+          <Pressable accessibilityRole="button"
             onPress={() => setRounds((r) => Math.max(0, r - 1))}
             style={styles.minus}
             accessibilityLabel="Restar una ronda"
           >
             <Text style={styles.minusText}>−1</Text>
           </Pressable>
-          <Pressable onPress={() => setRounds((r) => r + 1)} style={styles.plus} accessibilityLabel="Sumar una ronda">
+          <Pressable accessibilityRole="button" onPress={() => setRounds((r) => r + 1)} style={styles.plus} accessibilityLabel="Sumar una ronda">
             <Text style={styles.plusText}>+1 ronda</Text>
           </Pressable>
         </View>

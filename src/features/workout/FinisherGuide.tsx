@@ -82,7 +82,7 @@ export function FinisherExerciseCard({
             • {c.es}
           </Text>
         ))}
-        <Pressable onPress={openTechnique} hitSlop={8}>
+        <Pressable accessibilityRole="button" onPress={openTechnique} hitSlop={8}>
           <Text style={styles.link}>Ver técnica</Text>
         </Pressable>
       </View>

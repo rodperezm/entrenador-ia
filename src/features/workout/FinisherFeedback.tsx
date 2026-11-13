@@ -35,7 +35,7 @@ export function FinisherFeedback({
       <Text style={styles.label}>¿Cuánto más podías aguantar?</Text>
       <View style={styles.chips}>
         {EFFORT_OPTIONS.hold.map((o) => (
-          <Pressable
+          <Pressable accessibilityRole="button" aria-selected={!!(rpe === o.rpe)}
             key={o.rpe}
             onPress={() => setRpe(rpe === o.rpe ? null : o.rpe)}
             style={[styles.chip, rpe === o.rpe && styles.chipOn]}
@@ -50,7 +50,7 @@ export function FinisherFeedback({
           <Text style={styles.label}>¿En cuál ejercicio?</Text>
           <View style={styles.chips}>
             {exercises.map((e) => (
-              <Pressable
+              <Pressable accessibilityRole="button" aria-selected={!!(painExerciseId === e.exerciseId)}
                 key={e.key}
                 onPress={() => setPainExerciseId(e.exerciseId)}
                 style={[styles.chip, painExerciseId === e.exerciseId && styles.painOn]}

@@ -822,7 +822,7 @@ export default function WorkoutScreen() {
       />
 
       <View style={styles.top}>
-        <Pressable onPress={() => setConfirmEnd(true)} hitSlop={12} accessibilityLabel="Terminar">
+        <Pressable accessibilityRole="button" onPress={() => setConfirmEnd(true)} hitSlop={12} accessibilityLabel="Terminar">
           <Ionicons name="close" size={28} color={colors.text} />
         </Pressable>
         <View style={{ alignItems: 'center' }}>
@@ -832,11 +832,11 @@ export default function WorkoutScreen() {
           </Text>
         </View>
         <View style={styles.topRight}>
-          <Pressable onPress={() => setShowAll(!showAll)} hitSlop={10} accessibilityLabel="Ver todos">
+          <Pressable accessibilityRole="button" onPress={() => setShowAll(!showAll)} hitSlop={10} accessibilityLabel="Ver todos">
             <Ionicons name={showAll ? 'barbell-outline' : 'list'} size={26} color={colors.text} />
           </Pressable>
           <Link href="/timer" asChild>
-            <Pressable hitSlop={10} style={{ alignItems: 'center' }} accessibilityLabel="Tabata/HIIT">
+            <Pressable accessibilityRole="link" hitSlop={10} style={{ alignItems: 'center' }} accessibilityLabel="Tabata/HIIT">
               <Ionicons name="timer-outline" size={26} color={colors.accent} />
             </Pressable>
           </Link>
@@ -856,7 +856,7 @@ export default function WorkoutScreen() {
                   const n = setsDone(it.key);
                   const complete = isComplete(it);
                   return (
-                    <Pressable
+                    <Pressable accessibilityRole="button"
                       key={it.key}
                       onPress={() => {
                         goTo(j);
@@ -927,7 +927,7 @@ export default function WorkoutScreen() {
               <Text style={styles.panelTitle}>¡Listo! {EFFORT_QUESTION[kind === 'hold' ? 'hold' : 'reps']}</Text>
               <View style={styles.chips}>
                 {EFFORT_OPTIONS[kind === 'hold' ? 'hold' : 'reps'].map((o) => (
-                  <Pressable
+                  <Pressable accessibilityRole="button" aria-selected={!!(rpe === o.rpe)}
                     key={o.rpe}
                     onPress={() => setRpe(rpe === o.rpe ? null : o.rpe)}
                     style={[styles.chip, rpe === o.rpe && styles.chipOn]}
@@ -1026,7 +1026,7 @@ export default function WorkoutScreen() {
                       </Text>
                       <View style={styles.chips}>
                         {owned.map((kg) => (
-                          <Pressable
+                          <Pressable accessibilityRole="button" aria-selected={!!(weight === kg)}
                             key={kg}
                             onPress={() => setOv({ weight: kg })}
                             style={[styles.chip, weight === kg && styles.chipOn]}
@@ -1050,21 +1050,21 @@ export default function WorkoutScreen() {
               )}
               {kind === 'none' && askSide && (pain ?? 0) > 0 && <SidePicker side={painSide} onSide={setPainSide} />}
 
-              <Pressable onPress={markDone} style={styles.doneBtn}>
+              <Pressable accessibilityRole="button" onPress={markDone} style={styles.doneBtn}>
                 <Ionicons name="checkmark" size={28} color={colors.onAccent} />
                 <Text style={styles.doneText}>{kind === 'none' ? 'Hecho' : 'Hecha'}</Text>
               </Pressable>
 
               <View style={styles.links}>
-                <Pressable onPress={() => setAdjusting(!adjusting)} hitSlop={8}>
+                <Pressable accessibilityRole="button" onPress={() => setAdjusting(!adjusting)} hitSlop={8}>
                   <Text style={styles.smallLink}>{adjusting ? 'Listo' : 'Ajustar'}</Text>
                 </Pressable>
                 {hasConditions && kind !== 'none' && (
-                  <Pressable onPress={() => setPainSheet('levels')} hitSlop={8}>
+                  <Pressable accessibilityRole="button" onPress={() => setPainSheet('levels')} hitSlop={8}>
                     <Text style={styles.smallLinkWarn}>¿Duele?</Text>
                   </Pressable>
                 )}
-                <Pressable
+                <Pressable accessibilityRole="button"
                   onPress={() => {
                     setPainSheet(null);
                     setCantDoSheet('ask');
@@ -1073,7 +1073,7 @@ export default function WorkoutScreen() {
                 >
                   <Text style={styles.smallLink}>No puedo hacerlo</Text>
                 </Pressable>
-                <Pressable onPress={skip} hitSlop={8}>
+                <Pressable accessibilityRole="button" onPress={skip} hitSlop={8}>
                   <Text style={styles.smallLinkMuted}>Saltar ejercicio</Text>
                 </Pressable>
               </View>
@@ -1148,10 +1148,10 @@ export default function WorkoutScreen() {
               {hasConditions && !painAsked && (
                 <View style={styles.askRow}>
                   <Text style={styles.askText}>¿Te dolió esa serie?</Text>
-                  <Pressable onPress={() => setPainAsked(true)} style={styles.restBtn}>
+                  <Pressable accessibilityRole="button" onPress={() => setPainAsked(true)} style={styles.restBtn}>
                     <Text style={styles.restBtnText}>No</Text>
                   </Pressable>
-                  <Pressable
+                  <Pressable accessibilityRole="button"
                     onPress={() => {
                       setPainAsked(true);
                       setPainSheet('levels');
@@ -1167,7 +1167,7 @@ export default function WorkoutScreen() {
                   <Text style={styles.restLabel}>Descanso · luego serie {done + 1}</Text>
                   <Text style={styles.restTime}>{fmtClock(Math.max(0, restLeft ?? 0))}</Text>
                 </View>
-                <Pressable
+                <Pressable accessibilityRole="button"
                   onPress={toggleTick}
                   style={styles.restBtn}
                   accessibilityLabel={tickOn ? 'Apagar el tic-tac del descanso' : 'Encender el tic-tac del descanso'}
@@ -1175,10 +1175,10 @@ export default function WorkoutScreen() {
                 >
                   <Ionicons name={tickOn ? 'volume-high' : 'volume-mute'} size={20} color={colors.text} />
                 </Pressable>
-                <Pressable onPress={() => setRestEndsAt((t) => (t ?? Date.now()) + 15000)} style={styles.restBtn}>
+                <Pressable accessibilityRole="button" onPress={() => setRestEndsAt((t) => (t ?? Date.now()) + 15000)} style={styles.restBtn}>
                   <Text style={styles.restBtnText}>+15 s</Text>
                 </Pressable>
-                <Pressable
+                <Pressable accessibilityRole="button"
                   onPress={() => {
                     setRestEndsAt(null);
                     setPhase('work');
@@ -1224,7 +1224,7 @@ function PainSheet({
         <Text style={styles.barTitle}>¿Cuánto duele?</Text>
         <View style={styles.chips}>
           {PAIN_OPTIONS.filter((o) => o.level > 0).map((o) => (
-            <Pressable key={o.level} onPress={() => onLevel(o.level)} style={[styles.chip, styles.painOn]}>
+            <Pressable accessibilityRole="button" key={o.level} onPress={() => onLevel(o.level)} style={[styles.chip, styles.painOn]}>
               <Text style={[styles.chipText, { color: colors.bg }]}>{o.label}</Text>
             </Pressable>
           ))}
@@ -1295,7 +1295,7 @@ function CantDoSheet({
         <Text style={styles.barTitle}>¿Qué pasa con este ejercicio?</Text>
         <View style={styles.chips}>
           {CANT_DO_OPTIONS.map((o) => (
-            <Pressable key={o.id} onPress={() => onReason(o.id)} style={styles.chip}>
+            <Pressable accessibilityRole="button" key={o.id} onPress={() => onReason(o.id)} style={styles.chip}>
               <Text style={styles.chipText}>{o.label}</Text>
             </Pressable>
           ))}
@@ -1342,7 +1342,7 @@ function ClosingCard({
 
   if (offer.suggested === 'normal' && !open) {
     return (
-      <Pressable onPress={() => setOpen(true)} hitSlop={8}>
+      <Pressable accessibilityRole="button" onPress={() => setOpen(true)} hitSlop={8}>
         <Text style={styles.smallLink}>Cambiar a HIIT o AMRAP ›</Text>
       </Pressable>
     );
@@ -1359,7 +1359,7 @@ function ClosingCard({
       {main ? (
         <>
           <Button label={label[main]} onPress={() => onPick(main)} />
-          <Pressable onPress={() => onPick(other)} hitSlop={8}>
+          <Pressable accessibilityRole="button" onPress={() => onPick(other)} hitSlop={8}>
             <Text style={styles.smallLink}>Prefiero {FORMAT_NAME[other]}</Text>
           </Pressable>
         </>
@@ -1448,7 +1448,7 @@ function Summary({
           <Text style={styles.panelTitle}>¿Cómo estuvo hoy?</Text>
           <View style={styles.chips}>
             {FEELING_OPTIONS.map((o) => (
-              <Pressable
+              <Pressable accessibilityRole="button" aria-selected={!!(feeling === o.id)}
                 key={o.id}
                 onPress={() => onFeeling(o.id)}
                 style={[styles.chip, feeling === o.id && styles.chipOn]}
@@ -1513,7 +1513,7 @@ function Summary({
             <Button label="Mantenerla" variant="ghost" onPress={() => setConfirmDiscard(false)} />
           </View>
         ) : (
-          <Pressable onPress={() => setConfirmDiscard(true)} hitSlop={8} style={{ alignSelf: 'center' }}>
+          <Pressable accessibilityRole="button" onPress={() => setConfirmDiscard(true)} hitSlop={8} style={{ alignSelf: 'center' }}>
             <Text style={styles.smallLinkMuted}>No guardar esta sesión</Text>
           </Pressable>
         ))}
@@ -1586,7 +1586,7 @@ const styles = StyleSheet.create({
   },
   topTitle: { color: colors.text, fontSize: 17, fontWeight: '800' },
   topSub: { color: colors.textMuted, fontSize: 13, fontVariant: ['tabular-nums'] },
-  timerText: { color: colors.accent, fontSize: 10, fontWeight: '700' },
+  timerText: { color: colors.accent, fontSize: 13, fontWeight: '700' },
   content: { padding: spacing.lg, gap: spacing.lg },
   contentFill: { flexGrow: 1 },
   clockArea: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.xs },
@@ -1601,7 +1601,7 @@ const styles = StyleSheet.create({
   dots: { flexDirection: 'row', gap: 5, alignItems: 'center' },
   dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.surfaceAlt },
   dotOn: { backgroundColor: colors.accent },
-  extra: { color: colors.accent, fontSize: 11, fontWeight: '700' },
+  extra: { color: colors.accent, fontSize: 13, fontWeight: '700' },
   cardBody: { paddingHorizontal: spacing.lg, paddingBottom: spacing.lg, gap: spacing.md },
   mapRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   cue: { color: colors.text, fontSize: 13, lineHeight: 18 },
@@ -1638,7 +1638,7 @@ const styles = StyleSheet.create({
   },
   barTitle: { color: colors.text, fontSize: 18, fontWeight: '800' },
   restRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  restLabel: { color: '#6DB89B', fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 },
+  restLabel: { color: colors.good, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 },
   restTime: { color: colors.text, fontSize: 40, fontWeight: '900', fontVariant: ['tabular-nums'] },
   restBtn: {
     backgroundColor: colors.surfaceAlt,

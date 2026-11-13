@@ -26,7 +26,7 @@ export function PainFollowUpCard() {
       <Text style={styles.body}>La última vez marcaste dolor en {where}.</Text>
       <View style={styles.row}>
         {OPTIONS.map((o) => (
-          <Pressable
+          <Pressable accessibilityRole="button"
             key={o.id}
             onPress={() => updateSession(pending.sessionId, { painFollowUp: o.id })}
             style={({ pressed }) => [styles.chip, pressed && { opacity: 0.7 }]}

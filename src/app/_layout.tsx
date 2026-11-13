@@ -3,6 +3,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { ConfirmHost } from '@/components/ConfirmDialog';
+import { LoadingScreen } from '@/components/LoadingScreen';
 import { WebSafeArea } from '@/components/WebSafeArea';
 import { BodyProvider } from '@/state/body';
 import { HistoryProvider } from '@/state/history';
@@ -25,7 +26,7 @@ export default function RootLayout() {
     return () => clearTimeout(timer);
   }, []);
   // Se espera la letra para que los títulos no aparezcan primero con otra y salten.
-  if (!fontsLoaded && !fontError && !waited) return null;
+  if (!fontsLoaded && !fontError && !waited) return <LoadingScreen />;
 
   return (
     <ProfileProvider>

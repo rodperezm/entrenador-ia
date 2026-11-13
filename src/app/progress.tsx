@@ -38,7 +38,7 @@ export default function ProgressScreen() {
       {p.exercises.length ? (
         p.exercises.map((e) => (
           <Link key={e.id} href={{ pathname: '/exercise/[id]', params: { id: e.id } }} asChild>
-            <Pressable style={styles.row}>
+            <Pressable accessibilityRole="link" style={styles.row}>
               <View style={styles.rowText}>
                 <Text style={styles.rowTitle}>{e.name}</Text>
                 <Text style={styles.rowDetail}>

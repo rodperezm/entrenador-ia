@@ -11,6 +11,14 @@ export const colors = {
   accentSoft: 'rgba(255, 80, 64, 0.15)',
   warning: '#FFB020',
   warningSoft: 'rgba(255, 176, 32, 0.12)',
+  // Semáforo de los índices corporales y del descanso. «Atención» es el ámbar de los avisos (warning).
+  // El rojo de «mal» es distinto del de la marca a propósito: no debe confundirse con un botón.
+  good: '#2EBD6B',
+  bad: '#E5484D',
+  low: '#6FA6D6', // bajo lo esperado (por ejemplo, poca grasa corporal)
+  white: '#FFFFFF',
+  black: '#000000', // fondo del video
+  backdrop: 'rgba(0, 0, 0, 0.6)', // velo detrás de los cuadros y menús
   bodyBase: '#3B404C', // pelo y detalles de la figura
   bodyMuscle: '#565C6B', // cuerpo: se distingue del fondo de las tarjetas
   bodySecondary: '#B4635B', // músculo secundario: el rojo de la app, apagado

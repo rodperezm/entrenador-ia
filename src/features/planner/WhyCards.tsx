@@ -24,13 +24,13 @@ export function WhyWeek({ explanation, aiNote }: { explanation: WeekExplanation;
           </Text>
         ))}
       {why.length + works.length > 0 && (
-        <Pressable onPress={() => setOpen(!open)} hitSlop={8}>
+        <Pressable accessibilityRole="button" onPress={() => setOpen(!open)} hitSlop={8}>
           <Text style={styles.link}>{open ? 'Ver menos' : 'Ver por qué y qué trabajas'}</Text>
         </Pressable>
       )}
       {open && changes.length > 0 && (
         <>
-          <Pressable onPress={() => setShowChanges(!showChanges)} hitSlop={8}>
+          <Pressable accessibilityRole="button" onPress={() => setShowChanges(!showChanges)} hitSlop={8}>
             <Text style={styles.link}>
               {showChanges
                 ? 'Ocultar los cambios'
@@ -81,7 +81,7 @@ export function WhyDay({ lines }: { lines: string[] }) {
         </Text>
       ))}
       {more > 0 && (
-        <Pressable onPress={() => setOpen(!open)} hitSlop={8}>
+        <Pressable accessibilityRole="button" onPress={() => setOpen(!open)} hitSlop={8}>
           <Text style={styles.link}>{open ? 'Ver menos' : `Ver más (${more})`}</Text>
         </Pressable>
       )}

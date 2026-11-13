@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardDoneBar } from '@/components/KeyboardDoneBar';
+import { LoadingScreen } from '@/components/LoadingScreen';
 import { Button } from '@/components/ui';
 import { BackupSetup, type Mode } from '@/features/account/BackupSetup';
 import {
@@ -120,7 +121,7 @@ export default function Onboarding() {
   const { loading } = useProfile();
   const { loading: planLoading } = usePlan();
   const { ready } = useSync();
-  return loading || planLoading || !ready ? null : <OnboardingForm />;
+  return loading || planLoading || !ready ? <LoadingScreen /> : <OnboardingForm />;
 }
 
 function OnboardingForm() {

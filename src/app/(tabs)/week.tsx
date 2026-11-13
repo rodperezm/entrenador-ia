@@ -80,7 +80,7 @@ export default function WeekScreen() {
         ];
         return (
           <Link key={d.day} href={{ pathname: '/day/[day]', params: { day: d.day } }} asChild>
-            <Pressable
+            <Pressable accessibilityRole="link"
               style={StyleSheet.flatten([styles.day, today && styles.dayToday])}
               accessibilityLabel={DAY_LONG[d.day]}
             >

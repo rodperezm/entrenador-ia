@@ -21,8 +21,13 @@ import { useBody } from '@/state/body';
 import { useProfile } from '@/state/profile';
 import { colors, radius, spacing } from '@/theme';
 
-const LIGHT_COLOR: Record<Light, string> = { ok: '#2EBD6B', warn: '#F5B700', bad: '#E5484D', na: colors.border };
-const FAT_COLOR = { thin: '#6FA6D6', ok: '#2EBD6B', warn: '#F5B700', bad: '#E5484D', na: colors.border };
+const LIGHT_COLOR: Record<Light, string> = {
+  ok: colors.good,
+  warn: colors.warning,
+  bad: colors.bad,
+  na: colors.border,
+};
+const FAT_COLOR = { thin: colors.low, ...LIGHT_COLOR };
 
 const fmtDate = (iso: string) => iso.split('-').reverse().join('-');
 
@@ -47,7 +52,7 @@ export default function BodyScreen() {
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       {missingProfile && (
         <Link href={{ pathname: "/onboarding", params: { edit: "about" } }} asChild>
-          <Pressable style={styles.notice}>
+          <Pressable accessibilityRole="link" style={styles.notice}>
             <Text style={styles.noticeText}>
               Completa tu sexo, fecha de nacimiento y altura en tu perfil para calcular el IMC y el % de grasa.
             </Text>
@@ -148,7 +153,7 @@ export default function BodyScreen() {
       )}
 
       <Link href={{ pathname: '/guide' }} asChild>
-        <Pressable style={styles.guideLink}>
+        <Pressable accessibilityRole="link" style={styles.guideLink}>
           <Ionicons name="book-outline" size={20} color={colors.accent} />
           <Text style={styles.guideText}>Guía de medición: cómo medir y qué significa cada índice</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
@@ -157,13 +162,13 @@ export default function BodyScreen() {
 
       <View style={styles.actions}>
         <Link href={{ pathname: '/body/new', params: { type: 'tape' } }} asChild>
-          <Pressable style={styles.action}>
+          <Pressable accessibilityRole="link" style={styles.action}>
             <Ionicons name="resize-outline" size={22} color={colors.onAccent} />
             <Text style={styles.actionText}>Peso y medidas</Text>
           </Pressable>
         </Link>
         <Link href={{ pathname: '/body/new', params: { type: 'folds' } }} asChild>
-          <Pressable style={StyleSheet.flatten([styles.action, styles.actionAlt])}>
+          <Pressable accessibilityRole="link" style={StyleSheet.flatten([styles.action, styles.actionAlt])}>
             <Ionicons name="analytics-outline" size={22} color={colors.text} />
             <Text style={[styles.actionText, { color: colors.text }]}>Pliegues</Text>
           </Pressable>
@@ -266,7 +271,7 @@ function HistoryRow({
       <Text style={styles.histText} numberOfLines={1}>
         {text}
       </Text>
-      <Pressable onPress={onDelete} hitSlop={10}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Borrar esta medida" onPress={onDelete} hitSlop={10}>
         <Ionicons name="trash-outline" size={18} color={colors.textMuted} />
       </Pressable>
     </View>
@@ -305,9 +310,9 @@ const styles = StyleSheet.create({
   tile: { width: '48.5%', backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, gap: 4 },
   tileHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dot: { width: 10, height: 10, borderRadius: 5 },
-  tileTitle: { color: colors.textMuted, fontSize: 11, fontWeight: '700', flex: 1 },
+  tileTitle: { color: colors.textMuted, fontSize: 12, fontWeight: '700', flex: 1 },
   tileValue: { color: colors.text, fontSize: 22, fontWeight: '900' },
-  tileNote: { color: colors.textMuted, fontSize: 11, lineHeight: 15 },
+  tileNote: { color: colors.textMuted, fontSize: 12, lineHeight: 16 },
   card: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.sm },
   cardTitle: { color: colors.text, fontSize: 15, fontWeight: '800' },
   measureRow: { flexDirection: 'row', alignItems: 'center' },

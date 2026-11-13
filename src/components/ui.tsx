@@ -14,7 +14,7 @@ export function Button({
   disabled?: boolean;
 }) {
   return (
-    <Pressable
+    <Pressable accessibilityRole="button" aria-disabled={!!disabled}
       onPress={onPress}
       disabled={disabled}
       style={({ pressed }) => [
@@ -54,7 +54,7 @@ export function OptionCard({
   children?: ReactNode;
 }) {
   return (
-    <Pressable onPress={locked ? undefined : onPress} style={[styles.card, selected && styles.cardSelected]}>
+    <Pressable accessibilityRole="button" aria-selected={!!selected} aria-disabled={!!locked} onPress={locked ? undefined : onPress} style={[styles.card, selected && styles.cardSelected]}>
       <View style={styles.cardRow}>
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={styles.cardTitle}>{title}</Text>
@@ -84,7 +84,7 @@ export function Stepper({
 }) {
   return (
     <View style={styles.stepper}>
-      <Pressable
+      <Pressable accessibilityRole="button" accessibilityLabel="Disminuir"
         onPress={() => onChange(Math.max(min, value - step))}
         disabled={value <= min}
         style={[styles.stepBtn, value <= min && styles.disabled]}
@@ -95,7 +95,7 @@ export function Stepper({
         {value}
         {suffix}
       </Text>
-      <Pressable
+      <Pressable accessibilityRole="button" accessibilityLabel="Aumentar"
         onPress={() => onChange(Math.min(max, value + step))}
         disabled={value >= max}
         style={[styles.stepBtn, value >= max && styles.disabled]}
@@ -108,7 +108,7 @@ export function Stepper({
 
 export function CheckRow({ label, checked, onPress }: { label: string; checked: boolean; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={styles.checkRow}>
+    <Pressable accessibilityRole="checkbox" aria-checked={!!checked} onPress={onPress} style={styles.checkRow}>
       <Check checked={checked} small />
       <Text style={styles.checkLabel}>{label}</Text>
     </Pressable>
@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
   cardRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   cardTitle: { color: colors.text, fontSize: 16, fontWeight: '700' },
   cardDesc: { color: colors.textMuted, fontSize: 13, lineHeight: 18 },
-  lockedTag: { color: colors.textMuted, fontSize: 10, fontWeight: '800', letterSpacing: 0.8 },
+  lockedTag: { color: colors.textMuted, fontSize: 12, fontWeight: '800', letterSpacing: 0.8 },
   check: { borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   checkOn: { backgroundColor: colors.accent, borderColor: colors.accent },
   checkMark: { color: colors.onAccent, fontWeight: '900', fontSize: 14 },

@@ -32,7 +32,7 @@ export function HeaderMenu() {
         <Ionicons name="person-circle-outline" size={30} color={colors.text} />
       </Pressable>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setOpen(false)} accessibilityLabel="Cerrar el menú">
+        <Pressable accessibilityRole="button" style={styles.backdrop} onPress={() => setOpen(false)} accessibilityLabel="Cerrar el menú">
           <View style={styles.menu} accessibilityRole="menu">
             {ITEMS.map((item, i) => (
               <Pressable
@@ -54,7 +54,7 @@ export function HeaderMenu() {
 
 const styles = StyleSheet.create({
   trigger: { paddingHorizontal: spacing.lg, minHeight: 44, justifyContent: 'center' },
-  backdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.45)', alignItems: 'flex-end' },
+  backdrop: { flex: 1, backgroundColor: colors.backdrop, alignItems: 'flex-end' },
   menu: {
     marginTop: 56,
     marginRight: spacing.md,

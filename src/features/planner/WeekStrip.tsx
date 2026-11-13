@@ -27,7 +27,7 @@ export function WeekStrip() {
           const today = isToday(d.id);
           return (
             <Link key={d.id} href={{ pathname: '/day/[day]', params: { day: d.id } }} asChild>
-              <Pressable style={StyleSheet.flatten([styles.day, today && styles.today])} accessibilityLabel={d.long}>
+              <Pressable accessibilityRole="link" style={StyleSheet.flatten([styles.day, today && styles.today])} accessibilityLabel={d.long}>
                 <Text style={[styles.letter, today && styles.todayText]}>{d.short[0]}</Text>
                 <Text style={[styles.number, !active && styles.rest, today && styles.todayText]}>{date.getDate()}</Text>
                 {trainedOn.has(date.toDateString()) ? (

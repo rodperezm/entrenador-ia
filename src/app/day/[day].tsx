@@ -248,7 +248,7 @@ export default function DayScreen() {
                       <Text style={styles.roleTitle}>{ROLE_LABELS[s.role]}</Text>
                     )}
                     <Link href={{ pathname: '/exercise/[id]', params: { id: ex.id } }} asChild>
-                      <Pressable style={styles.slot}>
+                      <Pressable accessibilityRole="link" style={styles.slot}>
                         <View style={{ flex: 1, gap: 2 }}>
                           <Text style={styles.slotName}>{ex.name.es}</Text>
                           {/* Debajo del nombre y no al lado: con «8 en total (4 con cada brazo)» no cabe en una fila. */}
@@ -465,7 +465,7 @@ function AdjustPanel({
           <Text style={styles.muted}>{estimateLabel}</Text>
 
           {/* La cantidad de ejercicios la decide la app con los minutos; fijarla a mano es opcional. */}
-          <Pressable onPress={() => setShowCounts(!showCounts)} hitSlop={8}>
+          <Pressable accessibilityRole="button" onPress={() => setShowCounts(!showCounts)} hitSlop={8}>
             <Text style={styles.link}>
               {showCounts ? 'Ocultar la cantidad de ejercicios' : 'Elegir la cantidad de ejercicios (avanzado)'}
             </Text>
@@ -526,7 +526,7 @@ function AdjustPanel({
                     trackColor={{ false: colors.surfaceAlt, true: colors.accent }}
                     thumbColor="#fff"
                     ios_backgroundColor={colors.surfaceAlt}
-                    {...({ activeThumbColor: '#fff' } as object)}
+                    {...({ activeThumbColor: colors.white } as object)}
                   />
                 </Row>
               )}
@@ -613,7 +613,7 @@ function CountRow({
 
 function Segment({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={[styles.segBtn, on && styles.segOn]}>
+    <Pressable accessibilityRole="button" aria-selected={!!(on)} onPress={onPress} style={[styles.segBtn, on && styles.segOn]}>
       <Text style={[styles.segText, on && { color: colors.onAccent }]}>{label}</Text>
     </Pressable>
   );

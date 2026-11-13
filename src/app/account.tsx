@@ -50,7 +50,7 @@ function ActionRow({
   danger?: boolean;
 }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}>
+    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}>
       <Ionicons name={icon} size={22} color={danger ? colors.accent : colors.text} />
       <Text style={[styles.rowLabel, danger && { color: colors.accent }]}>{label}</Text>
       {!danger && <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />}

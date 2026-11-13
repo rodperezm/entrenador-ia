@@ -1,6 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Redirect, router, Tabs } from 'expo-router';
 import { HeaderMenu } from '@/components/HeaderMenu';
+import { LoadingScreen } from '@/components/LoadingScreen';
 import { usePlan } from '@/state/plan';
 import { useProfile } from '@/state/profile';
 import { colors, display } from '@/theme';
@@ -11,7 +12,7 @@ export { ErrorScreen as ErrorBoundary } from '@/components/ErrorScreen';
 export default function TabsLayout() {
   const { profile, loading } = useProfile();
   const { loading: planLoading } = usePlan();
-  if (loading || planLoading) return null;
+  if (loading || planLoading) return <LoadingScreen />;
   if (!profile) return <Redirect href="/onboarding" />;
 
   return (
@@ -25,6 +26,7 @@ export default function TabsLayout() {
         tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textMuted,
+        tabBarLabelStyle: { fontSize: 12 },
         headerRight: () => <HeaderMenu />,
       }}
     >

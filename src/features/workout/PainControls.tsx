@@ -22,7 +22,7 @@ export function SidePicker({ side, onSide }: { side: PainSide | null; onSide: (s
       <Text style={styles.label}>¿En qué lado?</Text>
       <View style={styles.sideChips}>
         {SIDE_OPTIONS.map((o) => (
-          <Pressable
+          <Pressable accessibilityRole="button" aria-selected={!!(side === o.side)}
             key={o.side}
             onPress={() => onSide(o.side)}
             style={[styles.chip, side === o.side && styles.painOn]}
@@ -49,7 +49,7 @@ export function PainPicker({
 }) {
   if (!open)
     return (
-      <Pressable onPress={onOpen} hitSlop={8}>
+      <Pressable accessibilityRole="button" onPress={onOpen} hitSlop={8}>
         <Text style={styles.link}>¿Algo dolió?</Text>
       </Pressable>
     );
@@ -60,7 +60,7 @@ export function PainPicker({
         {PAIN_OPTIONS.map((o) => {
           const on = pain === o.level;
           return (
-            <Pressable
+            <Pressable accessibilityRole="button" aria-selected={!!(on)}
               key={o.level}
               onPress={() => onPain(on ? null : o.level)}
               style={[styles.chip, on && (o.level === 0 ? styles.chipOn : styles.painOn)]}

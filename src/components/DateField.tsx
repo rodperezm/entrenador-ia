@@ -91,7 +91,7 @@ export function DateField({
 
   return (
     <>
-      <Pressable onPress={openPicker} style={[styles.field, styles.row, invalid && styles.invalid]}>
+      <Pressable accessibilityRole="button" onPress={openPicker} style={[styles.field, styles.row, invalid && styles.invalid]}>
         <Text style={[styles.fieldText, !value && { color: colors.textMuted }]}>
           {value ? display(value) : placeholder}
         </Text>
@@ -99,7 +99,7 @@ export function DateField({
       </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Cerrar el calendario" style={styles.backdrop} onPress={() => setOpen(false)}>
           <Pressable style={styles.sheet} onPress={() => {}}>
             <DateTimePicker
               value={draft}
@@ -113,10 +113,10 @@ export function DateField({
               onValueChange={(_e, d) => setDraft(d)}
             />
             <View style={styles.actions}>
-              <Pressable onPress={() => setOpen(false)} style={styles.cancel}>
+              <Pressable accessibilityRole="button" onPress={() => setOpen(false)} style={styles.cancel}>
                 <Text style={styles.cancelText}>Cancelar</Text>
               </Pressable>
-              <Pressable
+              <Pressable accessibilityRole="button"
                 onPress={() => {
                   onChange(toIso(draft));
                   setOpen(false);
@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   fieldText: { color: colors.text, fontSize: 16 },
   invalid: { borderColor: colors.warning },
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: spacing.lg },
+  backdrop: { flex: 1, backgroundColor: colors.backdrop, justifyContent: 'center', padding: spacing.lg },
   sheet: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.md, gap: spacing.sm },
   actions: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.md },
   cancel: {

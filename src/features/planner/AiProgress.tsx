@@ -33,7 +33,9 @@ function Running() {
       style={styles.box}
       accessibilityRole="progressbar"
       accessibilityLabel={step.text}
-      accessibilityValue={{ min: 0, max: 100, now: Math.round(progress * 100) }}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(progress * 100)}
     >
       <View style={styles.track}>
         <View style={[styles.fill, { width: `${Math.max(4, progress * 100)}%` }]} />

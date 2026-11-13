@@ -119,7 +119,7 @@ export default function NewBodyRecord() {
           </View>
 
           <Link href={{ pathname: '/guide', params: { tab: folds ? 'folds' : 'tape' } }} asChild>
-            <Pressable style={styles.guideLink}>
+            <Pressable accessibilityRole="link" style={styles.guideLink}>
               <Ionicons name="book-outline" size={20} color={colors.accent} />
               <Text style={styles.guideText}>
                 {folds ? '¿Cómo medir los pliegues? Ver la guía' : '¿Dónde va la cinta? Ver la guía'}

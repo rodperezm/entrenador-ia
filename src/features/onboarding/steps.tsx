@@ -327,7 +327,7 @@ export function EquipmentStep({ draft, update }: StepProps) {
       />
 
       {!showMore && (
-        <Pressable onPress={() => setShowMore(true)} style={styles.moreLink}>
+        <Pressable accessibilityRole="button" onPress={() => setShowMore(true)} style={styles.moreLink}>
           <Text style={styles.link}>Tengo más equipamiento (opcional)</Text>
         </Pressable>
       )}
@@ -406,7 +406,7 @@ function OwnedWeights({
         {options.map((kg) => {
           const on = weights.includes(kg);
           return (
-            <Pressable
+            <Pressable accessibilityRole="button" aria-selected={!!(on)}
               key={kg}
               onPress={() =>
                 onChange(
@@ -430,7 +430,7 @@ function OwnedWeights({
             {weights.map((kg) => {
               const on = pairs.includes(kg);
               return (
-                <Pressable
+                <Pressable accessibilityRole="button" aria-selected={!!(on)}
                   key={kg}
                   onPress={() =>
                     onChange(
@@ -489,7 +489,7 @@ export function ConditionsStep({ draft, update }: StepProps) {
                     onPress={() => setCondition(c.id, toggle(current.activeFlags, f))}
                   />
                 ))}
-                <Pressable onPress={() => setExpanded(expanded === c.id ? null : c.id)}>
+                <Pressable accessibilityRole="button" onPress={() => setExpanded(expanded === c.id ? null : c.id)}>
                   <Text style={styles.link}>
                     {expanded === c.id ? 'Ver solo las sugeridas' : 'Ver todas las restricciones'}
                   </Text>
@@ -597,7 +597,7 @@ export function WeekStep({ draft, update }: StepProps) {
   const careLabel = hasConditions ? 'Lesión' : 'Movilidad';
   // `day`: botón de día de la semana; los 7 reparten el ancho para caber en una fila.
   const chip = (label: string, on: boolean, onPress: () => void, key?: string, day = false) => (
-    <Pressable
+    <Pressable accessibilityRole="button" aria-selected={!!(on)}
       key={key ?? label}
       onPress={onPress}
       style={[styles.weight, day && styles.dayChip, on && styles.weightOn]}
@@ -693,7 +693,7 @@ export function WeekStep({ draft, update }: StepProps) {
               ).map(([kind, label]) => {
                 const on = kindOf(d.id) === kind;
                 return (
-                  <Pressable
+                  <Pressable accessibilityRole="button" aria-selected={!!(on)}
                     key={kind}
                     onPress={() => setExtra(d.id, kind)}
                     style={[styles.typeChip, on && (kind === 'rest' ? styles.typeChipRest : styles.typeChipOn)]}

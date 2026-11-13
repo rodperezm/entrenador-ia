@@ -47,8 +47,8 @@ export function YouTubeVideo({ videoId, title }: { videoId: string; title: strin
 }
 
 const styles = StyleSheet.create({
-  frame: { aspectRatio: 16 / 9, borderRadius: radius.lg, overflow: 'hidden', backgroundColor: '#000' },
-  web: { flex: 1, backgroundColor: '#000' },
+  frame: { aspectRatio: 16 / 9, borderRadius: radius.lg, overflow: 'hidden', backgroundColor: colors.black },
+  web: { flex: 1, backgroundColor: colors.black },
   fallback: { alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
   fallbackText: { color: colors.textMuted, textAlign: 'center', fontWeight: '700' },
 });

@@ -67,7 +67,7 @@ export default function ExerciseLibrary() {
 function ExerciseCard({ exercise: e }: { exercise: Exercise }) {
   return (
     <Link href={{ pathname: '/exercise/[id]', params: { id: e.id } }} asChild>
-      <Pressable>
+      <Pressable accessibilityRole="link">
         <View style={styles.card}>
           <View style={styles.cardMap}>
             {/* Una sola figura, del lado donde más se ve lo que trabaja: así se alcanza a leer. */}
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     color: colors.accent,
     backgroundColor: colors.accentSoft,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '800',
     letterSpacing: 0.8,
     paddingHorizontal: spacing.sm,

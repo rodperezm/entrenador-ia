@@ -1,6 +1,7 @@
 import { Redirect, router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LoadingScreen } from '@/components/LoadingScreen';
 import { Button } from '@/components/ui';
 import { EQUIPMENT, HEALTH_ALERTS, MEDICAL_CONDITIONS, PARK_EQUIPMENT } from '@/domain/catalog';
 import { dayChoiceLabel, dayChoiceOf, DAYS } from '@/domain/week';
@@ -16,7 +17,7 @@ export default function ProfileScreen() {
   const { week, loading: planLoading } = usePlan();
   const resetAll = useResetAllData();
   const insets = useSafeAreaInsets();
-  if (loading || planLoading) return null;
+  if (loading || planLoading) return <LoadingScreen />;
   if (!profile) return <Redirect href="/onboarding" />;
 
   const weights = (all: number[], pairs: number[]) =>

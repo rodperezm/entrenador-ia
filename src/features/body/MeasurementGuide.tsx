@@ -10,10 +10,10 @@ import { colors, display, radius, spacing } from '@/theme';
 
 export type GuideTab = 'tape' | 'folds';
 
-const GREEN = '#2EBD6B';
-const YELLOW = '#F5B700';
-const RED = '#E5484D';
-const BLUE = '#6FA6D6';
+const GREEN = colors.good;
+const YELLOW = colors.warning;
+const RED = colors.bad;
+const BLUE = colors.low;
 
 const num = (n: number, d = 2) => n.toLocaleString('es-CL', { minimumFractionDigits: d, maximumFractionDigits: d });
 
@@ -149,7 +149,7 @@ export function MeasurementGuide({
             ['folds', 'Caliper · pliegues'],
           ] as const
         ).map(([id, label]) => (
-          <Pressable key={id} onPress={() => setTab(id)} style={[styles.segBtn, tab === id && styles.segOn]}>
+          <Pressable accessibilityRole="button" aria-selected={!!(tab === id)} key={id} onPress={() => setTab(id)} style={[styles.segBtn, tab === id && styles.segOn]}>
             <Text style={[styles.segText, tab === id && { color: colors.text }]} numberOfLines={1}>
               {label}
             </Text>
@@ -316,7 +316,7 @@ export function MeasurementGuide({
             </View>
             <View style={styles.segmentSmall}>
               {(['male', 'female'] as const).map((s) => (
-                <Pressable key={s} onPress={() => setFatSex(s)} style={[styles.segBtn, fatSex === s && styles.segOn]}>
+                <Pressable accessibilityRole="button" aria-selected={!!(fatSex === s)} key={s} onPress={() => setFatSex(s)} style={[styles.segBtn, fatSex === s && styles.segOn]}>
                   <Text style={[styles.segText, fatSex === s && { color: colors.text }]}>
                     {s === 'male' ? 'Hombres' : 'Mujeres'}
                   </Text>
@@ -560,7 +560,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stepNumText: { color: colors.onAccent, fontWeight: '800' },
-  label: { color: colors.textMuted, fontSize: 11, fontWeight: '800', letterSpacing: 1, marginTop: 4 },
+  label: { color: colors.textMuted, fontSize: 12, fontWeight: '800', letterSpacing: 1, marginTop: 4 },
   formula: { color: colors.accent, fontSize: 14, fontVariant: ['tabular-nums'], lineHeight: 20 },
   formulaBox: { backgroundColor: colors.bg, borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 8 },
   formulaRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
@@ -582,7 +582,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   rowOn: { backgroundColor: `${GREEN}22` },
-  th: { color: colors.textMuted, fontSize: 11, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
+  th: { color: colors.textMuted, fontSize: 12, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
   td: { color: colors.text, fontSize: 14, fontVariant: ['tabular-nums'] },
   footer: { color: colors.textMuted, fontSize: 13, lineHeight: 19, marginTop: spacing.lg },
 });
