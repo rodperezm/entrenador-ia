@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Redirect, router, Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HeaderMenu } from '@/components/HeaderMenu';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { usePlan } from '@/state/plan';
@@ -9,9 +10,12 @@ import { colors, display } from '@/theme';
 // Si una pantalla falla, se muestra este aviso en vez de quedar en blanco.
 export { ErrorScreen as ErrorBoundary } from '@/components/ErrorScreen';
 
+const TAB_BAR_HEIGHT = 58;
+
 export default function TabsLayout() {
   const { profile, loading } = useProfile();
   const { loading: planLoading } = usePlan();
+  const insets = useSafeAreaInsets();
   if (loading || planLoading) return <LoadingScreen />;
   if (!profile) return <Redirect href="/onboarding" />;
 
@@ -23,7 +27,12 @@ export default function TabsLayout() {
         headerTitleStyle: display(26),
         headerShadowVisible: false,
         sceneStyle: { backgroundColor: colors.bg },
-        tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
+        // Más alta que la de fábrica (49): con la etiqueta de 12 puntos, el texto se cortaba por abajo.
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+          height: TAB_BAR_HEIGHT + insets.bottom,
+        },
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarLabelStyle: { fontSize: 12 },
