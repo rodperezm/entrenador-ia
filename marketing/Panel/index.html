@@ -165,6 +165,7 @@
         <div class="legend"><span><i style="background:var(--red)"></i>Activos (entrenaron)</span><span><i style="background:var(--lime)"></i>Nuevos</span><span><i style="background:var(--muted)"></i>Semanas con IA</span></div>
       </div>
       <p class="small muted" style="margin-top:16px">Las sesiones solo llegan a la nube de quienes activaron el respaldo con su correo. Los usuarios sin cuenta no aparecen en estas cifras.</p>
+      <p class="small muted" id="backupNote"></p>
     </div>
 
     <div id="tab-usuarios" class="hidden">
@@ -238,7 +239,7 @@
   const TABS = ['hoy', 'usuarios', 'metodo', 'negocio', 'reportes', 'documentos'];
   const DAY = 864e5;
   // Umbrales de las alertas: sobre o bajo esto, el panel lo pone arriba.
-  const PAIN_MAX = 15, TOO_MUCH_MAX = 25, STICK_MIN = 50, W2_MIN = 40, W4_MIN = 25, INACTIVE_DAYS = 14;
+  const PAIN_MAX = 15, TOO_MUCH_MAX = 25, STICK_MIN = 50, W2_MIN = 40, W4_MIN = 25, INACTIVE_DAYS = 14, BACKUP_MAX_DAYS = 2;
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storageKey: 'kettai-panel' } });
 
   const $ = (id) => document.getElementById(id);
@@ -374,6 +375,13 @@
     if (tooMuch != null && tooMuch > TOO_MUCH_MAX) alert(`${tooMuch} % de las respuestas dicen «Fue mucho» (sobre ${TOO_MUCH_MAX} %)`, 'tab:metodo', 'Ver método');
     if (stick != null && stick < STICK_MIN) alert(`Constancia de ${stick} %: menos de la mitad de los activos del mes entrenó esta semana`);
     if (m.retention_w2 != null && m.retention_w2 < W2_MIN) alert(`Solo ${m.retention_w2} % vuelve la segunda semana (meta ${W2_MIN} %)`, 'tab:metodo', 'Ver método');
+    // Copia de seguridad en el servidor propio: avisa si lleva más de dos días sin actualizarse.
+    const lastBackup = config?.settings?.last_backup_at ? new Date(config.settings.last_backup_at) : null;
+    const backupDays = lastBackup ? Math.floor((Date.now() - lastBackup.getTime()) / DAY) : null;
+    if (backupDays != null && backupDays >= BACKUP_MAX_DAYS) alert(`La copia de seguridad no se actualiza hace ${backupDays} días: revisa el servidor`);
+    $('backupNote').textContent = lastBackup
+      ? `Última copia de seguridad: ${lastBackup.toLocaleString('es-CL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}.`
+      : 'Copia de seguridad automática: sin configurar.';
     if (margin < 0) alert(`La IA cuesta más de lo que entra: margen de ${clp(margin)} al mes`, 'tab:negocio', 'Ver negocio');
     const count = (g, text) => { const n = inGroup(g).length; if (n) alert(`${n} ${n === 1 ? text[0] : text[1]}`, 'users:' + g, 'Ver quiénes'); };
     count('inactivos', [`usuario sin entrenar hace más de ${INACTIVE_DAYS} días`, `usuarios sin entrenar hace más de ${INACTIVE_DAYS} días`]);
