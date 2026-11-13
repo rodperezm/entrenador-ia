@@ -7,5 +7,8 @@ export const IS_TEST_ENV = process.env.EXPO_PUBLIC_APP_ENV === 'test';
 /** Dirección nueva de la app cuando esta copia avisa de una mudanza; null si no hay mudanza. */
 export const MOVED_TO: string | null = process.env.EXPO_PUBLIC_MOVED_TO || null;
 
+/** Dirección de la app real, para mostrarla desde el ambiente de pruebas. */
+export const PROD_URL: string | null = process.env.EXPO_PUBLIC_PROD_URL || null;
+
 /** La dirección sin «https://» ni la barra final, para mostrarla. */
 export const shortAddress = (url: string) => url.replace(/^https?:\/\//, '').replace(/\/$/, '');

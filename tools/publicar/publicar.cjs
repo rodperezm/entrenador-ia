@@ -36,6 +36,9 @@ env.KETTAI_BASE_URL = cfg.baseUrl;
 // Para probar a mano la franja o el aviso sin tocar ambientes.json: KETTAI_PAPEL y KETTAI_MUDANZA.
 env.EXPO_PUBLIC_APP_ENV = (process.env.KETTAI_PAPEL || cfg.papel) === 'pruebas' ? 'test' : 'production';
 env.EXPO_PUBLIC_MOVED_TO = process.env.KETTAI_MUDANZA ?? cfg.mudanza ?? '';
+// El ambiente de pruebas muestra dónde está la app real, por si alguien llega ahí con un ícono antiguo.
+const real = Object.entries(targets).find(([k, t]) => k !== '_' && t.papel === 'produccion');
+env.EXPO_PUBLIC_PROD_URL = real ? real[1].direccion : '';
 env.NODE_OPTIONS = `${env.NODE_OPTIONS || ''} --max-old-space-size=2048 --max-semi-space-size=4`.trim();
 
 const run = (cmd, args) => {

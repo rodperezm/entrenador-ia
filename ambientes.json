@@ -1,12 +1,12 @@
 {
   "_": "Dónde se publica la app. Cada destino dice su dirección, qué base de datos usa (archivo de claves públicas), si es de pruebas y si avisa de una mudanza. Lo lee tools/publicar/publicar.cjs. Ver VERSIONES.md.",
   "github": {
-    "nombre": "GitHub (dirección original)",
+    "nombre": "GitHub (pruebas)",
     "direccion": "https://rodperezm.github.io/entrenador-ia/",
     "baseUrl": "/entrenador-ia",
-    "claves": ".env",
-    "papel": "produccion",
-    "mudanza": "https://app.kettaiapp.com/",
+    "claves": ".env.pruebas",
+    "papel": "pruebas",
+    "mudanza": "",
     "publicar": "gh-pages"
   },
   "kettaiapp": {

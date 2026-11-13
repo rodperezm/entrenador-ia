@@ -52,6 +52,30 @@ Plan de ambientes: la dirección de GitHub pasará a ser pruebas, con su propia 
 
 ## Historial
 
+### 1.5.0 · 13 de noviembre de 2026
+
+Quedan separados los dos ambientes: la dirección de GitHub pasa a ser pruebas, con su propia base de datos, y app.kettaiapp.com es producción.
+
+**Qué cambia para la persona**
+
+- En app.kettaiapp.com no cambia nada.
+- La dirección de GitHub muestra arriba una franja amarilla «PRUEBAS · la app real está en app.kettaiapp.com», que al tocarla lleva a la app real. Lo que se haga ahí queda en una base aparte y no llega a la app real.
+
+**Qué cambia por dentro**
+
+- Supabase: proyecto nuevo `kettai-pruebas`, con las 9 migraciones, sesiones anónimas, código de 8 dígitos, correo de envío propio y la función `generate-plan`.
+- App: el destino `github` usa `.env.pruebas` y `papel: pruebas`. Producción no cambia de base.
+- GitHub: tarea diaria que consulta la base de pruebas para que Supabase no la pause.
+
+**Notas para quien siga el trabajo**
+
+- Flujo desde ahora: publicar en pruebas con `npm run deploy`, validar, y solo con el visto bueno pasar a producción con `npm run deploy:kettaiapp`.
+- Las migraciones se aplican primero en pruebas y después en producción.
+- La función de pruebas no tiene `ANTHROPIC_API_KEY`: ahí las semanas se arman con las reglas. Para probar la IA en pruebas, Rodrigo debe poner la clave en los secretos de ese proyecto.
+- Quien tenía datos guardados solo en la dirección de GitHub los conserva en su teléfono, pero ya no se respaldan en la base real.
+- El día de este cambio el conector de Supabase estuvo caído: el proyecto se creó y configuró desde el panel.
+- Vuelta atrás: devolver `github` a `papel: produccion` y `claves: .env` en `ambientes.json`, y publicar.
+
 ### 1.4.0 · 13 de noviembre de 2026
 
 Empieza la mudanza: la dirección de GitHub avisa que la app se cambia a app.kettaiapp.com.
