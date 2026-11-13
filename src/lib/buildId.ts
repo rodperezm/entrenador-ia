@@ -30,6 +30,7 @@ export function screenDiagnostics(): string | null {
     insets,
     nav.standalone ? '1' : '0',
     window.visualViewport ? `${Math.round(window.visualViewport.height)}` : '?',
+    `${document.documentElement.scrollHeight}/${Math.round(window.scrollY)}`,
   ].join(' · ');
 }
 

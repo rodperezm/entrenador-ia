@@ -97,7 +97,17 @@
       }
       /* Instalada en iPhone: alto de la pantalla completa, y un poco más de aire arriba porque el
          sistema difumina el contenido que queda pegado a la hora y la batería. */
+      /* Medido en un iPhone real (pantalla 844, ventana 797): la ventana que informa Safari es más
+         corta que la pantalla en lo que mide la zona de la hora. Un elemento «fixed» se recorta a esa
+         ventana y deja una franja vacía abajo; por eso aquí el marco va «absolute» y el documento
+         completo toma el alto de la pantalla. */
+      html.ios-app,
+      html.ios-app body {
+        height: var(--screen-height, 100dvh);
+        overscroll-behavior: none;
+      }
       html.ios-app #root {
+        position: absolute;
         height: var(--screen-height, 100dvh);
         padding-top: calc(env(safe-area-inset-top) + 10px);
       }
