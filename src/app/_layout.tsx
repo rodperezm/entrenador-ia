@@ -2,6 +2,7 @@ import { BebasNeue_400Regular, useFonts } from '@expo-google-fonts/bebas-neue';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 import { ConfirmHost } from '@/components/ConfirmDialog';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { WebSafeArea } from '@/components/WebSafeArea';
@@ -63,7 +64,12 @@ export default function RootLayout() {
                   <Stack.Screen name="workout/[day]" options={{ headerShown: false, gestureEnabled: false }} />
                   <Stack.Screen name="body/new" options={{ title: '' }} />
                   <Stack.Screen name="guide" options={{ title: 'Guía de medición' }} />
-                  <Stack.Screen name="timer" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
+                  {/* En la web va como pantalla normal: como modal queda fuera del marco de la app y, instalada en
+                      iPhone, se corta por abajo (el alto que entrega Safari es más corto que la pantalla). */}
+                  <Stack.Screen
+                    name="timer"
+                    options={{ headerShown: false, presentation: Platform.OS === 'web' ? 'card' : 'fullScreenModal' }}
+                  />
                   <Stack.Screen name="account" options={{ title: 'Cuenta y respaldo' }} />
                   <Stack.Screen name="privacy" options={{ title: 'Privacidad' }} />
                   <Stack.Screen name="terms" options={{ title: 'Términos y condiciones' }} />
