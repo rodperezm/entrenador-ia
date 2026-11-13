@@ -52,6 +52,28 @@ Plan de ambientes: la dirección de GitHub pasará a ser pruebas, con su propia 
 
 ## Historial
 
+### 1.2.0 · 13 de noviembre de 2026
+
+La app abre su dirección propia, app.kettaiapp.com, como futura producción. La dirección de GitHub sigue funcionando igual.
+
+**Qué cambia para la persona**
+
+- Nada en el uso diario. La app también se puede abrir en app.kettaiapp.com; quien entra ahí con «Ya tengo cuenta» recupera sus datos desde el respaldo.
+- En el aviso de los Términos, los botones «Leer» y «Acepto» van uno bajo el otro.
+
+**Qué cambia por dentro**
+
+- App: destinos de publicación en `ambientes.json` y un solo comando para armar y publicar; franja «PRUEBAS» y aviso «KETTAI se muda», los dos apagados.
+- Base de datos y función de la IA: sin cambios. Las dos direcciones usan la base actual.
+- Cloudflare: sitio nuevo `kettai-app` para la app, aparte del de la página.
+
+**Notas para quien siga el trabajo**
+
+- Los datos de cada persona viven en su teléfono y por dirección: al pasar a la dirección nueva no viajan solos, vuelven desde el respaldo de la cuenta. Nada se borra en la dirección antigua.
+- Al 13 de noviembre solo 2 cuentas tienen correo, y las dos son de Rodrigo. Las demás son anónimas: sin cuenta, sus datos no se pueden llevar a la dirección nueva.
+- Falta: encender el aviso de mudanza en GitHub (`mudanza` en `ambientes.json`), y después crear el proyecto de Supabase de pruebas y pasar GitHub a `papel: pruebas` con su archivo de claves.
+- Vuelta atrás: se puede volver a la 1.1.0 sin cuidado especial; no hay cambios de datos.
+
 ### 1.1.0 · 13 de noviembre de 2026
 
 Primera versión con número. Cierra la etapa de construcción y deja la app lista para probarla con más orden.
