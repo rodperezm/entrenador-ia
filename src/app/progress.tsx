@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
   bars: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm, height: 96 },
   barColumn: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', gap: 2 },
   barValue: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
-  barLabel: { color: colors.textMuted, fontSize: 11 },
+  barLabel: { color: colors.textMuted, fontSize: 12 },
   barLabelNow: { color: colors.text, fontWeight: '700' },
   bar: { alignSelf: 'stretch', borderRadius: 4, backgroundColor: colors.border },
   barEmpty: { backgroundColor: colors.surfaceAlt },

@@ -22,7 +22,7 @@ export default function RoutineScreen() {
   if (!routine) {
     return (
       <View style={[styles.screen, styles.center]}>
-        <Stack.Screen options={{ title: '' }} />
+        <Stack.Screen options={{ title: 'Rutina rápida' }} />
         <Text style={styles.note}>No encontramos esa rutina.</Text>
         <Button label="Volver" onPress={() => router.back()} />
       </View>
@@ -36,7 +36,7 @@ export default function RoutineScreen() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <Stack.Screen options={{ title: '' }} />
+      <Stack.Screen options={{ title: 'Rutina rápida' }} />
       <View style={[styles.hero, { backgroundColor: tone.bg }]}>
         <Ionicons name={ROUTINE_ICONS[routine.id] ?? 'body-outline'} size={30} color={tone.vivid} />
         <Text style={[styles.heroTitle, { color: tone.text }]}>{routine.title}</Text>
@@ -111,7 +111,7 @@ function Runner({ steps, vivid }: { steps: RoutineStep[]; vivid: string }) {
   if (run.stage === 'done') {
     return (
       <View style={[styles.screen, styles.center]} testID="routine-done">
-        <Stack.Screen options={{ title: '' }} />
+        <Stack.Screen options={{ title: 'Rutina rápida' }} />
         <Ionicons name="checkmark-circle" size={64} color={colors.good} />
         <Text style={styles.doneTitle}>Rutina completa</Text>
         <Text style={[styles.note, styles.centerText]}>Bien hecho. Tu cuerpo agradece estos minutos.</Text>
@@ -136,7 +136,7 @@ function Runner({ steps, vivid }: { steps: RoutineStep[]; vivid: string }) {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.runContent}>
-      <Stack.Screen options={{ title: '' }} />
+      <Stack.Screen options={{ title: 'Rutina rápida' }} />
       <View style={styles.progress} accessibilityLabel={`Paso ${run.i + 1} de ${steps.length}`}>
         {steps.map((s, i) => (
           <View key={s.exercise.id} style={[styles.progressBit, i <= run.i && { backgroundColor: vivid }]} />

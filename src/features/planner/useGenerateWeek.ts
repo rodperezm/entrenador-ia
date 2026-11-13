@@ -122,7 +122,7 @@ export function useGenerateWeek() {
       const reason = err instanceof AiPlanError ? err.message : 'error inesperado';
       console.warn(`IA no disponible: ${reason}`);
       setNotice(
-        'Esta vez la IA no pudo armar tu semana. La armamos con las reglas de la app. Puedes volver a intentarlo.',
+        'Esta vez la IA no respondió, pero tu semana ya está lista. Puedes volver a intentarlo con IA.',
       );
     } finally {
       setGenerating(false);

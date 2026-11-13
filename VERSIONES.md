@@ -52,6 +52,36 @@ Plan de ambientes: la dirección de GitHub pasará a ser pruebas, con su propia 
 
 ## Historial
 
+### 1.7.0 · 13 de noviembre de 2026
+
+Progreso y Ejercicios rediseñados, rutinas rápidas para estirar y el arreglo del borde inferior en el iPhone. Cerrada tras un recorrido automático de todas las pantallas.
+
+**Qué cambia para la persona**
+
+- **Progreso** responde «¿voy bien?»: una frase de resumen, las sesiones de las últimas 6 semanas en barras con fecha, la fuerza en los ejercicios principales, la etapa con la kettlebell y cómo responde el cuerpo.
+- **Ejercicios** empieza con «¿Qué necesitas hoy?»: cinco rutinas rápidas (estirar todo el cuerpo, zona alta, zona baja, mucho rato sentado, rodillas rígidas) de 5 o 6 minutos, guiadas paso a paso con cuenta regresiva y sonido.
+- Ejercicios suma buscador, «En tu semana», zonas del cuerpo con color y cantidad, dificultad como barra y «Lo hiciste N veces».
+- En el iPhone, con la app instalada, las pantallas llegan al borde inferior: ya no se cortan los botones del temporizador.
+- Una dirección que no existe muestra «Esta página no existe» en español, con un botón para volver.
+- Cuando la IA no responde, el aviso ya no repite lo que dice la tarjeta de la semana.
+
+**Qué cambia por dentro**
+
+- App: `src/app/progress.tsx` nuevo sobre `progressSummary` (ahora entrega `weeks` y `body`); `src/app/(tabs)/exercises.tsx` nuevo; pantalla `src/app/routine/[id].tsx`; reglas en `src/domain/quickRoutines.ts` y colores en `src/features/routines/tones.ts`; `src/app/+not-found.tsx`.
+- `public/index.html`: con la app instalada en iPhone, el marco pasa a `position: absolute` con el alto de `screen.height`. El temporizador se abre como pantalla normal en la web.
+- Pruebas: 103 (se sumaron las de constancia, cuerpo y rutinas rápidas).
+- Sin cambios en la base de datos ni en la función de la IA.
+
+**Notas para quien siga el trabajo**
+
+- Las rutinas rápidas son listas fijas elegidas a mano, sin IA, y **no se guardan en el historial**: no cuentan para el ciclo ni para las cargas. Una prueba exige que solo usen colchoneta y duren entre 3 y 10 minutos.
+- «Rodillas rígidas» lleva aviso de que no es tratamiento. Las promesas de salud deben pasar por el experto y el abogado antes de sumar rutinas «por problema» (idea anotada, sin hacer).
+- Un enlace de Expo Router con `asChild` no acepta una lista de estilos en su hijo: usar `StyleSheet.flatten`. Rompe la pantalla completa, no solo el estilo.
+- Recorrido de diagnóstico: Playwright con WebKit en tamaño iPhone, sobre el servidor local arrancado con la configuración `sin-nube` de `.claude/launch.json` (una dirección de Supabase inválida deja pasar la puerta de cuentas y hace que la semana se arme con reglas, sin gastar IA). Los avisos de `react-native-svg` («Unknown event handler», «accessible») son solo del modo de desarrollo.
+- Quedó sin tocar, por ser decisión de producto: el aviso «Completa toma más de tus N min» aparece aunque la sesión se pase por 1 minuto. También quedan enlaces de texto con poca altura para el dedo («Ver semana ›», «Leer cómo cuidamos tus datos»).
+- Los textos nuevos no pasaron por la revisión de español neutro del Excel.
+- Vuelta atrás: publicar desde `v1.6.0`. No hay cambios de datos, así que no deja nada a medias en los teléfonos.
+
 ### 1.6.0 · 13 de noviembre de 2026
 
 Etapa de prueba cerrada: para usar la app hay que tener cuenta con correo y que el administrador la apruebe. Primera versión que pasó por pruebas antes de llegar a producción.

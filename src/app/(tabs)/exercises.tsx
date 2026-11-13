@@ -197,7 +197,7 @@ function RoutineCard({ routine: r, wide }: { routine: QuickRoutine; wide: boolea
         </View>
         <View>
           <Text style={[styles.routineTitle, wide && styles.routineTitleWide, { color: tone.text }]}>{r.title}</Text>
-          <Text style={[styles.routineZone, { color: tone.sub }]}>{wide ? r.when : r.zone}</Text>
+          <Text style={[styles.routineZone, wide && styles.routineZoneWide, { color: tone.sub }]}>{wide ? r.when : r.zone}</Text>
         </View>
       </Pressable>
     </Link>
@@ -271,7 +271,9 @@ const styles = StyleSheet.create({
   routineMeta: { fontSize: 12, fontWeight: '700' },
   routineTitle: { ...display(24) },
   routineTitleWide: { ...display(32) },
-  routineZone: { fontSize: 13, marginTop: 2 },
+  routineZoneWide: { minHeight: 0 },
+  // Alto de dos líneas: así los títulos de una misma fila quedan a la misma altura.
+  routineZone: { fontSize: 13, lineHeight: 18, minHeight: 36, marginTop: 2 },
 
   weekCard: {
     width: 148,
@@ -332,7 +334,7 @@ const styles = StyleSheet.create({
   kbBadge: {
     color: colors.accent,
     backgroundColor: colors.accentSoft,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '800',
     letterSpacing: 0.8,
     paddingHorizontal: spacing.sm,

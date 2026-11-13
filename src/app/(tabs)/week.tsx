@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
   content: { padding: spacing.lg, gap: spacing.sm, paddingBottom: 40 },
   title: { color: colors.text, ...display(26) },
   summary: { color: colors.textMuted, fontSize: 14, lineHeight: 20, marginBottom: spacing.sm },
-  pending: { color: colors.link, fontSize: 15, fontWeight: '700', marginBottom: spacing.sm },
+  pending: { color: colors.link, fontSize: 15, fontWeight: '700', paddingVertical: spacing.sm },
   warn: { backgroundColor: colors.warningSoft, borderRadius: radius.md, padding: spacing.md },
   warnText: { color: colors.warning, fontSize: 13, lineHeight: 18 },
   day: {
