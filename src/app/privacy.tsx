@@ -20,6 +20,10 @@ const SECTIONS = [
     body: 'Los videos se reproducen desde YouTube. Al abrir un ejercicio, YouTube recibe datos técnicos de tu conexión, como tu dirección IP. No le enviamos tu perfil ni tus datos de salud.',
   },
   {
+    title: 'Medición del registro',
+    body: 'Mientras creas tu perfil, anotamos hasta qué paso llegó tu teléfono, para saber dónde se complica el registro. Es anónimo: un identificador al azar, el paso y la fecha. No incluye tu correo ni ningún dato tuyo.',
+  },
+  {
     title: 'Errores y comentarios',
     body: 'Si la app falla, nos llega un aviso automático con el error, la pantalla donde ocurrió, la versión de la app y el tipo de teléfono, para poder corregirlo. También nos llega lo que escribas en «Enviar un comentario». Ninguno de los dos incluye tus entrenamientos ni tus datos de salud.',
   },

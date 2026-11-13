@@ -192,6 +192,9 @@
       <h2>Embudo del inicio</h2>
       <p class="muted small">De quienes crean su cuenta con correo, cuántos llegan a cada etapa. Desde siempre, no solo los últimos días.</p>
       <div class="list" id="funnel" style="margin-top:12px; max-width:560px"></div>
+      <h2>Abandono dentro del registro</h2>
+      <p class="muted small" id="onboardingNote"></p>
+      <div class="list" id="onboarding" style="margin-top:12px; max-width:560px"></div>
     </div>
 
     <div id="tab-negocio" class="hidden">
@@ -269,6 +272,7 @@
   let reportFilter = 'abiertos';
   let insights = null; // null = la base aún no tiene la consulta (migración 0008)
   let exerciseNames = {};
+  let onboarding = null; // null = la base aún no tiene la medición (migración 0009)
   let lastMetrics = null; // lo último que se cargó, para el Excel
 
   // ---------- Entrar ----------
@@ -341,6 +345,9 @@
     insights = ins.error ? null : ins.data;
     exerciseNames = names || {};
     renderInsights();
+    const onb = await sb.rpc('admin_onboarding', { days: 30 });
+    onboarding = onb.error ? null : onb.data;
+    renderOnboarding();
     $('updated').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
   }
 
@@ -566,6 +573,40 @@
     }).join('') + line('Sin cuenta (anónimos)', f.anonymous ?? 0, 'Usan la app sin correo; no se sabe más de ellos');
   }
 
+  // ---------- Abandono dentro del registro ----------
+  // En el orden en que la persona los recorre. Cada paso cuenta teléfonos, no cuentas.
+  const ONBOARDING_STEPS = [
+    ['intro', 'Vieron la portada'],
+    ['account_form', 'Tocaron «Empezar»'],
+    ['code_requested', 'Pidieron el código por correo'],
+    ['account_created', 'Confirmaron el código (cuenta creada)'],
+    ['step_welcome', 'Paso 1 · Bienvenida y alertas'],
+    ['step_about', 'Paso 2 · Sobre ti y nivel'],
+    ['step_equipment', 'Paso 3 · Kettlebell'],
+    ['step_conditions', 'Paso 4 · Lesiones'],
+    ['step_week', 'Paso 5 · Tu semana'],
+    ['done', 'Terminaron el registro'],
+  ];
+  function renderOnboarding() {
+    if (onboarding === null) {
+      $('onboardingNote').textContent = 'Esta medición aún no está activada en la base.';
+      $('onboarding').innerHTML = '';
+      return;
+    }
+    const st = onboarding.steps || {};
+    const base = Number(onboarding.devices) || 0;
+    const since = onboarding.since ? new Date(onboarding.since).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: '2-digit' }) : null;
+    $('onboardingNote').textContent = base
+      ? `Últimos ${onboarding.days} días: ${base} ${base === 1 ? 'teléfono nuevo' : 'teléfonos nuevos'}${onboarding.existing ? `, más ${onboarding.existing} que entraron con «Ya tengo cuenta»` : ''}. Se mide desde el ${since}; es anónimo.${base < 10 ? ' Con tan pocos, tómalo como pista.' : ''}`
+      : `Aún no hay registros nuevos medidos${since ? ` (se mide desde el ${since})` : ''}. Solo cuenta a quienes abren la app por primera vez.`;
+    $('onboarding').innerHTML = !base ? '' : '<h3>Paso a paso</h3>' + ONBOARDING_STEPS.map(([id, label], i) => {
+      const n = Number(st[id]) || 0;
+      const prev = i ? Number(st[ONBOARDING_STEPS[i - 1][0]]) || 0 : null;
+      const lost = prev != null ? Math.max(0, prev - n) : 0;
+      return line(label, `${n} · ${Math.round(100 * n / base)} %`, lost > 0 ? `Se quedan antes de este paso: ${lost}` : '', lost > 0 && prev && lost / prev >= 0.3 ? 'warn' : '');
+    }).join('');
+  }
+
   // ---------- Reportes ----------
   const REPORT_GROUPS = {
     abiertos: { label: 'Por revisar', test: (r) => !r.resolved },
@@ -710,6 +751,12 @@
       ['Crearon su cuenta con correo', fu.accounts ?? ''], ['Completaron su perfil', fu.with_profile ?? ''], ['Armaron su semana', fu.with_week ?? ''],
       ['Hicieron su primera sesión', fu.first_session ?? ''], ['Volvieron en una segunda semana', fu.second_week ?? ''], ['Sin cuenta (anónimos)', fu.anonymous ?? ''],
     ];
+    // Abandono dentro del registro: teléfonos nuevos que llegaron a cada paso (anónimo).
+    if (onboarding) {
+      embudo.push([], ['Dentro del registro (últimos ' + onboarding.days + ' días)', 'Teléfonos']);
+      ONBOARDING_STEPS.forEach(([id, label]) => embudo.push([label, Number((onboarding.steps || {})[id]) || 0]));
+      embudo.push(['Entraron con «Ya tengo cuenta»', onboarding.existing ?? 0]);
+    }
     return [{ name: 'Resumen', rows: resumen }, { name: 'Usuarios', rows: usuarios }, { name: 'Semanas', rows: semanas }, { name: 'Planes', rows: planes }, { name: 'Ejercicios', rows: ejercicios }, { name: 'Embudo', rows: embudo }, { name: 'Reportes', rows: reportes }];
   }
   $('excel').onclick = () => {

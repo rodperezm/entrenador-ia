@@ -1,5 +1,5 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardDoneBar } from '@/components/KeyboardDoneBar';
@@ -35,6 +35,7 @@ import {
   strengthDaysFrom,
   weekWithStrength,
 } from '@/domain/week';
+import { type OnboardingStep, trackOnboarding } from '@/lib/onboardingTrack';
 import { usePlan } from '@/state/plan';
 import { useProfile } from '@/state/profile';
 import { useSync } from '@/state/sync';
@@ -186,6 +187,15 @@ function OnboardingForm() {
   const steps = single ? [single] : profile ? STEPS : STEPS.filter((s) => !s.profileOnly);
   const { title, subtitle, newSubtitle, Component, valid } = steps[step];
   const isLast = step === steps.length - 1;
+  // Solo en el registro de una persona nueva: se anota, de forma anónima, hasta dónde llega.
+  const isNew = !profile;
+  const onAccountScreen = !!accountMode && !hasAccount;
+  const stepKey = steps[step].key;
+  useEffect(() => {
+    if (!isNew) return;
+    if (showIntro) trackOnboarding('intro');
+    else if (!onAccountScreen && stepKey) trackOnboarding(`step_${stepKey}` as OnboardingStep);
+  }, [isNew, showIntro, onAccountScreen, stepKey]);
   const conditionsStep = steps.findIndex((s) => s.Component === ConditionsStep);
 
   const next = () => {
@@ -274,6 +284,7 @@ function OnboardingForm() {
         else router.replace('/profile');
         return;
       }
+      if (!profile) trackOnboarding('done');
       router.replace(profile ? '/' : { pathname: '/', params: { generate: '1' } });
     } finally {
       setSaving(false);
@@ -286,13 +297,17 @@ function OnboardingForm() {
         <Stack.Screen options={{ headerShown: false }} />
         <IntroScreen
           onStart={() => {
-            if (accountMode) setAccountMode('new');
+            if (accountMode) {
+              setAccountMode('new');
+              trackOnboarding('account_form');
+            }
             setShowIntro(false);
           }}
           onExisting={
             accountMode
               ? () => {
                   setAccountMode('existing');
+                  trackOnboarding('existing_account');
                   setShowIntro(false);
                 }
               : undefined

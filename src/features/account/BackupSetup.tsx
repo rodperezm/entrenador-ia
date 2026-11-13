@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Button, CheckRow } from '@/components/ui';
 import { requestBackupCode, requestLoginCode, verifyBackupCode, verifyLoginCode } from '@/lib/cloudSync';
+import { trackOnboarding } from '@/lib/onboardingTrack';
 import { ensureSession } from '@/lib/supabase';
 import { useSync } from '@/state/sync';
 import { colors, display, radius, spacing } from '@/theme';
@@ -143,6 +144,8 @@ export function BackupSetup({ initialMode = 'new', signup = false, onCreated }: 
   const sendCode = () =>
     run(async () => {
       await requestCode();
+      // Solo en el registro inicial: pedir el código y no confirmarlo es un abandono que interesa medir.
+      if (signup && mode === 'new') trackOnboarding('code_requested');
       setCodeSent(true);
     });
 
@@ -161,6 +164,7 @@ export function BackupSetup({ initialMode = 'new', signup = false, onCreated }: 
         verified.current = true;
       }
       await enable(mode === 'existing');
+      if (signup) trackOnboarding(mode === 'new' ? 'account_created' : 'existing_account');
       // Al entrar a una cuenta que ya existe se trae su perfil: el inicio decide si falta completarlo.
       if (mode === 'new' && onCreated) onCreated();
       else router.replace('/');
