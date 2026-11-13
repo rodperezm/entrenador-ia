@@ -51,7 +51,7 @@
     "seed": "tsx scripts/export-seed.ts",
     "exercise-list": "tsx scripts/export-exercise-list.ts",
     "lint": "expo lint",
-    "predeploy": "expo export -p web --max-workers 1 && node -e \"const fs=require('fs');fs.copyFileSync('dist/index.html','dist/404.html');fs.writeFileSync('dist/.gitignore','')\"",
+    "predeploy": "expo export -p web --max-workers 1 --clear && node -e \"const fs=require('fs');fs.copyFileSync('dist/index.html','dist/404.html');fs.writeFileSync('dist/.gitignore','')\"",
     "deploy": "gh-pages --nojekyll --dotfiles --add -d dist",
     "test": "tsx --test tests/*.test.ts"
   },

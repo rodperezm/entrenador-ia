@@ -20,7 +20,7 @@ cambia cada vez que se publica, aunque el número sea el mismo.
 1. Subir el número en `app.json` y `package.json`.
 2. Anotar la versión en este archivo: fecha, qué trae y qué partes toca (app, base de datos, función de la IA).
 3. Guardar en Git y marcar la versión: `git tag -a v1.2.0 -m "…"`.
-4. Publicar en este orden: base de datos, función de la IA, app.
+4. Publicar en este orden: base de datos, función de la IA, app. La publicación de la app limpia la memoria temporal (`--clear`): sin eso, el número nuevo no llega a la app.
 5. Comprobar en un teléfono que el menú muestra la versión nueva.
 
 ## Cómo se vuelve a una versión anterior
