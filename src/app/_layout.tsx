@@ -53,6 +53,7 @@ export default function RootLayout() {
                   <Stack.Screen name="onboarding" options={{ title: '' }} />
                   <Stack.Screen name="profile" options={{ title: 'Mi perfil' }} />
                   <Stack.Screen name="feedback" options={{ title: 'Tu comentario' }} />
+                  <Stack.Screen name="ai-cases" options={{ title: 'Casos de la IA' }} />
                   <Stack.Screen name="day/[day]" options={{ title: '' }} />
                   <Stack.Screen name="exercise/[id]" options={{ title: '' }} />
                   <Stack.Screen name="workout/[day]" options={{ headerShown: false, gestureEnabled: false }} />
