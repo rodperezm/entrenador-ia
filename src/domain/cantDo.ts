@@ -1,4 +1,5 @@
 import { equipmentAt } from './catalog';
+import { trainingStamp } from '@/domain/profileStamp';
 import { filterExercisesForUser } from './filter';
 import { cantDoIds, prescribe } from './generator';
 import type {
@@ -41,7 +42,7 @@ export function easierAlternative(
     history: WorkoutSession[];
   },
 ): Exercise | null {
-  const avoid = new Set([...ctx.used, ...cantDoIds(ctx.history, Date.now(), ctx.profile.updatedAt), original.id]);
+  const avoid = new Set([...ctx.used, ...cantDoIds(ctx.history, Date.now(), trainingStamp(ctx.profile)), original.id]);
   const pool = filterExercisesForUser(
     ctx.exercises,
     { ...ctx.profile, equipment: equipmentAt(ctx.location, ctx.profile) },

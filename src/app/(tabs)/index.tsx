@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { trainingStamp } from '@/domain/profileStamp';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Link, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -65,7 +66,7 @@ export default function TodayScreen() {
 
   if (!profile) return null;
 
-  const stale = !!plan && staleDays(plan, week, profile.updatedAt).size > 0;
+  const stale = !!plan && staleDays(plan, week, trainingStamp(profile)).size > 0;
   const activeDays = week.days.filter((d) => d.active).length;
   const cycle = cycleInfo(sessions, profile.level, week.days);
   const pendingWeek = !!plan && activeDays > 0 && isFromPastWeek(plan.generatedAt);
@@ -149,7 +150,7 @@ function TodayCard({ generating, onGenerate }: { generating: boolean; onGenerate
   if (!profile || !cfg) return null;
 
   const dayPlan = plan?.days.find((p) => p.day === cfg.day);
-  const stale = !!plan && staleDays(plan, week, profile.updatedAt).has(cfg.day);
+  const stale = !!plan && staleDays(plan, week, trainingStamp(profile)).has(cfg.day);
   const trained = sessions.some((s) => new Date(s.finishedAt).toDateString() === new Date().toDateString());
   const cycle = cycleInfo(sessions, profile.level, week.days);
   const preparing = cycle.preparation;

@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { trainingStamp } from '@/domain/profileStamp';
 import { Link, router, Stack, useLocalSearchParams } from 'expo-router';
 import { Fragment, type ReactNode, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
@@ -80,7 +81,7 @@ export default function DayScreen() {
   const dayWorked = [...dayMain, ...slotsOf('prehab')];
   const today = isToday(day);
   const dayPlan = plan?.days.find((p) => p.day === day);
-  const stale = !!plan && !!profile && staleDays(plan, week, profile.updatedAt).has(day);
+  const stale = !!plan && !!profile && staleDays(plan, week, trainingStamp(profile)).has(day);
   const painful = strongPainIds(sessions);
   const hasPainful = !!dayPlan?.blocks.some((b) => b.slots.some((s) => painful.includes(s.exerciseId)));
   // Semana vacía (perfil nuevo o recién borrado): conviene partir por la semana completa con IA.
@@ -126,15 +127,15 @@ export default function DayScreen() {
     // Un plan antiguo sin huellas por día, si estaba al día, las hereda de la semana actual.
     const previousHashes =
       plan?.dayHashes ??
-      (plan?.configHash === configHash(week, profile.updatedAt) ? dayHashes(week, profile.updatedAt) : {});
+      (plan?.configHash === configHash(week, trainingStamp(profile)) ? dayHashes(week, trainingStamp(profile)) : {});
     await savePlan({
       days,
       summary: plan?.summary ?? 'Rutina armada día a día con las reglas de la app.',
       generatedAt: plan?.generatedAt ?? new Date().toISOString(),
       generator: plan?.generator ?? 'rules',
-      configHash: plan?.configHash ?? configHash(nextWeek, profile.updatedAt),
+      configHash: plan?.configHash ?? configHash(nextWeek, trainingStamp(profile)),
       cycleBlock,
-      dayHashes: { ...previousHashes, [day]: dayConfigHash(next, profile.updatedAt, nextWeek) },
+      dayHashes: { ...previousHashes, [day]: dayConfigHash(next, trainingStamp(profile), nextWeek) },
     });
   };
 

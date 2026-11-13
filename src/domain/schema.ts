@@ -187,6 +187,8 @@ export const LocalProfile = UserProfile.omit({ id: true }).extend({
   healthAlerts: z.array(HealthAlertId).optional(), // sin responder = undefined; respondió «ninguna» = []
   disclaimerAcceptedAt: z.string(),
   updatedAt: z.string(),
+  // Último cambio que afecta a la rutina (ver domain/profileStamp). Sin él vale `updatedAt`.
+  trainingUpdatedAt: z.string().optional(),
 });
 export type LocalProfile = z.infer<typeof LocalProfile>;
 

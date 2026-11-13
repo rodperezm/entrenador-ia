@@ -1,4 +1,5 @@
 import { equipmentAt } from './catalog';
+import { trainingStamp } from '@/domain/profileStamp';
 import type { CycleInfo } from './cycle';
 import { filterExercisesForUser, weightsFor } from './filter';
 import { cantDoIds, hadPain, pickWeight, strongPainIds } from './generator';
@@ -111,7 +112,7 @@ export function finisherOffer(input: OfferInput): FinisherOffer | null {
   // Con una señal de alerta de salud marcada, sin circuitos de alta intensidad.
   if (profile.healthAlerts?.length) return null;
 
-  const painful = [...strongPainIds(history, now), ...cantDoIds(history, now, profile.updatedAt)];
+  const painful = [...strongPainIds(history, now), ...cantDoIds(history, now, trainingStamp(profile))];
   const fits = (e: Exercise) =>
     e.complexityLevel <= MAX_COMPLEXITY && !painful.includes(e.id) && !hadPain(e.id, history);
   const byId = new Map(exercises.map((e) => [e.id, e]));

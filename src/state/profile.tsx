@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { nextTrainingStamp } from '@/domain/profileStamp';
 import { LocalProfile } from '@/domain/schema';
 import { backupBeforeOverwrite, loadSafely, parseWhole } from '@/lib/safeStore';
 
@@ -8,7 +9,7 @@ const STORAGE_KEY = 'profile.v1';
 type ProfileState = {
   profile: LocalProfile | null;
   loading: boolean;
-  saveProfile: (p: Omit<LocalProfile, 'updatedAt'>) => Promise<void>;
+  saveProfile: (p: Omit<LocalProfile, 'updatedAt' | 'trainingUpdatedAt'>) => Promise<void>;
   clearProfile: () => Promise<void>;
   /** Trae el perfil de la nube tal como está, sin cambiar su fecha. */
   importProfile: (p: LocalProfile) => Promise<void>;
@@ -41,11 +42,13 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     unsafe.current = false;
   }, []);
 
-  // Guardar sin cambios no cambia la fecha: la semana compara con ella para saber si quedó desactualizada.
+  // Guardar sin cambios no cambia la fecha. Y si cambió algo que no afecta a la rutina (el nombre,
+  // las alertas médicas), se conserva la fecha con que la semana sabe si quedó desactualizada.
   const saveProfile = useCallback(
-    async (p: Omit<LocalProfile, 'updatedAt'>) => {
-      const next = LocalProfile.parse({ ...p, updatedAt: new Date().toISOString() });
-      const withoutDate = ({ updatedAt: _u, ...rest }: LocalProfile) => JSON.stringify(rest);
+    async (p: Omit<LocalProfile, 'updatedAt' | 'trainingUpdatedAt'>) => {
+      const dated = LocalProfile.parse({ ...p, updatedAt: new Date().toISOString() });
+      const next = { ...dated, trainingUpdatedAt: nextTrainingStamp(profile, dated) };
+      const withoutDate = ({ updatedAt: _u, trainingUpdatedAt: _t, ...rest }: LocalProfile) => JSON.stringify(rest);
       if (profile && withoutDate(profile) === withoutDate(next)) return;
       await write(next);
       setProfile(next);

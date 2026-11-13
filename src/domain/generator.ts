@@ -1,4 +1,5 @@
 import { equipmentAt, MEDICAL_CONDITIONS, type MuscleGroupId } from './catalog';
+import { trainingStamp } from '@/domain/profileStamp';
 import { type CycleInfo, cycleInfo, previousBlockExercises } from './cycle';
 import { filterExercisesForUser, weightsFor } from './filter';
 import type {
@@ -678,7 +679,7 @@ export const avoidedIds = (history: WorkoutSession[], profileUpdatedAt?: string)
 
 const withoutPainful = (profile: LocalProfile, history: WorkoutSession[]): LocalProfile => ({
   ...profile,
-  excludedExerciseIds: [...profile.excludedExerciseIds, ...avoidedIds(history, profile.updatedAt)],
+  excludedExerciseIds: [...profile.excludedExerciseIds, ...avoidedIds(history, trainingStamp(profile))],
 });
 
 // Última molestia registrada en el ejercicio: con dolor, la semana del bloque no exige más.

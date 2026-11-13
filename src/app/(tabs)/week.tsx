@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { trainingStamp } from '@/domain/profileStamp';
 import { Link } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -27,7 +28,7 @@ export default function WeekScreen() {
   const [confirming, setConfirming] = useState(false);
   if (!profile) return null;
 
-  const staleSet = plan ? staleDays(plan, week, profile.updatedAt) : new Set<string>();
+  const staleSet = plan ? staleDays(plan, week, trainingStamp(profile)) : new Set<string>();
   const stale = staleSet.size > 0;
   const activeDays = week.days.filter((d) => d.active).length;
   const cycle = cycleInfo(sessions, profile.level, week.days);

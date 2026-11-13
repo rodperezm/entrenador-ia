@@ -1,4 +1,5 @@
 import { equipmentAt, MEDICAL_CONDITIONS, RESTRICTION_FLAGS } from '@/domain/catalog';
+import { trainingStamp } from '@/domain/profileStamp';
 import { zoneLabel } from '@/domain/checkIn';
 import { cycleGuide, cycleInfo, previousBlockExercises } from '@/domain/cycle';
 import { effortKind, effortNote } from '@/domain/effort';
@@ -52,7 +53,7 @@ export function buildAiRequest(
   const anywhere = {
     ...profile,
     equipment: [...new Set([...profile.equipment, ...equipmentAt('park', profile)])],
-    excludedExerciseIds: [...profile.excludedExerciseIds, ...avoidedIds(history, profile.updatedAt)],
+    excludedExerciseIds: [...profile.excludedExerciseIds, ...avoidedIds(history, trainingStamp(profile))],
   };
   const allowed = new Map<string, Set<BlockType>>();
   for (const block of BLOCKS) {

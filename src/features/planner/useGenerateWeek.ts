@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { trainingStamp } from '@/domain/profileStamp';
 import { EXERCISES } from '@/data/exercises.seed';
 import { guardAiPlan } from '@/domain/aiGuard';
 import { bodyFat, calcIndices } from '@/domain/body';
@@ -28,8 +29,8 @@ export function useGenerateWeek() {
     setNotice(null);
     const meta = {
       generatedAt: new Date().toISOString(),
-      configHash: configHash(week, profile.updatedAt),
-      dayHashes: dayHashes(week, profile.updatedAt),
+      configHash: configHash(week, trainingStamp(profile)),
+      dayHashes: dayHashes(week, trainingStamp(profile)),
       cycleBlock: cycleInfo(sessions, profile.level, week.days).blockStart,
     };
     // Misma semana: la Fuerza se conserva. Semana nueva del mismo ciclo: se conservan las anclas
