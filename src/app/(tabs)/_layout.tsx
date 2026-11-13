@@ -10,7 +10,7 @@ import { colors, display } from '@/theme';
 // Si una pantalla falla, se muestra este aviso en vez de quedar en blanco.
 export { ErrorScreen as ErrorBoundary } from '@/components/ErrorScreen';
 
-const TAB_BAR_HEIGHT = 58;
+const TAB_BAR_HEIGHT = 64;
 
 export default function TabsLayout() {
   const { profile, loading } = useProfile();
@@ -35,7 +35,8 @@ export default function TabsLayout() {
         },
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textMuted,
-        tabBarLabelStyle: { fontSize: 12 },
+        // Alto de línea fijo y sin encogerse: si falta espacio, la etiqueta no se corta por la mitad.
+        tabBarLabelStyle: { fontSize: 12, lineHeight: 16, flexShrink: 0 },
         headerRight: () => <HeaderMenu />,
       }}
     >

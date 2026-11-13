@@ -2,6 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { type Href, router } from 'expo-router';
 import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { buildId } from '@/lib/buildId';
 import { colors, radius, spacing } from '@/theme';
 
 type Item = { label: string; icon: keyof typeof Ionicons.glyphMap; href: Href };
@@ -47,6 +48,7 @@ export function HeaderMenu() {
                 <Text style={styles.label}>{item.label}</Text>
               </Pressable>
             ))}
+            {buildId() ? <Text style={styles.version}>Versión {buildId()}</Text> : null}
           </View>
         </Pressable>
       </Modal>
@@ -69,4 +71,12 @@ const styles = StyleSheet.create({
   item: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.lg, minHeight: 52 },
   divider: { borderTopWidth: 1, borderTopColor: colors.border },
   label: { color: colors.text, fontSize: 16, fontWeight: '600' },
+  version: {
+    color: colors.textMuted,
+    fontSize: 12,
+    padding: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    textAlign: 'right',
+  },
 });
