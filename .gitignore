@@ -42,3 +42,5 @@ yarn-error.*
 
 # secrets / config local
 .env
+
+.env.pruebas
