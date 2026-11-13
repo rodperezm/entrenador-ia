@@ -110,13 +110,6 @@ const FOLD_SITES: Record<Sex, { n: number; title: string; text: string; x: numbe
   ],
 };
 
-const REFERENCE = [
-  ['Tórax', '100–108 cm', '88–94 cm'],
-  ['Cintura', '80–86 cm', '64–70 cm'],
-  ['Abdomen', '82–88 cm', '68–76 cm'],
-  ['Cadera', '95–100 cm', '92–98 cm'],
-];
-
 const AGE_LABELS = ['Hasta 20', '21–25', '26–30', '31–35', '36–40', '41–45', '46–50', '51–55', '56 o más'];
 const AGE_FOR_ROW = [20, 25, 30, 35, 40, 45, 50, 55, 60];
 
@@ -217,18 +210,6 @@ export function MeasurementGuide({
               text="Con poca grasa corporal, ambas medidas difieren apenas 2 a 5 cm. Si la diferencia crece, suele indicar más grasa abdominal."
               bands={[['Hasta 5 cm', '5 a 10 cm', 'Sobre 10 cm']]}
             />
-          </Section>
-
-          <Section title="Medidas de referencia">
-            <Text style={styles.muted}>
-              Valores habituales en contexturas medias o atléticas. Sirven para orientarte, no como meta.
-            </Text>
-            <View style={styles.table}>
-              <Row cells={['Zona', 'Hombre', 'Mujer']} head />
-              {REFERENCE.map((r) => (
-                <Row key={r[0]} cells={r} />
-              ))}
-            </View>
           </Section>
 
           <Text style={styles.footer}>
