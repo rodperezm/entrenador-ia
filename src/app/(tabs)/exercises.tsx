@@ -83,7 +83,7 @@ function ExerciseCard({ exercise: e }: { exercise: Exercise }) {
               {e.name.es}
             </Text>
             <Text style={styles.cardMeta}>
-              {e.blockTypes.map((b) => BLOCK_LABELS[b]).join(' · ')} · Nivel {e.complexityLevel}
+              {e.blockTypes.map((b) => BLOCK_LABELS[b]).join(' · ')} · Dificultad {e.complexityLevel} de 5
             </Text>
             {e.equipment.required.includes('kettlebell') && <Text style={styles.kbBadge}>KETTLEBELL</Text>}
           </View>
