@@ -52,7 +52,10 @@ run('npx', ['expo', 'export', '-p', 'web', '--max-workers', '1', '--clear']);
 // Los archivos de public/ traen fija la dirección original: se ajustan a la del destino.
 const dist = path.join(root, 'dist');
 const base = cfg.baseUrl.replace(/\/$/, '');
-for (const name of ['index.html', 'manifest.json', 'instalar-iphone.html', 'instalar-android.html']) {
+// Todos los de texto que haya en public/, sin lista fija: una guía nueva que no estaba en la lista
+// salió en producción apuntando a la dirección de pruebas.
+const fromPublic = fs.readdirSync(path.join(root, 'public')).filter((n) => /\.(html|json)$/.test(n));
+for (const name of new Set(['index.html', ...fromPublic])) {
   const file = path.join(dist, name);
   if (!fs.existsSync(file)) continue;
   let text = fs.readFileSync(file, 'utf8');
