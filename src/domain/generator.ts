@@ -1,4 +1,5 @@
 import { equipmentAt, MEDICAL_CONDITIONS, type MuscleGroupId } from './catalog';
+import { kettlebellLevel, levelFor, techniqueFirst } from './experience';
 import { trainingStamp } from '@/domain/profileStamp';
 import { type CycleInfo, cycleInfo, previousBlockExercises } from './cycle';
 import { filterExercisesForUser, weightsFor } from './filter';
@@ -61,7 +62,7 @@ type DayStrengthPlan = {
   turn?: number;
 };
 
-const MAX_COMPLEXITY: Record<Level, number> = { beginner: 2, intermediate: 3, advanced: 5 };
+export const MAX_COMPLEXITY: Record<Level, number> = { beginner: 2, intermediate: 3, advanced: 5 };
 const TARGET_COMPLEXITY: Record<Level, number> = { beginner: 1, intermediate: 2, advanced: 3 };
 
 const POWER_REPS_FOCUS = 6;
@@ -108,11 +109,13 @@ function seeded(seed: number) {
 export function prescribe(e: Exercise, profile: LocalProfile, rationale: string | null): ExerciseSlot {
   const p = e.prescription;
   const level = profile.level;
+  // Las series van por condición física; las repeticiones de un ejercicio con kettlebell, por su manejo de la pesa.
+  const skill = levelFor(e, profile);
   const sets = level === 'beginner' ? Math.max(1, p.sets - 1) : p.sets;
   const reps = p.repRange
-    ? level === 'beginner'
+    ? skill === 'beginner'
       ? p.repRange.min
-      : level === 'advanced'
+      : skill === 'advanced'
         ? p.repRange.max
         : Math.round((p.repRange.min + p.repRange.max) / 2)
     : null;
@@ -134,7 +137,7 @@ const suggestedKg = (e: Exercise, profile: LocalProfile) =>
   e.dumbbellGuide
     ? e.dumbbellGuide.suggestedWeightKg[profile.level]
     : e.equipment.required.includes('kettlebell')
-      ? e.kettlebellGuide?.suggestedWeightKg[profile.level]
+      ? e.kettlebellGuide?.suggestedWeightKg[kettlebellLevel(profile)]
       : undefined;
 
 // Peso de kettlebell o mancuerna: el más cercano por debajo del sugerido para su nivel
@@ -229,11 +232,13 @@ function pickMain(pool: Exercise[], groups: MuscleGroupId[], count: number, prof
   const { cycle, previousBlock, usedThisWeek, rand, locked } = ctx;
   // Día suave de una semana dividida: técnica y control, con ejercicios un punto más simples.
   const easier = ctx.focus !== 'full' && ctx.intensity === 'light' ? 1 : 0;
-  const cap = Math.max(2, MAX_COMPLEXITY[profile.level] - easier);
-  const target = Math.max(1, TARGET_COMPLEXITY[profile.level] - easier);
+  // La dificultad máxima depende del ejercicio: con kettlebell manda la experiencia con la pesa;
+  // sin ella, la condición física.
+  const capFor = (e: Exercise) => Math.max(2, MAX_COMPLEXITY[levelFor(e, profile)] - easier);
+  const targetFor = (e: Exercise) => Math.max(1, TARGET_COMPLEXITY[levelFor(e, profile)] - easier);
   // Orden fijo: el azar del puntaje no debe depender de cómo llegó barajada la lista.
   const candidates = pool
-    .filter((e) => e.complexityLevel <= cap && strengthRole(e) !== null)
+    .filter((e) => e.complexityLevel <= capFor(e) && strengthRole(e) !== null)
     .sort((a, b) => a.id.localeCompare(b.id));
   const picked: { exercise: Exercise; role: StrengthRole }[] = [];
   const wantedGroups = new Set(groups);
@@ -260,7 +265,9 @@ function pickMain(pool: Exercise[], groups: MuscleGroupId[], count: number, prof
         // con kettlebell, en las zonas elegidas y siguiendo la espiral del bloque.
         score:
           // Más fácil que su nivel pesa casi el triple: variar no debe sentirse como retroceder.
-          (e.complexityLevel < target ? (target - e.complexityLevel) * 2.2 : (e.complexityLevel - target) * 0.8) +
+          (e.complexityLevel < targetFor(e)
+            ? (targetFor(e) - e.complexityLevel) * 2.2
+            : (e.complexityLevel - targetFor(e)) * 0.8) +
           (usedThisWeek.get(e.id) ?? 0) * 2.2 +
           (e.equipment.required.includes('kettlebell') ? 0 : 0.4) +
           (e.mechanics === 'compound' ? 0 : 0.5) +
@@ -750,8 +757,9 @@ export function applyCycleWeek(
     .sort((a, b) => a - b)[0];
   const minReps = e.prescription.repRange?.min ?? 1;
   if (cycle.week === 3) {
-    // Principiante: la semana de máxima intensidad es técnica, nunca más peso (ni el que subiría por progresión).
-    if (profile.level === 'beginner') {
+    // Quien parte o está aprendiendo la kettlebell: la semana de máxima intensidad es técnica, nunca más
+    // peso (ni el que subiría por progresión).
+    if (techniqueFirst(profile)) {
       const lastWeight = lastWeightOf(e.id, history);
       const raised = lastWeight != null && slot.weightKg != null && slot.weightKg > lastWeight;
       return {
@@ -860,7 +868,7 @@ export function generateDayByRules(
   for (const s of otherDays.flatMap((d) => d.blocks.filter((b) => b.type === 'main_strength').flatMap((b) => b.slots)))
     usedThisWeek.set(s.exerciseId, (usedThisWeek.get(s.exerciseId) ?? 0) + 1);
   const p = withoutPainful(profile, history);
-  const cycle = cycleInfo(history, profile.level, weekDays);
+  const cycle = cycleInfo(history, profile, weekDays);
   const day = generateDay(cfg, p, exercises, usedThisWeek, seed, {
     cycle,
     intensity: cycle.preparation ? 'light' : dayIntensity(weekDays, cfg.day, profile.level),
@@ -883,7 +891,7 @@ export function generateWeekByRules(
   rotate = false,
 ): GeneratedWeekPlan {
   const usedThisWeek = new Map<string, number>();
-  const cycle = cycleInfo(history, profile.level, week.days);
+  const cycle = cycleInfo(history, profile, week.days);
   const previousBlock = previousBlockExercises(history, cycle);
   const days = week.days
     .filter((d) => d.active)

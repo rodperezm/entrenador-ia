@@ -185,6 +185,9 @@ export type HealthAlertId = z.infer<typeof HealthAlertId>;
 
 export const LocalProfile = UserProfile.omit({ id: true }).extend({
   healthAlerts: z.array(HealthAlertId).optional(), // sin responder = undefined; respondió «ninguna» = []
+  // Experiencia con kettlebell, aparte de la condición física (`level`). Sin responder, vale el nivel
+  // (ver domain/experience).
+  kettlebellExperience: z.enum(['none', 'basic', 'skilled']).optional(),
   disclaimerAcceptedAt: z.string(),
   updatedAt: z.string(),
   // Último cambio que afecta a la rutina (ver domain/profileStamp). Sin él vale `updatedAt`.

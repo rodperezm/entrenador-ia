@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui';
 import { EQUIPMENT, HEALTH_ALERTS, MEDICAL_CONDITIONS, PARK_EQUIPMENT } from '@/domain/catalog';
 import { dayChoiceLabel, dayChoiceOf, DAYS } from '@/domain/week';
-import { type EditStep, formatBirth, LEVELS } from '@/features/onboarding/steps';
+import { type EditStep, formatBirth, KB_EXPERIENCE, LEVELS } from '@/features/onboarding/steps';
 import { usePlan } from '@/state/plan';
 import { useProfile } from '@/state/profile';
 import { useResetAllData } from '@/state/useResetAllData';
@@ -50,7 +50,16 @@ export default function ProfileScreen() {
           .join(' · ') || 'Sin datos',
       ],
     },
-    { step: 'level', title: 'Tu nivel', lines: [LEVELS.find((l) => l.id === profile.level)?.title ?? '—'] },
+    {
+      step: 'level',
+      title: 'Condición y experiencia',
+      lines: [
+        `Condición física: ${LEVELS.find((l) => l.id === profile.level)?.title ?? '—'}`,
+        `Experiencia con kettlebell: ${
+          KB_EXPERIENCE.find((k) => k.id === profile.kettlebellExperience)?.title ?? 'sin responder (se usa tu condición)'
+        }`,
+      ],
+    },
     {
       step: 'equipment',
       title: 'Equipamiento',

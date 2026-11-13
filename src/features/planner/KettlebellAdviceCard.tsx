@@ -34,7 +34,7 @@ export function KettlebellAdviceCard() {
   if (!profile || dismissed === undefined) return null;
   const advice = heavierKettlebellAdvice({ history: sessions, profile, exercises: EXERCISES });
   if (!advice) return null;
-  const mark = `${advice.nextKg}@${cycleInfo(sessions, profile.level, week.days).blockStart}`;
+  const mark = `${advice.nextKg}@${cycleInfo(sessions, profile, week.days).blockStart}`;
   if (dismissed === mark) return null;
 
   const notNow = () => {

@@ -1,5 +1,6 @@
 import { type EquipmentId, type RestrictionFlagId, withImplied } from './catalog';
-import type { BlockType, Exercise, UserProfile } from './schema';
+import { kettlebellLevel } from './experience';
+import type { BlockType, Exercise, UserProfile, LocalProfile } from './schema';
 
 // Peso sobre la cabeza o difícil de equilibrar: un exceso puede lesionar, así que no se pasa del sugerido.
 const LOAD_LIMITED_IDS = [
@@ -18,7 +19,7 @@ const DUMBBELL_MIN_RATIO = 0.6;
 type WeightProfile = Pick<
   UserProfile,
   'level' | 'kettlebellWeightsKg' | 'kettlebellPairsKg' | 'dumbbellWeightsKg' | 'dumbbellPairsKg'
->;
+> & { kettlebellExperience?: LocalProfile['kettlebellExperience'] };
 type Weighted = Pick<Exercise, 'id' | 'kettlebellCount' | 'kettlebellGuide' | 'dumbbellGuide'>;
 
 // Pesos que sirven para un ejercicio: con dos kettlebells o dos mancuernas, solo los que tiene repetidos.
@@ -29,7 +30,7 @@ export function weightsFor(e: Weighted, profile: WeightProfile) {
     return owned.filter((w) => w >= db.suggestedWeightKg[profile.level] * DUMBBELL_MIN_RATIO);
   }
   const owned = e.kettlebellCount === 2 ? profile.kettlebellPairsKg : profile.kettlebellWeightsKg;
-  const limit = e.kettlebellGuide?.suggestedWeightKg[profile.level];
+  const limit = e.kettlebellGuide?.suggestedWeightKg[kettlebellLevel(profile)];
   return LOAD_LIMITED_IDS.includes(e.id) && limit != null ? owned.filter((w) => w <= limit) : owned;
 }
 
@@ -41,7 +42,7 @@ const needsCheckedWeight = (e: Pick<Exercise, 'id' | 'kettlebellCount' | 'dumbbe
 const TOO_HEAVY_RATIO = 1.5;
 
 const tooHeavy = (e: Exercise, profile: WeightProfile) => {
-  const limit = e.kettlebellGuide?.suggestedWeightKg[profile.level];
+  const limit = e.kettlebellGuide?.suggestedWeightKg[kettlebellLevel(profile)];
   if (e.dumbbellGuide || limit == null || !e.equipment.required.includes('kettlebell')) return false;
   const owned = weightsFor(e, profile);
   return owned.length > 0 && Math.min(...owned) > limit * TOO_HEAVY_RATIO;

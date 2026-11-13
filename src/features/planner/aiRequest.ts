@@ -1,10 +1,17 @@
 import { equipmentAt, MEDICAL_CONDITIONS, RESTRICTION_FLAGS } from '@/domain/catalog';
+import { kettlebellLevel, usesKettlebell } from '@/domain/experience';
 import { trainingStamp } from '@/domain/profileStamp';
 import { zoneLabel } from '@/domain/checkIn';
 import { cycleGuide, cycleInfo, previousBlockExercises } from '@/domain/cycle';
 import { effortKind, effortNote } from '@/domain/effort';
 import { filterExercisesForUser } from '@/domain/filter';
-import { avoidedIds, legsRestIds, recentExerciseIds, weekLocks } from '@/domain/generator';
+import {
+  avoidedIds,
+  legsRestIds,
+  MAX_COMPLEXITY as KETTLEBELL_MAX_COMPLEXITY,
+  recentExerciseIds,
+  weekLocks,
+} from '@/domain/generator';
 import { wasTooHard } from '@/domain/progression';
 import { dayIntensity, unlockedA, focusGuide, strengthRole, weekFocus } from '@/domain/strength';
 import { leadPart, partBudgets, partCount } from '@/domain/timeBudget';
@@ -63,15 +70,22 @@ export function buildAiRequest(
     }
   }
   // En Fuerza solo entran patrones principales y los balísticos de la etapa alcanzada.
-  const cycle = cycleInfo(history, profile.level, week.days);
+  const cycle = cycleInfo(history, profile, week.days);
   const allowedA = unlockedA(cycle.stage);
   const fitsStrength = (e: Exercise) =>
     allowedA.includes(e.id) ||
     strengthRole(e) === 'B' ||
     (strengthRole(e) === 'C' && !e.restrictionFlags.includes('ballistic'));
   const resting = legsRestIds(exercises, history);
+  // Con la experiencia declarada, los ejercicios de kettlebell más difíciles que su manejo de la pesa
+  // ni siquiera se le ofrecen a la IA (las reglas aplican el mismo tope).
+  const tooTechnical = (e: Exercise) =>
+    !!profile.kettlebellExperience &&
+    usesKettlebell(e) &&
+    !allowedA.includes(e.id) &&
+    e.complexityLevel > KETTLEBELL_MAX_COMPLEXITY[kettlebellLevel(profile)];
   for (const e of exercises) {
-    if (!fitsStrength(e) || resting.includes(e.id)) allowed.get(e.id)?.delete('main_strength');
+    if (!fitsStrength(e) || resting.includes(e.id) || tooTechnical(e)) allowed.get(e.id)?.delete('main_strength');
   }
 
   const candidates = exercises
@@ -141,7 +155,7 @@ export function buildAiRequest(
   return {
     cycle: {
       ...cycle,
-      guide: cycleGuide(cycle, profile.level),
+      guide: cycleGuide(cycle, profile),
       previousBlockExercises: [...previousBlockExercises(history, cycle)],
       fixedByDay,
       // true: fixedByDay son solo las anclas del día; el resto de main_strength rota respecto de la semana pasada.
@@ -149,6 +163,8 @@ export function buildAiRequest(
     },
     profile: {
       level: profile.level,
+      // Condición física en "level"; manejo de la kettlebell aparte (null = no declarado, usar "level").
+      kettlebellExperience: profile.kettlebellExperience ?? null,
       sex: profile.sex,
       age: ageFrom(profile.birthDate),
       heightCm: profile.heightCm,

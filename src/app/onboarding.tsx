@@ -66,14 +66,14 @@ const STEPS: {
     Component: AboutStep,
     valid: (d: Draft) =>
       d.sex !== null &&
-      (!d.isNew || d.level !== null) &&
+      (!d.isNew || (d.level !== null && d.kbExperience !== null)) &&
       (!d.birthText || parseBirth(d.birthText) !== null) &&
       (!d.heightText || parseHeight(d.heightText) !== null),
   },
   {
     key: 'level',
     title: 'Tu nivel',
-    subtitle: 'Define la complejidad inicial de los ejercicios.',
+    subtitle: 'Tu condición física y tu manejo de la kettlebell, por separado.',
     Component: LevelStep,
     valid: (d: Draft) => d.level !== null,
     profileOnly: true, // la primera vez va junto a «Sobre ti»
@@ -146,6 +146,7 @@ function OnboardingForm() {
     healthAlerts: profile?.healthAlerts ?? null,
     healthAck: !!profile?.healthAlerts?.length,
     level: profile?.level ?? null,
+    kbExperience: profile?.kettlebellExperience ?? null,
     equipment: profile?.equipment ?? BASE_EQUIPMENT,
     parkEquipment: profile?.parkEquipment ?? [],
     kettlebellWeightsKg: profile?.kettlebellWeightsKg ?? [],
@@ -218,6 +219,7 @@ function OnboardingForm() {
         dumbbellPairsKg: draft.equipment.includes('dumbbells') ? draft.dumbbellPairsKg : [],
         conditions: draft.conditions,
         ...(draft.healthAlerts ? { healthAlerts: draft.healthAlerts } : {}),
+        ...(draft.kbExperience ? { kettlebellExperience: draft.kbExperience } : {}),
         sex: draft.sex,
         birthDate: parseBirth(draft.birthText),
         heightCm: parseHeight(draft.heightText),

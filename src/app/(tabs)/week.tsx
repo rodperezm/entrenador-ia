@@ -31,7 +31,7 @@ export default function WeekScreen() {
   const staleSet = plan ? staleDays(plan, week, trainingStamp(profile)) : new Set<string>();
   const stale = staleSet.size > 0;
   const activeDays = week.days.filter((d) => d.active).length;
-  const cycle = cycleInfo(sessions, profile.level, week.days);
+  const cycle = cycleInfo(sessions, profile, week.days);
   const preparing = cycle.preparation;
   const hasCurrentPlan = !!plan?.days.length && !(activeDays > 0 && isFromPastWeek(plan.generatedAt));
   const hasConditions = profile.conditions.length > 0;

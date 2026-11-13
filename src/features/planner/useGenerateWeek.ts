@@ -31,13 +31,13 @@ export function useGenerateWeek() {
       generatedAt: new Date().toISOString(),
       configHash: configHash(week, trainingStamp(profile)),
       dayHashes: dayHashes(week, trainingStamp(profile)),
-      cycleBlock: cycleInfo(sessions, profile.level, week.days).blockStart,
+      cycleBlock: cycleInfo(sessions, profile, week.days).blockStart,
     };
     // Misma semana: la Fuerza se conserva. Semana nueva del mismo ciclo: se conservan las anclas
     // (para medir el progreso) y el resto rota, para que la semana no sea una copia.
     const { lockedByDay, rotate } = weekLocks(plan, meta.cycleBlock, EXERCISES, week.days);
     // La preparación previa al lunes es técnica: la arman las reglas, sin gastar IA.
-    if (cycleInfo(sessions, profile.level, week.days).preparation) {
+    if (cycleInfo(sessions, profile, week.days).preparation) {
       const result = generateWeekByRules(week, profile, EXERCISES, sessions, Date.now(), lockedByDay, rotate);
       await savePlan({ ...result, ...meta, generator: 'rules' });
       setGenerating(false);

@@ -1,4 +1,5 @@
 import type { DayConfig, LocalProfile, WorkoutSession } from './schema';
+import { learningKettlebell, startStage, techniqueFirst } from './experience';
 import { techniqueStage } from './strength';
 import { dayDate } from './week';
 
@@ -57,12 +58,14 @@ export const setPlannedHistory = (byWeek: Record<string, number>) => {
 export const weekKey = (date = new Date()) => toIso(mondayOf(date));
 export const plannedThisWeek = (days: DayConfig[]) => strengthDayCount(days);
 
+// `who`: el perfil (condición y experiencia con kettlebell) o, por compatibilidad, solo el nivel.
 export function cycleInfo(
   history: WorkoutSession[],
-  level: LocalProfile['level'],
+  who: LocalProfile['level'] | Pick<LocalProfile, 'level' | 'kettlebellExperience'>,
   days: DayConfig[],
   today = new Date(),
 ): CycleInfo {
+  const person = typeof who === 'string' ? { level: who } : who;
   const dates = history.map((s) => Date.parse(s.finishedAt)).sort((a, b) => a - b);
   let start = dates[0] ?? today.getTime();
   dates.forEach((d, i) => {
@@ -94,9 +97,10 @@ export function cycleInfo(
   const blockIndex = Math.floor(position / 4);
   const weekIndex = position % 4;
   const blockStartMs = blockStarts.at(-1)!;
-  const stage = techniqueStage(history, level, blockStarts);
-  // El principiante sigue en Técnica hasta dominar el swing, o por dos bloques como máximo.
-  const staysOnTechnique = level === 'beginner' && stage < SWING_STAGE && blockIndex < BEGINNER_MAX_TECHNIQUE_BLOCKS;
+  const stage = techniqueStage(history, startStage(person), blockStarts);
+  // Quien está aprendiendo la kettlebell sigue en Técnica hasta dominar el swing, o por dos bloques como máximo.
+  const staysOnTechnique =
+    learningKettlebell(person) && stage < SWING_STAGE && blockIndex < BEGINNER_MAX_TECHNIQUE_BLOCKS;
   const phase = staysOnTechnique ? PHASES[0] : PHASES[blockIndex % PHASES.length];
   return {
     block: blockIndex + 1,
@@ -130,13 +134,14 @@ const DENSITY_FORMATS = [
   'una vuelta más con menos descanso',
 ];
 
-export function cycleGuide(cycle: CycleInfo, level: LocalProfile['level']) {
+export function cycleGuide(cycle: CycleInfo, who: Pick<LocalProfile, 'level' | 'kettlebellExperience'>) {
+  const level = who.level;
   const week = {
     1: 'Semana introductoria: aprender los ejercicios, una serie menos que el tope del nivel.',
     2: 'Semana base: sumar series, hasta el tope del nivel.',
     3:
-      level === 'beginner'
-        ? 'Semana de máxima intensidad para principiante: mismo peso, prioridad a la técnica; no subir carga.'
+      techniqueFirst(who)
+        ? 'Semana de máxima intensidad para quien está aprendiendo: mismo peso, prioridad a la técnica; no subir carga.'
         : 'Semana de máxima intensidad, la más exigente del ciclo: más peso o variante difícil; con una sola kettlebell, más tempo o menos descanso.',
     4: 'Semana de descarga: la mitad de las series, sin subir carga.',
   }[cycle.week];

@@ -1,4 +1,5 @@
 import { equipmentAt } from './catalog';
+import { usesKettlebell } from './experience';
 import { trainingStamp } from '@/domain/profileStamp';
 import type { CycleInfo } from './cycle';
 import { filterExercisesForUser, weightsFor } from './filter';
@@ -116,8 +117,11 @@ export function finisherOffer(input: OfferInput): FinisherOffer | null {
   const fits = (e: Exercise) =>
     e.complexityLevel <= MAX_COMPLEXITY && !painful.includes(e.id) && !hadPain(e.id, history);
   const byId = new Map(exercises.map((e) => [e.id, e]));
-  const planned = slots.map(({ key, slot }) => ({ key, slot, e: byId.get(slot.exerciseId) }));
-  if (planned.some(({ e }) => !e || !fits(e))) return null;
+  const all = slots.map(({ key, slot }) => ({ key, slot, e: byId.get(slot.exerciseId) }));
+  if (all.some(({ e }) => !e || !fits(e))) return null;
+  // Sin experiencia con kettlebell, el circuito va con el peso del cuerpo: apurarse con la pesa viene después.
+  const bodyOnly = profile.kettlebellExperience === 'none';
+  const planned = bodyOnly ? all.filter(({ e }) => !usesKettlebell(e!)) : all;
 
   const pool = filterExercisesForUser(
     exercises,
@@ -128,6 +132,7 @@ export function finisherOffer(input: OfferInput): FinisherOffer | null {
       strengthRole(e) === 'C' &&
       // Los accesorios de zona (aislados lentos) no van en un circuito.
       !isZoneAccessory(e) &&
+      !(bodyOnly && usesKettlebell(e)) &&
       fits(e) &&
       !isPerSide(e.id) &&
       !dayExerciseIds.includes(e.id) &&

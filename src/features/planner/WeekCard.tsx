@@ -18,7 +18,7 @@ export function WeekCard({ generating, onGenerate }: { generating: boolean; onGe
   const { sessions } = useHistory();
   if (!profile || !week.days.some((d) => d.active)) return null;
 
-  const cycle = cycleInfo(sessions, profile.level, week.days);
+  const cycle = cycleInfo(sessions, profile, week.days);
   const armed = !!plan?.days.length && !isFromPastWeek(plan.generatedAt);
 
   if (cycle.preparation) {

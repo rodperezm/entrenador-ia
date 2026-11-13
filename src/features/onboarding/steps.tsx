@@ -17,6 +17,7 @@ import {
   RESTRICTION_FLAGS,
   type RestrictionFlagId,
 } from '@/domain/catalog';
+import type { KettlebellExperience } from '@/domain/experience';
 import { filterExercisesForUser } from '@/domain/filter';
 import { CLOUD_BACKUP_READY } from '@/lib/cloudSync';
 import { BLOCK_LABELS } from '@/domain/labels';
@@ -44,7 +45,8 @@ export type Level = LocalProfile['level'];
 export type Draft = {
   displayName: string;
   disclaimerAccepted: boolean;
-  level: Level | null;
+  level: Level | null; // condición física
+  kbExperience: KettlebellExperience | null; // manejo de la kettlebell; null = no la ha declarado
   equipment: EquipmentId[];
   parkEquipment: EquipmentId[]; // lo que hay fijo en su parque
   kettlebellWeightsKg: number[];
@@ -217,8 +219,9 @@ export function AboutStep({ draft, update }: StepProps) {
       {/* Primera vez: lo opcional queda para Mi perfil y el nivel va aquí para ahorrar un paso. */}
       {draft.isNew ? (
         <>
-          <Text style={[styles.label, { marginTop: spacing.md }]}>Tu nivel</Text>
-          <LevelStep draft={draft} update={update} />
+          <View style={{ marginTop: spacing.md }}>
+            <LevelStep draft={draft} update={update} />
+          </View>
         </>
       ) : (
         <>
@@ -255,18 +258,31 @@ export function AboutStep({ draft, update }: StepProps) {
 // ---------- 3. Nivel ----------
 
 export const LEVELS: { id: Level; title: string; description: string }[] = [
-  { id: 'beginner', title: 'Principiante', description: 'Entreno poco o nunca he usado kettlebell.' },
+  { id: 'beginner', title: 'Principiante', description: 'Entreno poco, o hace tiempo que no entreno.' },
   {
     id: 'intermediate',
     title: 'Intermedio',
-    description: 'Entreno regularmente y conozco el swing y la sentadilla goblet.',
+    description: 'Hago ejercicio dos o más veces por semana hace varios meses.',
   },
-  { id: 'advanced', title: 'Avanzado', description: 'Domino la técnica de kettlebell y entreno hace más de un año.' },
+  { id: 'advanced', title: 'Avanzado', description: 'Llevo más de un año entrenando fuerza de forma constante.' },
+];
+
+// Aparte de la condición: un atleta que nunca usó kettlebell aprende la pesa desde el principio.
+export const KB_EXPERIENCE: { id: KettlebellExperience; title: string; description: string }[] = [
+  { id: 'none', title: 'Nunca la he usado', description: 'O muy poco. Partimos por la técnica básica.' },
+  {
+    id: 'basic',
+    title: 'Conozco lo básico',
+    description: 'Hago swing a dos manos y sentadilla goblet con buena técnica.',
+  },
+  { id: 'skilled', title: 'La domino', description: 'Hago swing a una mano, clean y press con seguridad.' },
 ];
 
 export function LevelStep({ draft, update }: StepProps) {
   return (
     <View style={styles.gap}>
+      <Text style={styles.label}>Tu condición física</Text>
+      <Text style={styles.hint}>Define cuánto trabajo haces: series, días y exigencia.</Text>
       {LEVELS.map((l) => (
         <OptionCard
           key={l.id}
@@ -274,6 +290,19 @@ export function LevelStep({ draft, update }: StepProps) {
           description={l.description}
           selected={draft.level === l.id}
           onPress={() => update({ level: l.id })}
+        />
+      ))}
+      <Text style={[styles.label, { marginTop: spacing.md }]}>Tu experiencia con kettlebell</Text>
+      <Text style={styles.hint}>
+        Define dónde partes con la pesa. Puedes estar en muy buena forma y aun así ser nuevo con la kettlebell.
+      </Text>
+      {KB_EXPERIENCE.map((k) => (
+        <OptionCard
+          key={k.id}
+          title={k.title}
+          description={k.description}
+          selected={draft.kbExperience === k.id}
+          onPress={() => update({ kbExperience: k.id })}
         />
       ))}
     </View>
@@ -742,7 +771,11 @@ export function SummaryStep({ draft }: StepProps) {
             `${d.short}: ${dayChoiceLabel(draft.weekChoices[d.id], draft.conditions.length > 0).toLowerCase()}${draft.gentleDays.includes(d.id) ? ' (fuerza suave)' : ''}`,
         ).join('\n')}
       />
-      <SummaryRow label="Nivel" value={LEVELS.find((l) => l.id === draft.level)?.title ?? '—'} />
+      <SummaryRow label="Condición física" value={LEVELS.find((l) => l.id === draft.level)?.title ?? '—'} />
+      <SummaryRow
+        label="Experiencia con kettlebell"
+        value={KB_EXPERIENCE.find((k) => k.id === draft.kbExperience)?.title ?? 'Sin responder'}
+      />
       <SummaryRow label="Equipamiento" value={draft.equipment.map((e) => EQUIPMENT[e]).join(', ')} />
       <SummaryRow
         label="En el parque"

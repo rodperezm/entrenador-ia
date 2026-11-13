@@ -276,8 +276,9 @@ export function sessionNeeds(power: boolean, dayIndex: number, focus: DayFocus =
 // Etapa del bloque A según el nivel y lo logrado en las sesiones anteriores. Se avanza solo al
 // cambiar de bloque, una etapa cada vez, para mantener los ejercicios fijos; el dolor retrocede al tiro.
 // `blockStarts` son los lunes en que empezó cada bloque, del primero al actual.
-export function techniqueStage(history: WorkoutSession[], level: Level, blockStarts: number[]) {
-  let stage = START_STAGE[level];
+// `start`: la etapa de partida (ver `startStage` en domain/experience) o, por compatibilidad, un nivel.
+export function techniqueStage(history: WorkoutSession[], start: Level | number, blockStarts: number[]) {
+  let stage = typeof start === 'number' ? start : START_STAGE[start];
   const oldestFirst = [...history].sort((a, b) => a.finishedAt.localeCompare(b.finishedAt));
   const current = blockStarts.length - 1;
   // -1 = antes del primer bloque (preparación), que también cuenta como bloque cerrado.

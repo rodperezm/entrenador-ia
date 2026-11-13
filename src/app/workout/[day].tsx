@@ -689,7 +689,7 @@ export default function WorkoutScreen() {
           profile,
           exercises: EXERCISES,
           history: sessions,
-          cycle: cycleInfo(sessions, profile.level, week.days),
+          cycle: cycleInfo(sessions, profile, week.days),
           advice: dayPlan.finisher,
         })
       : null;

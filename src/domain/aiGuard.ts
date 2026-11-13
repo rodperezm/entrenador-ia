@@ -1,4 +1,5 @@
 import { equipmentAt, MEDICAL_CONDITIONS } from './catalog';
+import { techniqueFirst } from './experience';
 import { type CycleInfo, cycleInfo } from './cycle';
 import { filterExercisesForUser, isUnsafeWeight } from './filter';
 import {
@@ -93,8 +94,8 @@ function limitLoad(proposed: ExerciseSlot, input: GuardInput): ExerciseSlot {
       limited.reps !== slot.reps || limited.durationSec !== slot.durationSec || limited.weightKg !== slot.weightKg;
     return changed ? { ...limited, rationale: safe.rationale } : slot;
   }
-  const { week } = cycleInfo(history, profile.level, input.days);
-  const noRaise = week === 4 || (week === 3 && profile.level === 'beginner');
+  const { week } = cycleInfo(history, profile, input.days);
+  const noRaise = week === 4 || (week === 3 && techniqueFirst(profile));
   const last = lastWeightOf(e.id, history);
   if (last == null || slot.weightKg == null || slot.weightKg <= last) return slot;
   if (!noRaise) {
@@ -229,7 +230,7 @@ function withinLimits(slot: ExerciseSlot, block: BlockType, input: GuardInput, c
 
 export function guardAiPlan(plan: GeneratedWeekPlan, input: GuardInput): GeneratedWeekPlan {
   const { days, profile, exercises, history, lockedByDay } = input;
-  const cycle = cycleInfo(history, profile.level, days);
+  const cycle = cycleInfo(history, profile, days);
   let restored = false;
   const zones = weekFocus(days);
   let rezoned = false;

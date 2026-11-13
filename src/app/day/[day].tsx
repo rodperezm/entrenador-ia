@@ -114,7 +114,7 @@ export default function DayScreen() {
     const isActive = (d: DayOfWeek) => nextWeek.days.some((w) => w.day === d && w.active);
     // Incluye la rutina actual del día para que la nueva prefiera ejercicios distintos.
     const others = (plan?.days ?? []).filter((p) => isActive(p.day));
-    const cycleBlock = cycleInfo(sessions, profile.level, week.days).blockStart;
+    const cycleBlock = cycleInfo(sessions, profile, week.days).blockStart;
     const locked =
       plan?.cycleBlock === cycleBlock && dayPlan?.location === next.location
         ? dayPlan.blocks.filter((b) => b.type === 'main_strength').flatMap((b) => b.slots.map((s) => s.exerciseId))
@@ -224,7 +224,7 @@ export default function DayScreen() {
                 profile,
                 exercises: EXERCISES,
                 intensity: cfg.blocks.main.enabled
-                  ? cycleInfo(sessions, profile.level, week.days).preparation
+                  ? cycleInfo(sessions, profile, week.days).preparation
                     ? 'light'
                     : dayIntensity(week.days, day, profile.level)
                   : null,
