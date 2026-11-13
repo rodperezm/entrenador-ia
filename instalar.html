@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e0f13">
+<meta name="description" content="Instala KETTAI en tu teléfono en un minuto. Elige iPhone o Android y sigue los pasos.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Instala KETTAI en tu teléfono">
+<meta property="og:description" content="Elige iPhone o Android y sigue los pasos. Toma un minuto.">
+<meta property="og:url" content="https://rodperezm.github.io/entrenador-ia/instalar.html">
+<meta property="og:image" content="https://rodperezm.github.io/entrenador-ia/icon-512.png">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Instala KETTAI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;500;600;700&display=swap">
+<style>
+/* Misma estructura que la guía del Tabata, con los colores de KETTAI */
+:root{
+  --bg:#0e0f13;
+  --surface:#1a1b22;
+  --line:#333644;
+  --fg:#f4f4f7;
+  --muted:#a7aab8;
+  --red:#ff5040;
+  --red-ink:#1b0705;
+  --lime:#cdd63c;
+  --display:"Bebas Neue","Arial Narrow",Impact,sans-serif;
+  --body:"Barlow","Segoe UI",system-ui,sans-serif;
+  color-scheme:dark;
+}
+html,body{background:var(--bg)}
+body{margin:0;font-family:var(--body);color:var(--fg);-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.app{max-width:480px;margin:0 auto;min-height:100%}
+.band{padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px))}
+
+/* Encabezado */
+.top{padding-block:22px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:12px}
+.brand img{width:48px;height:48px;border-radius:12px}
+.brand strong{font-family:var(--display);font-size:2.4rem;font-weight:400;letter-spacing:.03em;line-height:1}
+.brand small{display:block;font-size:.9rem;color:var(--muted);font-weight:500}
+
+/* Bloque principal */
+.hero{padding-block:30px 32px;text-align:center}
+.hero .label{font-family:var(--display);font-size:1.3rem;letter-spacing:.14em;color:var(--red);margin:0}
+.hero h1{font-family:var(--display);font-weight:400;font-size:clamp(3.1rem,15vw,4.4rem);line-height:.9;margin:.2em 0 .4em;text-wrap:balance}
+.cta{display:inline-flex;align-items:center;gap:14px;text-decoration:none;color:var(--red-ink);background:var(--red);border-radius:999px;padding:10px 26px 10px 10px}
+.cta .play{width:46px;height:46px;border-radius:50%;background:var(--red-ink);display:grid;place-items:center;flex:none}
+.cta .play svg{width:18px;height:18px;margin-left:3px}
+.cta span{font-family:var(--display);font-size:1.7rem;letter-spacing:.04em;line-height:1}
+.cta:focus-visible{outline:3px solid var(--lime);outline-offset:6px}
+.url{margin:24px auto 0;display:flex;align-items:center;gap:8px;max-width:100%;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:6px 6px 6px 14px}
+.url a{flex:1;min-width:0;color:var(--fg);font-weight:600;font-size:.95rem;text-align:left;overflow-wrap:anywhere;text-decoration:underline;text-decoration-color:var(--red);text-underline-offset:3px}
+.copy{flex:none;font-family:var(--display);font-size:1.05rem;letter-spacing:.08em;border:0;border-radius:10px;background:var(--lime);color:var(--red-ink);padding:9px 12px;cursor:pointer}
+.copy:focus-visible{outline:3px solid var(--red);outline-offset:2px}
+
+/* Aviso */
+.warn{background:var(--red);color:var(--red-ink);padding-block:20px 22px;text-align:center}
+.warn .k{font-family:var(--display);font-size:2.4rem;line-height:1;letter-spacing:.03em;margin:0}
+.warn p{margin:.35em auto 0;max-width:34ch;font-size:1rem;line-height:1.4;font-weight:500}
+
+/* Pasos */
+.steps{padding-block:30px 10px}
+.steps h2{font-family:var(--display);font-weight:400;font-size:1.5rem;letter-spacing:.14em;color:var(--muted);margin:0 0 18px}
+ol{list-style:none;margin:0;padding:0;display:grid;gap:14px}
+li{display:grid;grid-template-columns:64px 1fr;gap:14px;align-items:center;background:var(--surface);border-radius:18px;padding:14px 16px 14px 10px}
+.n{font-family:var(--display);font-size:3.6rem;line-height:.8;text-align:center;padding-top:6px}
+li:nth-child(odd) .n{color:var(--red)}
+li:nth-child(even) .n{color:var(--lime)}
+.t{min-width:0}
+.t b{display:block;font-family:var(--display);font-weight:400;font-size:1.55rem;letter-spacing:.03em;line-height:1.05}
+.t p{margin:.25em 0 0;color:var(--muted);font-size:.98rem;line-height:1.4}
+.t em{font-style:normal;color:var(--fg);font-weight:600}
+.ico{display:inline-grid;place-items:center;vertical-align:-5px;width:22px;height:22px;border-radius:6px;background:var(--bg);margin:0 2px}
+.ico svg{width:14px;height:14px}
+
+/* Notas */
+.notes{padding-block:24px 4px;display:grid;gap:12px}
+.note{border:1px solid var(--line);border-radius:16px;padding:16px}
+.note b{display:block;font-family:var(--display);font-weight:400;font-size:1.35rem;letter-spacing:.04em;color:var(--lime)}
+.note p{margin:.3em 0 0;color:var(--muted);font-size:.96rem;line-height:1.45}
+.note em{font-style:normal;color:var(--fg);font-weight:600}
+.other{margin:18px 0 0;text-align:center;color:var(--muted);font-size:.98rem}
+.other a{color:var(--fg);font-weight:600;text-decoration-color:var(--red);text-underline-offset:3px}
+
+/* Pie */
+.foot{padding-block:24px 34px;display:flex;justify-content:center}
+.done{display:flex;align-items:center;gap:12px;border:1.5px solid var(--lime);color:var(--fg);border-radius:999px;padding:10px 20px}
+.done img{width:26px;height:26px;border-radius:6px}
+.done span{font-family:var(--display);font-size:1.25rem;letter-spacing:.06em;line-height:1.1}
+
+/* Selector de teléfono */
+.pick{padding-block:22px 4px;text-align:center}
+.pick p{font-family:var(--display);font-size:1.3rem;letter-spacing:.14em;color:var(--muted);margin:0 0 12px}
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:6px}
+.tab{font-family:var(--display);font-size:1.7rem;letter-spacing:.05em;line-height:1;border:0;border-radius:999px;background:transparent;color:var(--muted);padding:14px 8px;cursor:pointer}
+.tab[aria-selected="true"]{background:var(--lime);color:var(--red-ink)}
+.tab:focus-visible{outline:3px solid var(--red);outline-offset:2px}
+.os[hidden]{display:none}
+.pitch{margin:0 auto 1.4em;max-width:32ch;color:var(--muted);font-size:1.05rem;line-height:1.45}
+.tab#tab-iphone[aria-selected="true"]{background:var(--red)}
+.inside{padding-block:28px 20px}
+.inside h2{font-family:var(--display);font-weight:400;font-size:1.5rem;letter-spacing:.14em;color:var(--muted);margin:0 0 16px}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.card{border-radius:18px;padding:16px;min-height:108px}
+.card b{display:block;font-family:var(--display);font-weight:400;font-size:1.5rem;letter-spacing:.03em;line-height:1.02}
+.card p{margin:.45em 0 0;font-size:.92rem;line-height:1.35}
+.card em{font-style:normal;font-weight:700}
+.c-red{background:var(--red);color:var(--red-ink)}
+.c-blue{background:#16324a;color:#cfe6f7}.c-blue p{color:#9cc4e4}
+.c-green{background:#12382a;color:#d3f3e1}.c-green p{color:#8fd9b0}
+.c-violet{background:#2b2440;color:#e2dbf7}.c-violet p{color:#bdb5e6}
+.share{padding-block:8px 0;display:flex;justify-content:center}
+.share a{display:inline-flex;align-items:center;gap:10px;text-decoration:none;font-family:var(--display);font-size:1.3rem;letter-spacing:.06em;color:var(--fg);border:1.5px solid var(--line);border-radius:999px;padding:12px 22px}
+.share a:focus-visible{outline:3px solid var(--lime);outline-offset:4px}
+</style>
+</head>
+<body>
+
+<main class="app">
+  <header class="top band">
+    <div class="brand">
+      <img src="icon-192.png" alt="" width="48" height="48">
+      <div><strong>KETTAI</strong><small>Tu entrenador de fuerza</small></div>
+    </div>
+  </header>
+
+  <section class="hero band">
+    <p class="label">ESTÁS INVITADO A PROBARLA</p>
+    <h1>TU ENTRENADOR DE FUERZA</h1>
+    <p class="pitch">Una kettlebell, tu cuerpo y 30 minutos. KETTAI arma tu semana, cuida lo que duele y te guía serie a serie. Se instala en un minuto y es gratis.</p>
+    <a class="cta" href="https://rodperezm.github.io/entrenador-ia/" target="_blank" rel="noopener">
+      <i class="play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 3l16 9-16 9z" fill="var(--red)"/></svg></i>
+      <span>ABRIR KETTAI</span>
+    </a>
+    <div class="url">
+      <a id="link" href="https://rodperezm.github.io/entrenador-ia/" target="_blank" rel="noopener">rodperezm.github.io/entrenador-ia/</a>
+      <button class="copy" id="copy" type="button">COPIAR</button>
+    </div>
+  </section>
+
+  <section class="pick band">
+    <p id="pick-label">¿QUÉ TELÉFONO TIENES?</p>
+    <div class="tabs" role="tablist" aria-labelledby="pick-label">
+      <button class="tab" role="tab" id="tab-iphone" aria-controls="os-iphone" aria-selected="true" type="button">IPHONE</button>
+      <button class="tab" role="tab" id="tab-android" aria-controls="os-android" aria-selected="false" type="button">ANDROID</button>
+    </div>
+  </section>
+
+  <div class="os" id="os-iphone" role="tabpanel" aria-labelledby="tab-iphone">
+  <section class="warn band">
+    <p class="k">ÁBRELA EN SAFARI</p>
+    <p>En iPhone solo Safari instala páginas como apps. Si el enlace se abre dentro de WhatsApp, cópialo y pégalo en Safari.</p>
+  </section>
+
+  <section class="steps band">
+    <h2>INSTALAR EN IPHONE</h2>
+    <ol>
+      <li><div class="n">1</div><div class="t"><b>Abre el enlace en Safari</b><p>Toca <em>Abrir KETTAI</em> o pega el enlace en Safari.</p></div></li>
+      <li><div class="n">2</div><div class="t"><b>Toca compartir</b><p>Es el cuadrado con la flecha hacia arriba <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="var(--lime)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5M6 11H5v10h14V11h-1"/></svg></span></p></div></li>
+      <li><div class="n">3</div><div class="t"><b>Toca “Ver más”</b><p>Si no ves la opción del paso 4, desliza hacia abajo o toca <em>Ver más</em> <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span></p></div></li>
+      <li><div class="n">4</div><div class="t"><b>Agregar a pantalla de inicio</b><p>Elige esa opción y confirma con <em>“Agregar”</em>.</p></div></li>
+    </ol>
+  </section>
+
+  <section class="notes band">
+    <div class="note">
+      <b>Siempre desde el ícono</b>
+      <p>Abre KETTAI desde el ícono de tu pantalla. Así ocupa toda la pantalla y tus datos quedan en un solo lugar.</p>
+    </div>
+    <div class="note">
+      <b>¿Ya la usabas en Safari?</b>
+      <p>En iPhone, la app instalada guarda sus datos aparte de Safari. Para llevar tu historial, activa <em>Cuenta y respaldo</em> en Safari y luego entra con <em>Ya tengo cuenta</em> en la app instalada.</p>
+    </div>
+    <div class="note">
+      <b>Para ver lo nuevo</b>
+      <p>Cuando haya una versión nueva, KETTAI te avisa con un botón <em>Actualizar</em>. Si no aparece, ciérrala por completo y vuelve a abrirla.</p>
+    </div>
+  </section>
+  </div>
+
+  <div class="os" id="os-android" role="tabpanel" aria-labelledby="tab-android">
+  <section class="warn band">
+    <p class="k">ÁBRELA EN CHROME</p>
+    <p>Usa Chrome para instalarla. Si el enlace se abre dentro de WhatsApp u otra app, ábrelo en Chrome.</p>
+  </section>
+
+  <section class="steps band">
+    <h2>INSTALAR EN ANDROID</h2>
+    <ol>
+      <li><div class="n">1</div><div class="t"><b>Abre el enlace en Chrome</b><p>Toca <em>Abrir KETTAI</em> o pega el enlace en Chrome.</p></div></li>
+      <li><div class="n">2</div><div class="t"><b>Toca el menú</b><p>Son los tres puntos arriba a la derecha <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="var(--lime)"><circle cx="12" cy="5" r="2.2"/><circle cx="12" cy="12" r="2.2"/><circle cx="12" cy="19" r="2.2"/></svg></span></p></div></li>
+      <li><div class="n">3</div><div class="t"><b>Agregar a la pantalla principal</b><p>Según tu teléfono, puede decir <em>“Instalar app”</em> o <em>“Instalar y crear acceso directo”</em>. Es la misma opción.</p></div></li>
+      <li><div class="n">4</div><div class="t"><b>Elige “Instalar”</b><p>Si te da a elegir entre <em>Instalar</em> y <em>Crear acceso directo</em>, elige <em>Instalar</em> y confirma.</p></div></li>
+      <li><div class="n">5</div><div class="t"><b>Ábrela desde el ícono</b><p>Crea tu cuenta con tu correo: te llega un código, sin contraseña. Estamos en etapa de prueba, así que aprobamos cada cuenta antes de que entres.</p></div></li>
+    </ol>
+  </section>
+
+  <section class="notes band">
+    <div class="note">
+      <b>Siempre desde el ícono</b>
+      <p>Abre KETTAI desde el ícono de tu pantalla. Así ocupa toda la pantalla y tus datos quedan en un solo lugar.</p>
+    </div>
+    <div class="note">
+      <b>¿Tu teléfono es Samsung?</b>
+      <p>Si el enlace se abre en <em>Internet de Samsung</em>, cópialo con el botón <em>Copiar</em> y pégalo en Chrome. Los pasos de esta guía son los de Chrome.</p>
+    </div>
+    <div class="note">
+      <b>Si Chrome te ofrece instalarla</b>
+      <p>Puede aparecer un aviso abajo para <em>Instalar</em>. También sirve: acéptalo y listo.</p>
+    </div>
+    <div class="note">
+      <b>Para ver lo nuevo</b>
+      <p>Cuando haya una versión nueva, KETTAI te avisa con un botón <em>Actualizar</em>. Si no aparece, ciérrala por completo y vuelve a abrirla.</p>
+    </div>
+  </section>
+  </div>
+
+  <section class="inside band">
+    <h2>QUÉ VAS A ENCONTRAR</h2>
+    <div class="cards">
+      <div class="card c-red"><b>TU SEMANA A TU MEDIDA</b><p>Según tus días, tu equipo y tus lesiones.</p></div>
+      <div class="card c-blue"><b>RUTINAS RÁPIDAS</b><p>5 minutos para estirar cuando el cuerpo lo pide.</p></div>
+      <div class="card c-green"><b>TU PROGRESO</b><p>Constancia, fuerza y cómo responde tu cuerpo.</p></div>
+      <div class="card c-violet"><b>TU OPINIÓN CUENTA</b><p>En el menú, <em>Tu comentario</em>: dime qué falló o qué no se entendió.</p></div>
+    </div>
+  </section>
+
+  <section class="share band">
+    <a id="share" href="https://wa.me/?text=" target="_blank" rel="noopener">COMPARTIR POR WHATSAPP</a>
+  </section>
+
+  <footer class="foot band">
+    <div class="done">
+      <img src="icon-192.png" alt="" width="26" height="26">
+      <span>EL ÍCONO QUEDA EN TU PANTALLA</span>
+    </div>
+  </footer>
+</main>
+
+<script>
+(function(){
+  var app='https://rodperezm.github.io/entrenador-ia/';
+  // Selector: parte en el teléfono que detecta, o en el que diga el enlace (#iphone / #android).
+  var names=['iphone','android'];
+  function show(os){
+    names.forEach(function(n){
+      document.getElementById('os-'+n).hidden=n!==os;
+      document.getElementById('tab-'+n).setAttribute('aria-selected',String(n===os));
+    });
+  }
+  var asked=location.hash.replace('#','');
+  show(names.indexOf(asked)>=0?asked:(/android/i.test(navigator.userAgent)?'android':'iphone'));
+  names.forEach(function(n){
+    document.getElementById('tab-'+n).addEventListener('click',function(){show(n);try{history.replaceState(null,'','#'+n)}catch(e){}});
+  });
+  document.getElementById('copy').addEventListener('click',function(){
+    var b=this;
+    function ok(){b.textContent='COPIADO';setTimeout(function(){b.textContent='COPIAR'},1800)}
+    function fallback(){var r=document.createRange();r.selectNodeContents(document.getElementById('link'));var s=getSelection();s.removeAllRanges();s.addRange(r)}
+    try{navigator.clipboard.writeText(app).then(ok,fallback)}catch(e){fallback()}
+  });
+  var guide=app+'instalar.html';
+  document.getElementById('share').href='https://wa.me/?text='+encodeURIComponent('Estoy probando KETTAI, un entrenador de fuerza con kettlebell. Se instala en un minuto, en iPhone o Android: '+guide);
+})();
+</script>
+</body>
+</html>
