@@ -1,0 +1,21 @@
+{
+  "_": "Dónde se publica la app. Cada destino dice su dirección, qué base de datos usa (archivo de claves públicas), si es de pruebas y si avisa de una mudanza. Lo lee tools/publicar/publicar.cjs. Ver VERSIONES.md.",
+  "github": {
+    "nombre": "GitHub (dirección original)",
+    "direccion": "https://rodperezm.github.io/entrenador-ia/",
+    "baseUrl": "/entrenador-ia",
+    "claves": ".env",
+    "papel": "produccion",
+    "mudanza": "",
+    "publicar": "gh-pages"
+  },
+  "kettaiapp": {
+    "nombre": "kettaiapp.com (producción futura)",
+    "direccion": "https://app.kettaiapp.com/",
+    "baseUrl": "",
+    "claves": ".env",
+    "papel": "produccion",
+    "mudanza": "",
+    "publicar": "cloudflare:kettai-app"
+  }
+}

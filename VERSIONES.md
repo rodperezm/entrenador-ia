@@ -33,6 +33,16 @@ quien programa: es el mismo texto, ordenado según quién lo necesita.
 2. **Qué cambia por dentro.** Qué partes se tocaron (app, base de datos, función de la IA, panel, página) y por qué.
 3. **Notas para quien siga el trabajo.** Lo que no se deduce del código: decisiones tomadas, trampas encontradas, lo que quedó a medias y qué cuidado pide volver atrás. Es la parte pensada para Claude Code o para un desarrollador que llegue después.
 
+## Dónde se publica
+
+Los destinos están en `ambientes.json`: cada uno dice su dirección, qué base de datos usa, si es de pruebas (muestra una franja «PRUEBAS») y si avisa de una mudanza (muestra «KETTAI se muda a…» en Hoy).
+
+- `npm run deploy`: publica en la dirección de GitHub.
+- `npm run deploy:kettaiapp`: publica en app.kettaiapp.com (todavía no está abierta).
+- Agregar `--solo-armar` al comando de `tools/publicar/publicar.cjs` deja la carpeta lista sin publicar.
+
+Plan de ambientes: la dirección de GitHub pasará a ser pruebas, con su propia base, y app.kettaiapp.com será producción. Hasta entonces las dos usan la base actual.
+
 ## Cómo se vuelve a una versión anterior
 
 - **App:** publicar de nuevo desde la marca de esa versión (`git checkout v1.1.0`, publicar y volver a la rama de trabajo). Los teléfonos la toman en unos 15 minutos.

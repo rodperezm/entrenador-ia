@@ -46,5 +46,5 @@ const styles = StyleSheet.create({
   },
   title: { color: colors.text, fontSize: 16, fontWeight: '800' },
   body: { color: colors.textMuted, fontSize: 14, lineHeight: 20 },
-  actions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs },
+  actions: { gap: spacing.sm, marginTop: spacing.xs },
 });
