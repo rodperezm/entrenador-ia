@@ -146,12 +146,14 @@
       <button role="tab" data-tab="usuarios" aria-selected="false">Usuarios</button>
       <button role="tab" data-tab="metodo" aria-selected="false">Método</button>
       <button role="tab" data-tab="negocio" aria-selected="false">Negocio</button>
+      <button role="tab" data-tab="reportes" aria-selected="false">Reportes</button>
       <button role="tab" data-tab="documentos" aria-selected="false">Documentos</button>
     </nav>
 
     <div id="tab-hoy">
       <div class="hero" id="hero"></div>
       <h2>Requiere tu atención</h2>
+      <div class="alerts" id="reportAlert" style="margin-bottom:8px"></div>
       <div class="alerts" id="alerts"></div>
       <h2>Uso</h2>
       <div class="lists">
@@ -208,6 +210,12 @@
       <div class="row" style="margin-top:12px"><button id="saveSettings">Guardar ajustes</button></div>
     </div>
 
+    <div id="tab-reportes" class="hidden">
+      <p class="muted" style="max-width:640px">Errores que ocurrieron en la app de alguien y comentarios que enviaron. No incluyen entrenamientos ni datos de salud.</p>
+      <div class="chips" id="reportFilters" style="margin-top:16px"></div>
+      <div class="users" id="reports"></div>
+    </div>
+
     <div id="tab-documentos" class="hidden">
       <div class="docs">
         <a class="card doc" href="/Panel/metodo" target="_blank" rel="noopener">
@@ -227,7 +235,7 @@
   const SUPABASE_URL = 'https://uzehvdheatciusnhfyjr.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_yYM3d_2uI9j80fws4tDKoQ_U5i3k7Fb';
   const CODE_LENGTH = 8;
-  const TABS = ['hoy', 'usuarios', 'metodo', 'negocio', 'documentos'];
+  const TABS = ['hoy', 'usuarios', 'metodo', 'negocio', 'reportes', 'documentos'];
   const DAY = 864e5;
   // Umbrales de las alertas: sobre o bajo esto, el panel lo pone arriba.
   const PAIN_MAX = 15, TOO_MUCH_MAX = 25, STICK_MIN = 50, W2_MIN = 40, W4_MIN = 25, INACTIVE_DAYS = 14;
@@ -246,6 +254,8 @@
   let config = null;
   let users = [];
   let filter = 'todos';
+  let reports = null; // null = la base aún no tiene los reportes (migración 0006)
+  let reportFilter = 'abiertos';
 
   // ---------- Entrar ----------
   $('send').onclick = async () => {
@@ -304,6 +314,10 @@
     renderMetrics(m.data);
     renderUsers();
     renderPrices();
+    // Los reportes se piden aparte: si la base aún no los tiene, el resto del panel funciona igual.
+    const r = await sb.rpc('admin_reports', { max_rows: 200 });
+    reports = r.error ? null : r.data;
+    renderReports();
     $('updated').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
   }
 
@@ -481,6 +495,55 @@
     });
   }
   $('search').oninput = renderUsers;
+
+  // ---------- Reportes ----------
+  const REPORT_GROUPS = {
+    abiertos: { label: 'Por revisar', test: (r) => !r.resolved },
+    errores: { label: 'Errores', test: (r) => r.kind === 'error' },
+    comentarios: { label: 'Comentarios', test: (r) => r.kind === 'feedback' },
+    todos: { label: 'Todos', test: () => true },
+  };
+  function renderReports() {
+    // Aviso en «Hoy»: errores y comentarios que nadie ha revisado.
+    const open = (reports || []).filter((r) => !r.resolved);
+    const errors = open.filter((r) => r.kind === 'error').length;
+    const notes = open.length - errors;
+    const parts = [errors && `${errors} ${errors === 1 ? 'error' : 'errores'}`, notes && `${notes} ${notes === 1 ? 'comentario' : 'comentarios'}`].filter(Boolean);
+    $('reportAlert').innerHTML = parts.length
+      ? `<div class="alert"><i></i><span>${parts.join(' y ')} sin revisar</span><button class="ghost" id="goReports">Ver reportes</button></div>`
+      : '';
+    if (parts.length) $('goReports').onclick = () => { reportFilter = 'abiertos'; renderReports(); openTab('reportes'); };
+    if (reports === null) {
+      $('reportFilters').innerHTML = '';
+      $('reports').innerHTML = '<p class="muted" style="padding:14px 0; margin:0">Los reportes aún no están activados en la base.</p>';
+      return;
+    }
+    $('reportFilters').innerHTML = Object.entries(REPORT_GROUPS).map(([id, g]) =>
+      `<button data-rfilter="${id}" aria-pressed="${id === reportFilter}">${g.label} · ${reports.filter(g.test).length}</button>`).join('');
+    $('reportFilters').querySelectorAll('[data-rfilter]').forEach((b) => b.onclick = () => { reportFilter = b.dataset.rfilter; renderReports(); });
+    const when = (d) => new Date(d).toLocaleString('es-CL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    const list = reports.filter(REPORT_GROUPS[reportFilter].test);
+    $('reports').innerHTML = list.map((r) => {
+      const c = r.context || {};
+      const meta = [r.email || 'sin correo', when(r.created_at), c.screen, c.version && 'v' + c.version, c.platform].filter(Boolean).map(esc).join(' · ');
+      return `<div class="user" data-report="${r.id}" style="grid-template-columns: minmax(0, 1fr) auto; align-items: start">
+        <div><span class="pill ${r.kind === 'error' ? 'vip' : 'pay'}">${r.kind === 'error' ? 'Error' : 'Comentario'}</span>
+          <strong style="display:block; margin-top:6px; white-space:pre-wrap">${esc(r.message)}</strong>
+          <small>${meta}</small>
+          ${c.stack ? `<details style="margin-top:6px"><summary class="small muted">Detalle técnico</summary><pre class="small muted" style="white-space:pre-wrap; overflow-wrap:anywhere; margin:6px 0 0">${esc(c.stack)}</pre></details>` : ''}</div>
+        <button class="ghost" data-resolve="${r.resolved ? '0' : '1'}" style="padding:4px 12px; font-size:13px">${r.resolved ? 'Reabrir' : 'Revisado'}</button>
+      </div>`;
+    }).join('') || '<p class="muted" style="padding:14px 0; margin:0">Nada en este grupo.</p>';
+    $('reports').querySelectorAll('[data-resolve]').forEach((b) => b.onclick = async () => {
+      b.disabled = true;
+      const id = Number(b.closest('[data-report]').dataset.report);
+      const { error } = await sb.rpc('admin_resolve_report', { report_id: id, is_resolved: b.dataset.resolve === '1' });
+      if (error) { toast('No se pudo guardar'); console.error(error); b.disabled = false; return; }
+      const row = reports.find((r) => r.id === id);
+      if (row) row.resolved = b.dataset.resolve === '1';
+      renderReports();
+    });
+  }
 
   // ---------- Precios y ajustes ----------
   function renderPrices() {

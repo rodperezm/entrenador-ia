@@ -10,6 +10,7 @@ import { HistoryProvider } from '@/state/history';
 import { PlanProvider } from '@/state/plan';
 import { ProfileProvider } from '@/state/profile';
 import { SyncProvider } from '@/state/sync';
+import { listenForErrors } from '@/lib/report';
 import { colors, display } from '@/theme';
 
 // Si una pantalla falla, se muestra este aviso en vez de quedar en blanco.
@@ -25,6 +26,8 @@ export default function RootLayout() {
     const timer = setTimeout(() => setWaited(true), FONT_WAIT_MS);
     return () => clearTimeout(timer);
   }, []);
+  // Los errores que no llegan a una pantalla también se nos reportan.
+  useEffect(listenForErrors, []);
   // Se espera la letra para que los títulos no aparezcan primero con otra y salten.
   if (!fontsLoaded && !fontError && !waited) return <LoadingScreen />;
 
@@ -49,6 +52,7 @@ export default function RootLayout() {
                   <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                   <Stack.Screen name="onboarding" options={{ title: '' }} />
                   <Stack.Screen name="profile" options={{ title: 'Mi perfil' }} />
+                  <Stack.Screen name="feedback" options={{ title: 'Tu comentario' }} />
                   <Stack.Screen name="day/[day]" options={{ title: '' }} />
                   <Stack.Screen name="exercise/[id]" options={{ title: '' }} />
                   <Stack.Screen name="workout/[day]" options={{ headerShown: false, gestureEnabled: false }} />

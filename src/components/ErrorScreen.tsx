@@ -1,7 +1,9 @@
 import * as Linking from 'expo-linking';
 import { type ErrorBoundaryProps, router } from 'expo-router';
+import { useEffect } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui';
+import { reportError } from '@/lib/report';
 import { colors, display, spacing } from '@/theme';
 
 // Lo que se ve si una pantalla falla: en vez de quedar en blanco, explica y deja salir.
@@ -16,8 +18,11 @@ export function ErrorScreen({ error, retry }: ErrorBoundaryProps) {
     router.replace('/');
     setTimeout(() => void retry(), 50);
   };
-  // El detalle queda en la consola para poder revisarlo; a la persona no le sirve.
-  console.error('Pantalla con error:', error);
+  // El detalle no le sirve a la persona: queda en la consola y se nos envía para poder corregirlo.
+  useEffect(() => {
+    console.error('Pantalla con error:', error);
+    reportError(error, 'screen');
+  }, [error]);
 
   return (
     <View style={styles.screen}>

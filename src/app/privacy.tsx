@@ -20,6 +20,10 @@ const SECTIONS = [
     body: 'Los videos se reproducen desde YouTube. Al abrir un ejercicio, YouTube recibe datos técnicos de tu conexión, como tu dirección IP. No le enviamos tu perfil ni tus datos de salud.',
   },
   {
+    title: 'Errores y comentarios',
+    body: 'Si la app falla, nos llega un aviso automático con el error, la pantalla donde ocurrió, la versión de la app y el tipo de teléfono, para poder corregirlo. También nos llega lo que escribas en «Enviar un comentario». Ninguno de los dos incluye tus entrenamientos ni tus datos de salud.',
+  },
+  {
     title: 'Para qué los usamos',
     body: 'Solo para armar y ajustar tu entrenamiento y mantener tu historial. No vendemos tus datos.',
   },
