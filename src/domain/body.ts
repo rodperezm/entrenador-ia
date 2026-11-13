@@ -184,3 +184,55 @@ export function parseBody(json: unknown): Parsed<StoredBody> | null {
   const f = list(folds, FoldRecord);
   return { value: { records: r.value, folds: f.value }, dropped: r.dropped + f.dropped };
 }
+
+// ---------- Lo último de cada medida ----------
+
+export const TAPE_KEYS = ['weightKg', 'chestCm', 'waistCm', 'abdomenCm', 'hipCm'] as const;
+export type TapeKey = (typeof TAPE_KEYS)[number];
+export type LatestValue = { value: number; date: string; prev: number | null; prevDate: string | null };
+
+// Cada medida se registra cuando la persona quiere: el peso puede ir solo, sin cinta. Por eso lo
+// «último» se busca medida por medida (el registro más reciente que la trae) y no en un solo registro.
+export function latestBody(records: TapeRecord[]): Record<TapeKey, LatestValue | null> {
+  const byDate = [...records].sort((a, b) => b.date.localeCompare(a.date));
+  const out = {} as Record<TapeKey, LatestValue | null>;
+  for (const key of TAPE_KEYS) {
+    const withValue = byDate.filter((r) => r[key] != null);
+    const [cur, prev] = withValue;
+    out[key] = cur
+      ? { value: cur[key] as number, date: cur.date, prev: (prev?.[key] as number | undefined) ?? null, prevDate: prev?.date ?? null }
+      : null;
+  }
+  return out;
+}
+
+// Un registro armado con lo último de cada medida, para calcular los índices.
+export const latestRecord = (latest: Record<TapeKey, LatestValue | null>): TapeRecord => ({
+  id: '',
+  date: TAPE_KEYS.map((k) => latest[k]?.date ?? '').sort().pop() ?? '',
+  weightKg: latest.weightKg?.value ?? null,
+  chestCm: latest.chestCm?.value ?? null,
+  waistCm: latest.waistCm?.value ?? null,
+  abdomenCm: latest.abdomenCm?.value ?? null,
+  hipCm: latest.hipCm?.value ?? null,
+});
+
+// Los últimos pesos, del más antiguo al más reciente, para el gráfico.
+export const weightSeries = (records: TapeRecord[], max = 8) =>
+  [...records]
+    .filter((r) => r.weightKg != null)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(-max)
+    .map((r) => ({ date: r.date, kg: r.weightKg as number }));
+
+// Guardar un dato sobre lo que ya había ese día: no crea un segundo registro de la misma fecha.
+export function mergeIntoDay(
+  records: TapeRecord[],
+  date: string,
+  values: Partial<Record<TapeKey, number | null>>,
+): Omit<TapeRecord, 'id'> & { id?: string } {
+  const same = records.find((r) => r.date === date);
+  const base = same ?? { date, weightKg: null, chestCm: null, waistCm: null, abdomenCm: null, hipCm: null };
+  const filled = Object.fromEntries(Object.entries(values).filter(([, v]) => v != null));
+  return { ...base, ...filled };
+}

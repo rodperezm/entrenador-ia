@@ -13,6 +13,7 @@ import {
   FOLD_SITES,
   fmtNum,
   LIGHT_LABEL,
+  mergeIntoDay,
   todayISO,
 } from '@/domain/body';
 import { DateField } from '@/components/DateField';
@@ -41,8 +42,10 @@ type TapeKey = (typeof TAPE_FIELDS)[number]['key'];
 export default function NewBodyRecord() {
   const { type } = useLocalSearchParams<{ type: string }>();
   const folds = type === 'folds';
+  // Solo el peso: el registro rápido, sin cinta.
+  const onlyWeight = type === 'weight';
   const { profile } = useProfile();
-  const { saveRecord, saveFold } = useBody();
+  const { records, saveRecord, saveFold } = useBody();
   const [date, setDate] = useState(todayISO());
   const [tape, setTape] = useState<Record<TapeKey, string>>({
     weightKg: '',
@@ -52,6 +55,7 @@ export default function NewBodyRecord() {
     hipCm: '',
   });
   const [takes, setTakes] = useState<Record<string, string[]>>({});
+  const [foldWeight, setFoldWeight] = useState('');
 
   // La fecha del registro no puede ser futura.
   const recordDate = date <= todayISO() ? date : null;
@@ -72,6 +76,7 @@ export default function NewBodyRecord() {
     TapeKey,
     number | null
   >;
+  const fields = onlyWeight ? TAPE_FIELDS.filter((f) => f.key === 'weightKg') : TAPE_FIELDS;
   const tapeValid = TAPE_FIELDS.every((f) => inRange(values[f.key], f.min, f.max));
   const anyTape = TAPE_FIELDS.some((f) => values[f.key] != null);
   const preview = calcIndices({ id: '', date: recordDate ?? todayISO(), ...values }, profile?.heightCm ?? null);
@@ -87,19 +92,33 @@ export default function NewBodyRecord() {
     ? bodyFat({ id: '', date: recordDate ?? todayISO(), sex, sites: siteValues }, profile?.birthDate ?? null)
     : null;
 
-  const canSave = !!recordDate && (folds ? foldsValid && allSites : tapeValid && anyTape);
+  // Con pliegues el peso es obligatorio: sin él no se pueden calcular los kilos de grasa y de masa magra.
+  // Si ese día ya se registró el peso, se usa ese y basta con confirmarlo.
+  const sameDayWeight = records.find((r) => r.date === recordDate)?.weightKg ?? null;
+  const typedWeight = num(foldWeight);
+  const weightForFolds = typedWeight ?? sameDayWeight;
+  const foldWeightValid = inRange(typedWeight, 20, 400);
+
+  const canSave =
+    !!recordDate &&
+    (folds ? foldsValid && allSites && foldWeightValid && weightForFolds != null : tapeValid && anyTape);
 
   const save = () => {
     if (!recordDate) return;
-    if (folds && sex) saveFold({ date: recordDate, sex, sites: siteValues });
-    else saveRecord({ date: recordDate, ...values });
+    if (folds && sex) {
+      saveFold({ date: recordDate, sex, sites: siteValues });
+      if (typedWeight != null) saveRecord(mergeIntoDay(records, recordDate, { weightKg: typedWeight }));
+    } else {
+      // Sobre lo que ya había ese día: el peso de hoy no borra las medidas de cinta de hoy, ni al revés.
+      saveRecord(mergeIntoDay(records, recordDate, values));
+    }
     router.back();
   };
 
   return (
     <>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Stack.Screen options={{ title: folds ? 'Registrar pliegues' : 'Registrar medidas' }} />
+        <Stack.Screen options={{ title: folds ? 'Registrar pliegues' : onlyWeight ? 'Registrar peso' : 'Registrar medidas' }} />
         <ScrollView
           style={styles.screen}
           contentContainerStyle={styles.content}
@@ -118,6 +137,7 @@ export default function NewBodyRecord() {
             </View>
           </View>
 
+          {!onlyWeight && (
           <Link href={{ pathname: '/guide', params: { tab: folds ? 'folds' : 'tape' } }} asChild>
             <Pressable accessibilityRole="link" style={styles.guideLink}>
               <Ionicons name="book-outline" size={20} color={colors.accent} />
@@ -127,10 +147,11 @@ export default function NewBodyRecord() {
               <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
             </Pressable>
           </Link>
+          )}
 
           {!folds ? (
             <>
-              {TAPE_FIELDS.map((f) => (
+              {fields.map((f) => (
                 <Field
                   key={f.key}
                   label={f.label}
@@ -143,8 +164,9 @@ export default function NewBodyRecord() {
                 />
               ))}
               <Text style={styles.hint}>
-                Todo es opcional: registra solo lo que mediste. Cintura: el punto más estrecho, entre costillas y
-                cadera.
+                {onlyWeight
+                  ? 'Pésate en ayunas y con poca ropa, siempre a la misma hora: así los cambios se comparan bien.'
+                  : 'Todo es opcional: registra solo lo que mediste. Cintura: el punto más estrecho, entre costillas y cadera.'}
               </Text>
               <View style={styles.preview}>
                 <Text style={styles.previewLabel}>IMC calculado</Text>
@@ -158,6 +180,20 @@ export default function NewBodyRecord() {
               <Text style={styles.hint}>
                 Jackson-Pollock 3 pliegues. Mide del lado derecho y anota lo que marca el caliper en milímetros (mm), de
                 1 a 80. Repite cada pliegue 2 o 3 veces: se promedian para reducir el error de pinza.
+              </Text>
+              <Field
+                label="Peso"
+                unit="kg"
+                value={foldWeight}
+                onChange={setFoldWeight}
+                placeholder={sameDayWeight != null ? fmtNum(sameDayWeight) : '78,4'}
+                error={!foldWeightValid}
+                decimal
+              />
+              <Text style={styles.hint}>
+                {sameDayWeight != null && typedWeight == null
+                  ? `Usaremos tu peso de ese día: ${fmtNum(sameDayWeight)} kg. Cámbialo si te pesaste de nuevo.`
+                  : 'Obligatorio: con tu peso calculamos los kilos de grasa y de masa magra.'}
               </Text>
               {sites.map((s) => (
                 <View key={s.id} style={styles.site}>
@@ -196,7 +232,9 @@ export default function NewBodyRecord() {
                   {fat?.pct != null && sex
                     ? `${fmtNum(fat.pct)} % · ${FAT_LABEL[clsFat(fat.pct, sex, fat.age)]}`
                     : profile?.birthDate
-                      ? 'Completa los 3 pliegues'
+                      ? weightForFolds == null
+                        ? 'Falta tu peso'
+                        : 'Completa los 3 pliegues'
                       : 'Falta tu fecha de nacimiento en el perfil'}
                 </Text>
               </View>
