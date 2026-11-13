@@ -52,6 +52,32 @@ Plan de ambientes: la dirección de GitHub pasará a ser pruebas, con su propia 
 
 ## Historial
 
+### 1.6.0 · 13 de noviembre de 2026
+
+Etapa de prueba cerrada: para usar la app hay que tener cuenta con correo y que el administrador la apruebe. Primera versión que pasó por pruebas antes de llegar a producción.
+
+**Qué cambia para la persona**
+
+- Sin cuenta con correo, la app muestra «Crea tu cuenta» y no deja entrar.
+- Quien se registra ve «Tu cuenta espera aprobación». Cuando el administrador la aprueba, entra sola al volver a la app. Lo que tenía guardado en el teléfono se conserva.
+- Quienes ya tenían cuenta con correo siguen entrando igual.
+
+**Qué cambia por dentro**
+
+- Base de datos (migración `0010`): tabla de cuentas aprobadas, ajuste `approval_required`, y el bloqueo en el servidor: sin aprobación no se puede guardar respaldo ni usar la IA.
+- App: puerta de entrada (`AccessGate`) antes de las pestañas.
+- Panel: lista «Pendientes de aprobar» con botón por persona, alerta en «Hoy» e interruptor «Cuentas nuevas» en los ajustes.
+- Panel en dos ambientes: `kettaiapp.com/Panel` mira la base real y `pruebas.kettai.pages.dev/Panel` la de pruebas.
+
+**Notas para quien siga el trabajo**
+
+- Para abrir la app al público: en el panel, Ajustes → «Cuentas nuevas: entran sin aprobación». No hay que reprogramar nada.
+- No hay aviso por correo cuando alguien queda en espera; el administrador se entera por la alerta del panel. Queda pendiente.
+- Las cuentas anónimas antiguas ya no pueden usar la IA ni respaldar: deben crear cuenta con correo.
+- El panel de pruebas se publica con `wrangler pages deploy marketing --project-name kettai --branch pruebas`; el de producción, con `--branch main`.
+- Mejoras anotadas en la validación, para la próxima vuelta: avisar de la espera antes de pedir el perfil; opción «No tengo lesiones ni dolor» arriba en el paso de lesiones; corregir el aviso «elige crear respaldo» al entrar con un correo que no existe.
+- Vuelta atrás: apagar el ajuste `approval_required` desde el panel deja todo como antes, sin publicar nada.
+
 ### 1.5.0 · 13 de noviembre de 2026
 
 Quedan separados los dos ambientes: la dirección de GitHub pasa a ser pruebas, con su propia base de datos, y app.kettaiapp.com es producción.
