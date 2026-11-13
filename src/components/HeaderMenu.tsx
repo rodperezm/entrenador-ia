@@ -2,7 +2,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { type Href, router } from 'expo-router';
 import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { appVersion, buildId } from '@/lib/buildId';
+import { appVersion, buildId, screenDiagnostics } from '@/lib/buildId';
+import { IS_TEST_ENV } from '@/lib/environment';
 import { colors, radius, spacing } from '@/theme';
 
 type Item = { label: string; icon: keyof typeof Ionicons.glyphMap; href: Href };
@@ -53,6 +54,7 @@ export function HeaderMenu() {
                 Versión {[appVersion(), buildId()].filter(Boolean).join(' · ')}
               </Text>
             ) : null}
+            {IS_TEST_ENV && open ? <Text style={styles.version}>{screenDiagnostics()}</Text> : null}
           </View>
         </Pressable>
       </Modal>
