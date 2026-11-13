@@ -52,6 +52,33 @@ Plan de ambientes: la dirección de GitHub pasará a ser pruebas, con su propia 
 
 ## Historial
 
+### 1.8.0 · 13 de noviembre de 2026
+
+Cuerpo rediseñado: el peso va primero y se puede registrar solo, sin la cinta.
+
+**Qué cambia para la persona**
+
+- **Cuerpo** abre con el peso en grande, el cambio desde la vez anterior, unas barras con los últimos pesos y el IMC como una barra de colores con un marcador.
+- Registrar son tres tarjetas: «Solo el peso» (fecha y peso, nada más), «Con cinta» y «Pliegues».
+- Registrar solo el peso ya no deja en blanco la cintura, la cadera ni los índices: cada medida muestra su último valor, con su fecha.
+- Al registrar pliegues, el peso es obligatorio. Si ese día ya se registró, se usa ese y basta con confirmarlo.
+
+**Qué cambia por dentro**
+
+- App: `src/app/(tabs)/body.tsx` nuevo; `src/app/body/new.tsx` suma el modo `type=weight` y el peso obligatorio en pliegues.
+- Reglas en `src/domain/body.ts`: `latestBody` (lo último de cada medida), `latestRecord`, `weightSeries` y `mergeIntoDay`.
+- Pruebas: 107 (se sumaron cuatro de estas reglas).
+- Sin cambios en la base de datos ni en la función de la IA. El formato guardado en el teléfono es el mismo.
+
+**Notas para quien siga el trabajo**
+
+- Decisión de Rodrigo: el peso se registra sin obligación de medir con cinta; con pliegues el peso sí es obligatorio, porque con él se calculan los kilos de grasa y de masa magra.
+- Los índices (ICC, ICE, abdomen − cintura, IMC) se calculan con lo último de cada medida, aunque venga de registros de fechas distintas. La tarjeta «Tus medidas» muestra la fecha de cada una para que eso se note.
+- Guardar un dato en una fecha que ya tiene registro lo suma a ese registro (`mergeIntoDay`): no se crean dos registros del mismo día y un campo vacío no borra lo que había.
+- El número gris del campo de peso («78,4») es un ejemplo de formato; a Rodrigo le hizo ruido, pero pidió dejarlo.
+- Los textos nuevos no pasaron por la revisión de español neutro.
+- Vuelta atrás: publicar desde `v1.7.0`. No deja nada a medias en los teléfonos.
+
 ### 1.7.0 · 13 de noviembre de 2026
 
 Progreso y Ejercicios rediseñados, rutinas rápidas para estirar y el arreglo del borde inferior en el iPhone. Cerrada tras un recorrido automático de todas las pantallas.
