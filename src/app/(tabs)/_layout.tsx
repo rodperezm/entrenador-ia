@@ -2,6 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Redirect, router, Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HeaderMenu } from '@/components/HeaderMenu';
+import { AccessGate } from '@/features/account/AccessGate';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { usePlan } from '@/state/plan';
 import { useProfile } from '@/state/profile';
@@ -20,6 +21,7 @@ export default function TabsLayout() {
   if (!profile) return <Redirect href="/onboarding" />;
 
   return (
+    <AccessGate>
     <Tabs
       screenOptions={{
         headerStyle: { backgroundColor: colors.bg },
@@ -85,5 +87,6 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
+    </AccessGate>
   );
 }

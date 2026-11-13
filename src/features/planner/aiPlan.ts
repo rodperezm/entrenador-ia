@@ -19,6 +19,7 @@ const REASONS: Record<string, string> = {
   anthropic_key_invalid: 'el servicio de IA no está disponible por ahora',
   daily_cap: 'hoy se armaron muchas semanas con IA; inténtalo mañana o arma tu semana con las reglas',
   needs_account: 'para usar la IA primero crea tu cuenta con tu correo',
+  needs_approval: 'tu cuenta todavía espera aprobación',
   too_large: 'el pedido quedó demasiado grande',
   bad_request: 'el pedido no era válido',
   rate_limited: 'Claude está saturado en este momento',

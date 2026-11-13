@@ -170,6 +170,11 @@
     </div>
 
     <div id="tab-usuarios" class="hidden">
+      <div id="pendingBox" class="card hidden" style="margin-bottom:16px">
+        <h3 style="margin-top:0">Pendientes de aprobar</h3>
+        <p class="small muted" id="pendingNote"></p>
+        <div class="list" id="pending" style="margin-top:8px"></div>
+      </div>
       <div class="chips" id="filters"></div>
       <div class="row" style="margin-bottom:12px"><input id="search" type="search" placeholder="Buscar por correo" style="flex:1; max-width:360px"><span id="count" class="small muted"></span></div>
       <div class="users" id="users"></div>
@@ -218,6 +223,8 @@
           <input id="usdClp" type="number" min="1" step="1"></label>
         <label id="dailyCapBox" class="hidden">Tope de semanas con IA en 24 horas, entre todas las cuentas
           <input id="dailyCap" type="number" min="0" step="10"></label>
+        <label id="approvalBox" class="hidden">Cuentas nuevas
+          <select id="approval"><option value="true">Necesitan mi aprobación (etapa de prueba)</option><option value="false">Entran sin aprobación (app abierta)</option></select></label>
         <label id="needsEmailBox" class="hidden">¿Quién puede usar la IA?
           <select id="needsEmail"><option value="false">Cualquiera, con o sin correo</option><option value="true">Solo cuentas con correo</option></select></label>
       </div>
@@ -268,6 +275,7 @@
   let config = null;
   let users = [];
   let filter = 'todos';
+  let pending = null; // null = la base aún no tiene la aprobación de cuentas (migración 0010)
   let reports = null; // null = la base aún no tiene los reportes (migración 0006)
   let reportFilter = 'abiertos';
   let insights = null; // null = la base aún no tiene la consulta (migración 0008)
@@ -330,6 +338,10 @@
     config = c.data;
     users = u.data;
     lastMetrics = m.data;
+    // Cuentas que esperan aprobación: antes de las alertas, que las mencionan.
+    const pend = await sb.rpc('admin_pending');
+    pending = pend.error ? null : pend.data;
+    renderPending();
     renderMetrics(m.data);
     renderUsers();
     renderPrices();
@@ -404,6 +416,7 @@
     if (tooMuch != null && tooMuch > TOO_MUCH_MAX) alert(`${tooMuch} % de las respuestas dicen «Fue mucho» (sobre ${TOO_MUCH_MAX} %)`, 'tab:metodo', 'Ver método');
     if (stick != null && stick < STICK_MIN) alert(`Constancia de ${stick} %: menos de la mitad de los activos del mes entrenó esta semana`);
     if (m.retention_w2 != null && m.retention_w2 < W2_MIN) alert(`Solo ${m.retention_w2} % vuelve la segunda semana (meta ${W2_MIN} %)`, 'tab:metodo', 'Ver método');
+    if (pending && pending.length) alert(`${pending.length} ${pending.length === 1 ? 'cuenta espera' : 'cuentas esperan'} tu aprobación para entrar`, 'tab:usuarios', 'Ver');
     // Copia de seguridad en el servidor propio: avisa si lleva más de dos días sin actualizarse.
     const lastBackup = config?.settings?.last_backup_at ? new Date(config.settings.last_backup_at) : null;
     const backupDays = lastBackup ? Math.floor((Date.now() - lastBackup.getTime()) / DAY) : null;
@@ -501,6 +514,27 @@
     const d = Math.floor(daysSince(u.last_session));
     return d <= 0 ? 'Entrenó hoy' : d === 1 ? 'Entrenó ayer' : `Entrenó hace ${d} días`;
   }
+  // ---------- Cuentas por aprobar ----------
+  function renderPending() {
+    const on = config?.settings?.approval_required === true;
+    show($('pendingBox'), pending !== null && (on || pending.length > 0));
+    if (pending === null) return;
+    $('pendingNote').textContent = on
+      ? 'Mientras no las apruebes, estas personas ven una pantalla de espera y no pueden usar la app.'
+      : 'La aprobación está apagada: estas cuentas ya pueden entrar. Aparecen aquí solo como registro.';
+    $('pending').innerHTML = pending.map((u) => `<div class="row" style="justify-content:space-between; gap:12px; padding:8px 0; border-top:1px solid var(--line, #2a2b33)">
+        <span><b>${esc(u.email)}</b><br><span class="small muted">Se registró el ${new Date(u.created_at).toLocaleString('es-CL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span></span>
+        <button data-approve="${esc(u.user_id)}">Aprobar</button>
+      </div>`).join('') || '<p class="small muted">Nadie espera aprobación.</p>';
+    $('pending').querySelectorAll('[data-approve]').forEach((b) => b.onclick = async () => {
+      b.disabled = true;
+      const { error } = await sb.rpc('admin_approve', { target: b.dataset.approve, ok: true });
+      if (error) { toast('No se pudo aprobar'); console.error(error); b.disabled = false; return; }
+      toast('Cuenta aprobada');
+      load();
+    });
+  }
+
   function renderUsers() {
     $('filters').innerHTML = Object.entries(GROUPS).map(([id, g]) =>
       `<button data-filter="${id}" aria-pressed="${id === filter}">${g.label} · ${inGroup(id).length}</button>`).join('');
@@ -792,6 +826,8 @@
     const s = config?.settings ?? {};
     show($('dailyCapBox'), 'ai_daily_cap' in s);
     show($('needsEmailBox'), 'ai_requires_email' in s);
+    show($('approvalBox'), 'approval_required' in s);
+    $('approval').value = String(s.approval_required === true);
     $('dailyCap').value = s.ai_daily_cap ?? '';
     $('needsEmail').value = String(s.ai_requires_email === true);
   }
@@ -810,6 +846,7 @@
     const s = config?.settings ?? {};
     if ('ai_daily_cap' in s && $('dailyCap').value !== '') pairs.push(['ai_daily_cap', Number($('dailyCap').value)]);
     if ('ai_requires_email' in s) pairs.push(['ai_requires_email', $('needsEmail').value === 'true']);
+    if ('approval_required' in s) pairs.push(['approval_required', $('approval').value === 'true']);
     for (const [setting_, value] of pairs) {
       const { error } = await sb.rpc('admin_set_setting', { setting: setting_, new_value: value });
       if (error) { toast('No se pudo guardar'); console.error(error); return; }
