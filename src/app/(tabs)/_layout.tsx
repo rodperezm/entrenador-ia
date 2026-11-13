@@ -72,7 +72,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="tabata"
         options={{
-          title: 'Tabata/HIIT',
+          title: 'Temporizador HIIT',
+          tabBarLabel: 'HIIT',
           tabBarIcon: ({ color, size }) => <Ionicons name="timer-outline" color={color as string} size={size} />,
         }}
         listeners={{
