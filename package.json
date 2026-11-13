@@ -1,6 +1,6 @@
 {
   "name": "entrenador-ia",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "main": "expo-router/entry",
   "dependencies": {
     "@expo-google-fonts/bebas-neue": "^0.4.1",

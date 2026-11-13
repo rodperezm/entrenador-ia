@@ -12,6 +12,7 @@ import { ProfileProvider } from '@/state/profile';
 import { SyncProvider } from '@/state/sync';
 import { listenForErrors } from '@/lib/report';
 import { EnvironmentBanner } from '@/components/EnvironmentBanner';
+import { UpdateNotice } from '@/components/UpdateNotice';
 import { colors, display } from '@/theme';
 
 // Si una pantalla falla, se muestra este aviso en vez de quedar en blanco.
@@ -41,6 +42,7 @@ export default function RootLayout() {
               <StatusBar style="light" />
               <WebSafeArea>
                 <EnvironmentBanner />
+                <UpdateNotice />
                 <Stack
                   screenOptions={{
                     headerStyle: { backgroundColor: colors.bg },

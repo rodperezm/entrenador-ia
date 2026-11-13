@@ -52,6 +52,26 @@ Plan de ambientes: la dirección de GitHub pasará a ser pruebas, con su propia 
 
 ## Historial
 
+### 1.3.0 · 13 de noviembre de 2026
+
+La app avisa cuando hay una versión nueva publicada.
+
+**Qué cambia para la persona**
+
+- Al abrir la app o volver a ella, si hay una versión más nueva aparece una franja «Hay una versión nueva · Toca para actualizar». Al tocarla, la app se recarga con lo nuevo.
+
+**Qué cambia por dentro**
+
+- App: compara el archivo principal con que se abrió con el publicado, al abrir y al volver a primer plano, como máximo cada 5 minutos. No se recarga sola, para no interrumpir un entrenamiento.
+- Base de datos y función de la IA: sin cambios.
+
+**Notas para quien siga el trabajo**
+
+- El iPhone mantiene la app instalada en memoria: aunque el servidor entregue lo nuevo, la persona sigue viendo la versión con que la abrió hasta cerrarla del todo. Este aviso existe por eso.
+- Quien tenga una versión anterior a esta no ve el aviso: tiene que cerrar la app del todo y abrirla una vez más.
+- El entrenamiento en curso se guarda tras cada serie, así que recargar no lo pierde.
+- Vuelta atrás: sin cuidado especial.
+
 ### 1.2.1 · 13 de noviembre de 2026
 
 Arreglo: en app.kettaiapp.com la app se veía con otra letra y sin los íconos de la barra de abajo.
