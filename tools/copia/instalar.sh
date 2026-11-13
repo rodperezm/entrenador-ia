@@ -133,15 +133,21 @@ PRUEBA="kettai-prueba-$$"
 docker rm -f "$PRUEBA" >/dev/null 2>&1 || true
 docker run -d --rm --name "$PRUEBA" -e POSTGRES_PASSWORD=prueba "$IMAGEN" >/dev/null
 trap 'docker rm -f "$PRUEBA" >/dev/null 2>&1 || true' EXIT
-for _ in $(seq 1 40); do
-  docker exec "$PRUEBA" psql -U postgres -Atqc 'select 1' >/dev/null 2>&1 && break
+# Al crearse, la base temporal se enciende, se apaga y vuelve a encenderse. Solo la definitiva
+# responde por la red (127.0.0.1): se espera esa, no la primera.
+# Si la prueba misma falla, no se detiene la instalación: la copia ya está hecha.
+set +e
+for _ in $(seq 1 90); do
+  docker exec "$PRUEBA" pg_isready -q -h 127.0.0.1 -U postgres >/dev/null 2>&1 && break
   sleep 1
 done
 # Lo que la base original da por hecho: los roles de Supabase y el esquema de extensiones.
-docker exec "$PRUEBA" psql -U postgres -q -c "create role anon; create role authenticated; create role service_role; create schema if not exists extensions; create extension if not exists pgcrypto with schema extensions; create extension if not exists \"uuid-ossp\" with schema extensions;" >/dev/null
-ERRORES="$(docker exec -i "$PRUEBA" pg_restore -U postgres -d postgres --no-owner --no-privileges <"$ULTIMA" 2>&1 | grep -c 'error:' || true)"
-COPIA="$(docker exec "$PRUEBA" psql -U postgres -Atqc "$CONTAR" 2>&1 || true)"
-docker rm -f "$PRUEBA" >/dev/null 2>&1 || true
+docker exec "$PRUEBA" psql -U postgres -q -c "create role anon; create role authenticated; create role service_role; create schema if not exists extensions; create extension if not exists pgcrypto with schema extensions; create extension if not exists \"uuid-ossp\" with schema extensions;" >/dev/null 2>"$DIR/prueba-error.txt"
+docker exec -i "$PRUEBA" pg_restore -U postgres -d postgres --no-owner --no-privileges <"$ULTIMA" >/dev/null 2>>"$DIR/prueba-error.txt"
+ERRORES="$(grep -c 'error:' "$DIR/prueba-error.txt")"
+COPIA="$(docker exec "$PRUEBA" psql -U postgres -Atqc "$CONTAR" 2>&1)"
+docker rm -f "$PRUEBA" >/dev/null 2>&1
+set -e
 trap - EXIT
 
 echo "En la base real:        $ORIGEN"
@@ -151,6 +157,8 @@ if [ "$ORIGEN" = "$COPIA" ]; then
   RESULTADO="LA COPIA SIRVE"
 else
   echo "Las cantidades no coinciden (avisos al restaurar: $ERRORES)."
+  echo "Detalle en $DIR/prueba-error.txt:"
+  grep 'error:' "$DIR/prueba-error.txt" | head -8 | sed 's/^/   /'
   RESULTADO="REVISAR: la copia se hizo, pero la prueba de restauración no coincidió"
 fi
 
