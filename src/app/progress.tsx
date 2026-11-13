@@ -17,6 +17,12 @@ import { colors, display, radius, spacing } from '@/theme';
 // registró al entrenar; no se le pide nada nuevo.
 
 const PAIN_LABEL = ['', 'Molestia leve', 'Dolor moderado', 'Dolor fuerte'];
+const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+// Etiqueta de una semana: el día en que empezó (lunes).
+const weekLabel = (monday: number) => {
+  const d = new Date(monday);
+  return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+};
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 export default function ProgressScreen() {
@@ -87,11 +93,11 @@ export default function ProgressScreen() {
         </Text>
       </View>
 
-      <Card icon="calendar-outline" title={`Constancia · últimas ${p.weeks.length} semanas`}>
+      <Card icon="calendar-outline" title="Sesiones por semana">
         <View style={styles.bars} accessibilityLabel={`Sesiones por semana: ${p.weeks.map((w) => w.count).join(', ')}`}>
           {p.weeks.map((w, i) => (
             <View key={w.monday} style={styles.barColumn}>
-              <Text style={styles.barValue}>{w.count || ''}</Text>
+              <Text style={styles.barValue}>{w.count}</Text>
               <View
                 style={[
                   styles.bar,
@@ -100,10 +106,14 @@ export default function ProgressScreen() {
                   i === p.weeks.length - 1 && w.count > 0 && styles.barNow,
                 ]}
               />
+              <Text style={[styles.barLabel, i === p.weeks.length - 1 && styles.barLabelNow]} numberOfLines={1}>
+                {i === p.weeks.length - 1 ? 'Esta' : weekLabel(w.monday)}
+              </Text>
             </View>
           ))}
         </View>
         <Text style={styles.note}>
+          Cada barra es una semana (la fecha es su lunes) y el número, las sesiones que hiciste.{' '}
           {p.thisWeek
             ? `Esta semana llevas ${plural(p.thisWeek, 'sesión', 'sesiones')}.`
             : 'Esta semana aún no registras sesiones.'}
@@ -238,9 +248,11 @@ const styles = StyleSheet.create({
   cardTitle: { color: colors.textMuted, fontSize: 13, fontWeight: '700', flex: 1 },
   note: { color: colors.textMuted, fontSize: 14, lineHeight: 20 },
   link: { color: colors.link, fontSize: 14, fontWeight: '700', paddingTop: spacing.xs },
-  bars: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm, height: 76 },
+  bars: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm, height: 96 },
   barColumn: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', gap: 2 },
   barValue: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
+  barLabel: { color: colors.textMuted, fontSize: 11 },
+  barLabelNow: { color: colors.text, fontWeight: '700' },
   bar: { alignSelf: 'stretch', borderRadius: 4, backgroundColor: colors.border },
   barEmpty: { backgroundColor: colors.surfaceAlt },
   barNow: { backgroundColor: colors.accent },
