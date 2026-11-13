@@ -184,6 +184,7 @@ Publicado: UX 1 a 4, 6 y 7 (pantalla de error, menú de perfil y cuenta, «Mi pe
 - [x] Trabajo subido a GitHub (rama `mejoras-evaluacion-3`).
 - [x] Registro de errores y comentarios, con pestaña «Reportes» en el panel.
 - [x] Copia diaria de la base en el servidor de casa (`~/kettai-copia`, 04:30 de Chile, 30 días).
+- [x] Segunda copia automática: el PC trae las copias del servidor a Google Drive (`G:Mi unidadKETTAI-copias`), tarea diaria a las 10:00.
 - [ ] Confirmar el 14-11 que la copia automática corrió sola (el panel muestra «Última copia de seguridad»).
 - [ ] Cambiar la clave del acceso de copia, que quedó visible en una captura del chat.
 - [ ] Aviso por mensaje cuando falla la copia o llega un reporte (se puede armar con n8n).
