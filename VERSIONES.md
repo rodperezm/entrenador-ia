@@ -22,7 +22,7 @@ cambia cada vez que se publica, aunque el número sea el mismo.
 3. Guardar en Git y marcar la versión: `git tag -a v1.2.0 -m "…"`.
 4. Publicar en este orden: base de datos, función de la IA, app. La publicación de la app limpia la memoria temporal (`--clear`): sin eso, el número nuevo no llega a la app.
 5. Comprobar en un teléfono que el menú muestra la versión nueva.
-6. Enviar la entrada de la versión al correo de KETTAI, con el asunto «KETTAI · versión 1.2.0».
+6. Enviar la entrada de la versión al correo de KETTAI (kettaiapp@gmail.com), con el asunto «KETTAI · versión 1.2.0».
 
 ## Cómo se escribe cada versión
 
