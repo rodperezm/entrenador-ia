@@ -36,6 +36,24 @@
         true,
       );
 
+      // Instalada en iPhone (pantalla de inicio), el alto que entrega Safari queda corto por arriba:
+      // la barra de pestañas no llega al borde y sobra una franja negra abajo. Ahí la app ocupa la
+      // pantalla completa, así que el alto se toma del teléfono.
+      var isIos =
+        /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      if (isIos && window.navigator.standalone === true) {
+        var setScreenHeight = function () {
+          var portrait = window.innerHeight >= window.innerWidth;
+          var h = portrait ? Math.max(screen.height, screen.width) : Math.min(screen.height, screen.width);
+          document.documentElement.style.setProperty('--screen-height', h + 'px');
+        };
+        document.documentElement.className += ' ios-app';
+        setScreenHeight();
+        window.addEventListener('resize', setScreenHeight);
+        window.addEventListener('orientationchange', setScreenHeight);
+      }
+
       // Navegadores antiguos (p. ej. tablets Android) no conocen 100dvh y con 100vh la
       // parte de abajo queda tapada por la barra del navegador: se usa el alto visible real.
       if (!(window.CSS && CSS.supports && CSS.supports('height', '100dvh'))) {
@@ -77,6 +95,12 @@
       html.no-dvh #root {
         height: var(--app-height, 100vh);
       }
+      /* Instalada en iPhone: alto de la pantalla completa, y un poco más de aire arriba porque el
+         sistema difumina el contenido que queda pegado a la hora y la batería. */
+      html.ios-app #root {
+        height: var(--screen-height, 100dvh);
+        padding-top: calc(env(safe-area-inset-top) + 10px);
+      }
     </style>
   <link rel="icon" href="/entrenador-ia/favicon.ico"/></head>
 
@@ -85,6 +109,6 @@
     <noscript> You need to enable JavaScript to run this app. </noscript>
     <!-- The root element for your Expo app. -->
     <div id="root"></div>
-  <script src="/entrenador-ia/_expo/static/js/web/__expo-metro-runtime-97703ae02682710149335928b974f18d.js" defer></script><script src="/entrenador-ia/_expo/static/js/web/__common-71f54c089e2fffdecc05d58273865ec7.js" defer></script><script src="/entrenador-ia/_expo/static/js/web/entry-f389c28ca78b15e8f26fa3becb0c8931.js" defer></script>
+  <script src="/entrenador-ia/_expo/static/js/web/__expo-metro-runtime-97703ae02682710149335928b974f18d.js" defer></script><script src="/entrenador-ia/_expo/static/js/web/__common-71f54c089e2fffdecc05d58273865ec7.js" defer></script><script src="/entrenador-ia/_expo/static/js/web/entry-b51ce1114338bcc74029e7aef4b0cc58.js" defer></script>
 </body>
 </html>
