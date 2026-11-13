@@ -58,6 +58,25 @@ for (const name of ['index.html', 'manifest.json', 'instalar-iphone.html', 'inst
   text = text.split(`${ORIGINAL.baseUrl}/`).join(`${base}/`);
   fs.writeFileSync(file, text);
 }
+// Las fuentes (la letra de los títulos y los íconos) quedan en assets/node_modules, y Cloudflare no
+// sube ninguna carpeta con ese nombre: la app se veía con otra letra y sin íconos. Se renombra la
+// carpeta y se ajustan las referencias, igual en todos los destinos.
+const modules = path.join(dist, 'assets', 'node_modules');
+if (fs.existsSync(modules)) {
+  fs.renameSync(modules, path.join(dist, 'assets', 'modulos'));
+  const fix = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      const file = path.join(dir, name);
+      if (fs.statSync(file).isDirectory()) fix(file);
+      else if (/\.(js|html|json|css)$/.test(name)) {
+        const text = fs.readFileSync(file, 'utf8');
+        if (text.includes('assets/node_modules')) fs.writeFileSync(file, text.split('assets/node_modules').join('assets/modulos'));
+      }
+    }
+  };
+  fix(dist);
+}
+
 // Rutas internas abiertas directo (por ejemplo /day/mon) caen en esta página y la app las resuelve.
 fs.copyFileSync(path.join(dist, 'index.html'), path.join(dist, '404.html'));
 fs.writeFileSync(path.join(dist, '.gitignore'), '');

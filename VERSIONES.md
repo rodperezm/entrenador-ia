@@ -52,6 +52,26 @@ Plan de ambientes: la dirección de GitHub pasará a ser pruebas, con su propia 
 
 ## Historial
 
+### 1.2.1 · 13 de noviembre de 2026
+
+Arreglo: en app.kettaiapp.com la app se veía con otra letra y sin los íconos de la barra de abajo.
+
+**Qué cambia para la persona**
+
+- En la dirección nueva, los títulos vuelven a tener la letra de la marca y la barra de abajo muestra sus íconos. En la dirección de GitHub no cambia nada a la vista.
+
+**Qué cambia por dentro**
+
+- Publicación: la carpeta de fuentes `assets/node_modules` se renombra a `assets/modulos` y se ajustan las referencias, en todos los destinos.
+- Base de datos y función de la IA: sin cambios.
+
+**Notas para quien siga el trabajo**
+
+- Cloudflare Pages no sube carpetas llamadas `node_modules`; GitHub Pages sí (con el `.gitignore` vacío). Por eso el problema solo apareció en la dirección nueva.
+- En iPhone, Safari y el ícono instalado guardan la sesión por separado: hay que entrar con la cuenta desde el ícono, no desde Safari. El aviso de mudanza ya lo dice así.
+- Al probar una dirección nueva, revisar que carguen las fuentes (letra de títulos e íconos), no solo que la página abra.
+- Vuelta atrás: sin cuidado especial.
+
 ### 1.2.0 · 13 de noviembre de 2026
 
 La app abre su dirección propia, app.kettaiapp.com, como futura producción. La dirección de GitHub sigue funcionando igual.
