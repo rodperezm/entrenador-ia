@@ -7,6 +7,7 @@ import { trackOnboarding } from '@/lib/onboardingTrack';
 import { ensureSession } from '@/lib/supabase';
 import { useSync } from '@/state/sync';
 import { colors, display, radius, spacing } from '@/theme';
+import { cleanEmail as cleanEmailInput, isEmail } from './email';
 
 // Correo con código, sin contraseña. Sirve para crear la cuenta (convierte la sesión
 // anónima en una con correo) o para entrar a una que ya existe.
@@ -112,8 +113,11 @@ export function BackupSetup({ initialMode = 'new', signup = false, onCreated }: 
   // Un código sirve una sola vez: si falla lo que sigue, reintentar no debe volver a validarlo.
   const verified = useRef(false);
 
-  const cleanEmail = email.trim().toLowerCase();
-  const emailOk = /^\S+@\S+\.\S+$/.test(cleanEmail);
+  const cleanEmail = cleanEmailInput(email);
+  const emailOk = isEmail(cleanEmail);
+  // El aviso aparece al salir del campo, no mientras la persona escribe.
+  const [emailTouched, setEmailTouched] = useState(false);
+  const emailWrong = emailTouched && cleanEmail.length > 0 && !emailOk;
   const copy = COPY[signup ? 'signup' : 'backup'][mode];
 
   const changeMode = (next: Mode) => {
@@ -183,13 +187,19 @@ export function BackupSetup({ initialMode = 'new', signup = false, onCreated }: 
           <TextInput
             value={email}
             onChangeText={setEmail}
+            onBlur={() => setEmailTouched(true)}
             placeholder="tu@correo.com"
             placeholderTextColor={colors.textMuted}
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="email-address"
-            style={styles.input}
+            style={[styles.input, emailWrong && styles.inputWrong]}
           />
+          {emailWrong && (
+            <Text style={styles.error} testID="email-wrong">
+              Revisa tu correo: debe verse como nombre@correo.com.
+            </Text>
+          )}
 
           <View style={styles.notice}>
             <Text style={styles.noticeTitle}>{copy.noticeTitle}</Text>
@@ -275,4 +285,5 @@ const styles = StyleSheet.create({
   noticeTitle: { color: colors.text, fontSize: 16, fontWeight: '800' },
   link: { color: colors.link, fontSize: 14, fontWeight: '700' },
   error: { color: colors.warning, fontSize: 14, lineHeight: 20 },
+  inputWrong: { borderColor: colors.warning },
 });
