@@ -290,6 +290,7 @@
   let insights = null; // null = la base aún no tiene la consulta (migración 0008)
   let exerciseNames = {};
   let onboarding = null; // null = la base aún no tiene la medición (migración 0009)
+  let anonymous = null; // null = la base aún no tiene el desglose (migración 0011)
   let lastMetrics = null; // lo último que se cargó, para el Excel
 
   // ---------- Entrar ----------
@@ -351,6 +352,9 @@
     const pend = await sb.rpc('admin_pending');
     pending = pend.error ? null : pend.data;
     renderPending();
+    // Desglose de anónimos: aparte, por si la base aún no lo tiene.
+    const an = await sb.rpc('admin_anonymous');
+    anonymous = an.error ? null : an.data;
     renderMetrics(m.data);
     renderUsers();
     renderPrices();
@@ -447,7 +451,11 @@
     $('listGrowth').innerHTML = listOf('Crecimiento', [
       line('Nuevos en 7 días', m.new_7d),
       line('Nuevos en 30 días', m.new_30d),
-      line('Sin cuenta (anónimos)', m.users_anonymous, 'Usan la app sin correo'),
+      line('Sin cuenta (anónimos)', m.users_anonymous, 'Teléfonos o navegadores sin correo; no son personas'),
+      ...(anonymous ? [
+        line('Anónimos con actividad', anonymous.with_activity, `Pidieron IA, comentaron o respaldaron · ${anonymous.with_ai} con IA`),
+        line('Anónimos nuevos en 7 días', anonymous.new_7d),
+      ] : []),
     ]);
     $('listUse').innerHTML = listOf('Actividad', [
       line('Activos en 30 días', m.active_30d),
@@ -755,7 +763,7 @@
     const resumen = [
       ['Indicador', 'Valor'],
       ['Generado el (hora de Chile)', stamp(new Date())],
-      ['Usuarios con cuenta', m.users_total], ['Sin cuenta (anónimos)', m.users_anonymous],
+      ['Usuarios con cuenta', m.users_total], ['Sin cuenta (anónimos)', m.users_anonymous], ['Anónimos con actividad', anonymous ? anonymous.with_activity : ''],
       ['Nuevos en 7 días', m.new_7d], ['Nuevos en 30 días', m.new_30d],
       ['Activos en 7 días', m.active_7d], ['Activos en 30 días', m.active_30d],
       ['Sesiones en 7 días', m.sessions_7d], ['Minutos por sesión (30 días)', m.avg_minutes_30d],
