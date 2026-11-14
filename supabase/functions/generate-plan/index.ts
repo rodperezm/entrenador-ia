@@ -7,7 +7,11 @@
 //
 // Cada cuenta tiene un límite de semanas con IA (migraciones 0003 y 0005). El cupo se reserva
 // antes de llamar a Claude, para que varias consultas simultáneas no pasen con un solo cupo, y
-// se devuelve si Claude falla: solo las consultas exitosas se cuentan.
+// solo las consultas exitosas se cuentan (migración 0012):
+//   - con plan: la fila queda con el modelo y los tokens gastados;
+//   - Claude respondió pero no sirvió: la fila queda marcada como fallida, con su gasto, y no
+//     cuenta para el cupo de la persona;
+//   - Claude no alcanzó a responder: no hubo gasto y la fila se borra.
 //
 // Secretos (Edge Functions → Secrets):
 //   ANTHROPIC_API_KEY  (obligatorio)
@@ -15,6 +19,7 @@
 
 import Anthropic from 'npm:@anthropic-ai/sdk';
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { type ClaudeReply, settle, usageRecord } from './usage.ts';
 
 const MODEL = Deno.env.get('CLAUDE_MODEL') ?? 'claude-opus-5-5';
 // Modelos más económicos que un pedido puede elegir para compararlos; nunca uno más caro.
@@ -241,7 +246,7 @@ function publishableKey(): string {
   return Deno.env.get('SUPABASE_ANON_KEY')!;
 }
 
-// Clave del servidor, solo para devolver un cupo reservado cuando Claude falla.
+// Clave del servidor, solo para anotar el gasto o devolver un cupo reservado.
 function secretKey(): string | null {
   const keys = Deno.env.get('SUPABASE_SECRET_KEYS');
   if (keys) {
@@ -251,13 +256,47 @@ function secretKey(): string | null {
   return Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? null;
 }
 
+function serverClient() {
+  const key = secretKey();
+  return key ? createClient(Deno.env.get('SUPABASE_URL')!, key, { auth: { persistSession: false } }) : null;
+}
+
 // Si no se puede devolver, la consulta fallida queda contada: se prefiere eso a regalar cupos.
 async function release(generationId: number) {
-  const key = secretKey();
-  if (!key) return console.error('Sin clave del servidor: no se devolvió el cupo', generationId);
-  const admin = createClient(Deno.env.get('SUPABASE_URL')!, key, { auth: { persistSession: false } });
+  const admin = serverClient();
+  if (!admin) return console.error('Sin clave del servidor: no se devolvió el cupo', generationId);
   const { error } = await admin.rpc('release_ai_generation', { generation: generationId });
   if (error) console.error('No se pudo devolver el cupo', error.message);
+}
+
+// Anota en la reserva el modelo y los tokens. Devuelve false si no pudo.
+async function recordUsage(generationId: number, claude: ClaudeReply, failed: boolean) {
+  const admin = serverClient();
+  if (!admin) {
+    console.error('Sin clave del servidor: no se anotó el gasto', generationId);
+    return false;
+  }
+  const r = usageRecord(claude, failed);
+  const { error } = await admin.rpc('record_ai_usage', {
+    generation: generationId,
+    used_model: r.model,
+    tokens_in: r.input_tokens,
+    tokens_out: r.output_tokens,
+    cache_read: r.cache_read_tokens,
+    cache_write: r.cache_write_tokens,
+    is_failed: r.failed,
+  });
+  if (error) console.error('No se pudo anotar el gasto', error.message);
+  return !error;
+}
+
+// Cierra la reserva según cómo terminó la consulta (ver `settle` en usage.ts).
+async function closeReservation(generationId: number, outcome: Outcome) {
+  const step = settle({ hasPlan: 'plan' in outcome.reply, claude: outcome.claude });
+  if (step === 'release') return release(generationId);
+  const recorded = await recordUsage(generationId, outcome.claude!, step === 'failed');
+  // Si una fallida no quedó marcada, contaría para el cupo de la persona: mejor devolverlo.
+  if (!recorded && step === 'failed') await release(generationId);
 }
 
 Deno.serve(async (req) => {
@@ -302,16 +341,21 @@ Deno.serve(async (req) => {
 
   return keepAliveResponse(
     generatePlan(body)
-      .catch(() => ({ error: 'internal_error' }))
-      .then(async (result) => {
-        if (!('plan' in result)) await release(generationId);
-        return result;
+      .catch((): Outcome => ({ reply: { error: 'internal_error' }, claude: null }))
+      .then(async (outcome) => {
+        await closeReservation(generationId, outcome);
+        return outcome.reply;
       }),
   );
 });
 
+// `reply` es lo que recibe la app (igual que antes); `claude`, lo que gastó la llamada si alcanzó
+// a responder, aunque la respuesta no sirva.
+type Outcome = { reply: Record<string, unknown>; claude: ClaudeReply | null };
+
 // La respuesta ya empezó, así que los errores van dentro del JSON y no como estado HTTP.
-async function generatePlan(body: RequestBody) {
+async function generatePlan(body: RequestBody): Promise<Outcome> {
+  let claude: ClaudeReply | null = null;
   try {
     const { model: requested, ...request } = body;
     const response = await anthropic.beta.messages.create({
@@ -323,23 +367,25 @@ async function generatePlan(body: RequestBody) {
       output_config: { effort: 'medium', format: { type: 'json_schema', schema: SCHEMA } },
       messages: [{ role: 'user', content: JSON.stringify(request) }],
     });
+    claude = { model: response.model, usage: response.usage };
 
-    if (response.stop_reason === 'refusal') return { error: 'refusal' };
-    if (response.stop_reason === 'max_tokens') return { error: 'truncated' };
+    if (response.stop_reason === 'refusal') return { reply: { error: 'refusal' }, claude };
+    if (response.stop_reason === 'max_tokens') return { reply: { error: 'truncated' }, claude };
 
     const text = response.content.find((b) => b.type === 'text');
-    if (!text || text.type !== 'text') return { error: 'empty_response' };
+    if (!text || text.type !== 'text') return { reply: { error: 'empty_response' }, claude };
     const plan = sanitize(JSON.parse(text.text) as Plan, body);
 
-    return { plan, model: response.model, usage: response.usage };
+    return { reply: { plan, model: response.model, usage: response.usage }, claude };
   } catch (err) {
-    if (err instanceof Anthropic.AuthenticationError) return { error: 'anthropic_key_invalid' };
-    if (err instanceof Anthropic.RateLimitError) return { error: 'rate_limited' };
+    if (err instanceof Anthropic.AuthenticationError) return { reply: { error: 'anthropic_key_invalid' }, claude };
+    if (err instanceof Anthropic.RateLimitError) return { reply: { error: 'rate_limited' }, claude };
     if (err instanceof Anthropic.APIError) {
       console.error('Error de Claude', err.status, err.message);
-      return { error: 'anthropic_error', status: err.status };
+      return { reply: { error: 'anthropic_error', status: err.status }, claude };
     }
+    // Un formato roto llega aquí después de que Claude respondió: `claude` ya tiene su gasto.
     console.error('Error interno', err);
-    return { error: 'internal_error' };
+    return { reply: { error: 'internal_error' }, claude };
   }
 }
