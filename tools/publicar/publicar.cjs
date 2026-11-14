@@ -21,6 +21,30 @@ if (!cfg || target === '_') {
 const onlyBuild = flags.includes('--solo-armar');
 const ORIGINAL = { baseUrl: '/entrenador-ia', address: 'https://rodperezm.github.io/entrenador-ia/' };
 
+const stop = (why) => {
+  console.error(`\nNo se publicó: ${why}`);
+  process.exit(1);
+};
+const git = (...args) => {
+  const r = spawnSync('git', args, { cwd: root, encoding: 'utf8' });
+  if (r.status !== 0) stop(`no se pudo consultar git (${args.join(' ')}).`);
+  return r.stdout.trim();
+};
+
+// Producción sale solo de main y de lo que está guardado en Git: así lo publicado siempre se puede
+// encontrar y volver a armar. Los archivos sueltos que Git no sigue (como los de docs/) no cuentan.
+if (cfg.papel === 'produccion' && !onlyBuild) {
+  const branch = git('rev-parse', '--abbrev-ref', 'HEAD');
+  if (branch !== 'main') stop(`producción se publica desde main y estás en «${branch}».`);
+  const dirty = git('status', '--porcelain', '--untracked-files=no');
+  if (dirty) stop(`hay cambios sin guardar en Git:\n${dirty}`);
+}
+
+// Las pruebas van antes de armar nada: si alguna falla, no se publica.
+console.log('\n== Pruebas ==\n');
+const tests = spawnSync('npm', ['test'], { cwd: root, stdio: 'inherit', shell: true });
+if (tests.status !== 0) stop('fallaron las pruebas (npm test).');
+
 // Claves públicas de Supabase del destino. Las variables ya definidas mandan sobre el archivo.
 const env = { ...process.env };
 const keysFile = path.join(root, cfg.claves);
