@@ -52,6 +52,32 @@ Plan de ambientes: la dirección de GitHub pasará a ser pruebas, con su propia 
 
 ## Historial
 
+### 1.8.1 · 14 de noviembre de 2026
+
+Arreglo del correo al crear la cuenta, y guía de instalación única para invitar a probar la app.
+
+**Qué cambia para la persona**
+
+- Si al escribir el correo se cuela un espacio (por ejemplo, «gmail. com»), la app lo quita sola y deja pedir el código. Antes el botón «Enviarme un código» quedaba apagado sin explicación.
+- Si el correo está mal escrito, al salir del campo aparece «Revisa tu correo: debe verse como nombre@correo.com.».
+- Guía de instalación en una sola página (`/instalar`), con selector iPhone / Android, lo que trae la app y un botón para compartir por WhatsApp. Las direcciones antiguas de las guías llevan a la nueva.
+- Los botones «Probar KETTAI» de kettaiapp.com llevan a esa guía (antes volvían al inicio del sitio).
+
+**Qué cambia por dentro**
+
+- App: `src/features/account/email.ts` (limpia y valida el correo) y su uso en `BackupSetup.tsx`; pruebas en `tests/email.test.ts` (110 en total).
+- `public/instalar.html` nueva; `instalar-iphone.html` e `instalar-android.html` pasan a redirigir.
+- `tools/publicar/publicar.cjs` ajusta la dirección en todos los archivos de texto de `public/`, no en una lista fija.
+- Sitio (`marketing/index.html`): enlace de los dos botones. Se publica aparte con `wrangler pages deploy marketing --project-name kettai --branch main`.
+- Sin cambios en la base de datos ni en la función de la IA.
+
+**Notas para quien siga el trabajo**
+
+- El caso lo encontró un amigo de Rodrigo en un iPad: el teclado metió un espacio dentro del correo y la validación solo quitaba los de los extremos.
+- La guía nueva salió unos minutos en producción con la dirección de pruebas, porque el script solo ajustaba una lista fija de archivos. Ya está corregido; después de publicar una página nueva, buscar en ella la dirección del otro ambiente.
+- Pasos de Android validados contra la ayuda oficial de Chrome, sin probarlos en un teléfono Android real.
+- Vuelta atrás: publicar desde `v1.8.0`. No deja nada a medias en los teléfonos.
+
 ### 1.8.0 · 13 de noviembre de 2026
 
 Cuerpo rediseñado: el peso va primero y se puede registrar solo, sin la cinta.
