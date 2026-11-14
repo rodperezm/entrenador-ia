@@ -1,25 +1,35 @@
-import { MUSCLE_GROUP_LABELS } from '@/domain/catalog';
+import { type DayFocus, FOCUS_LABEL } from '@/domain/strength';
 import type { DayConfig, DayPlan } from '@/domain/schema';
+import { weightLabel, workLabel } from '@/domain/sides';
 
-export function describeDayConfig(d: DayConfig, hasConditions: boolean): string {
+// Lo elegido para el día: lo que va incluido siempre no se repite.
+// `focus`: la zona del día cuando la Fuerza de la semana va dividida (tren inferior, superior...).
+export function dayTypeLabel(d: DayConfig, hasConditions: boolean, focus?: DayFocus): string {
   if (!d.active) return 'Descanso';
   const b = d.blocks;
   const parts: string[] = [];
-  if (b.warmup.enabled) parts.push(`Calentamiento ${b.warmup.exerciseCount}`);
-  if (b.prehab.enabled) parts.push(`${hasConditions ? 'Lesión' : 'Movilidad'} ${b.prehab.exerciseCount}`);
-  if (b.main.enabled)
+  if (b.main.enabled) {
     parts.push(
-      `Fuerza ${d.gentleStrength ? 'suave ' : ''}${d.gentleStrength ? Math.min(b.main.exerciseCount, 2) : b.main.exerciseCount}: ${b.main.muscleGroups.map((g) => MUSCLE_GROUP_LABELS[g]).join(', ')}`,
+      d.gentleStrength ? 'Fuerza suave' : focus && focus !== 'full' ? `Fuerza · ${FOCUS_LABEL[focus]}` : 'Fuerza',
     );
-  if (b.cooldown.enabled) parts.push(`Elongación ${b.cooldown.exerciseCount}`);
-  return `${parts.join(' · ') || 'Sin bloques'} · ${d.availableMinutes}'`;
+  }
+  if (b.prehab.enabled) parts.push(hasConditions ? 'Lesión' : 'Movilidad');
+  if (b.cooldown.enabled && !b.main.enabled) parts.push('Elongación');
+  return parts.join(' + ') || 'Sin partes';
 }
+
+export const describeDayConfig = (d: DayConfig, hasConditions: boolean, focus?: DayFocus) =>
+  `${dayTypeLabel(d, hasConditions, focus)} · ${d.availableMinutes} min`;
 
 export const countExercises = (d: DayPlan) => d.blocks.reduce((n, b) => n + b.slots.length, 0);
 
 export const slotLabel = (s: {
+  exerciseId: string;
   sets: number;
   reps: number | null;
   durationSec: number | null;
   weightKg: number | null;
-}) => `${s.sets} × ${s.reps ?? `${s.durationSec}s`}${s.weightKg ? ` · ${s.weightKg} kg` : ''}`;
+}) => {
+  const weight = s.weightKg ? ` · ${weightLabel(s.exerciseId, s.weightKg)}` : '';
+  return `${s.sets} × ${workLabel(s.exerciseId, s.reps, s.durationSec)}${weight}`;
+};

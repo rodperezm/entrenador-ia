@@ -3,11 +3,13 @@ import { Link, Stack, useLocalSearchParams } from 'expo-router';
 import type { ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BodyMap } from '@/components/BodyMap';
+import { YouTubeVideo } from '@/components/YouTubeVideo';
 import { EXERCISES_BY_ID } from '@/data/exercises.seed';
 import { EQUIPMENT, MUSCLES, RESTRICTION_FLAGS } from '@/domain/catalog';
 import { BLOCK_LABELS, GRIP_LABELS } from '@/domain/labels';
 import type { Exercise } from '@/domain/schema';
-import { colors, radius, spacing } from '@/theme';
+import { sideLabel } from '@/domain/sides';
+import { colors, display, radius, spacing } from '@/theme';
 
 export default function ExerciseDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -25,23 +27,21 @@ export default function ExerciseDetail() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <Stack.Screen options={{ title: e.name.es }} />
+      <Stack.Screen options={{ title: 'Ejercicio' }} />
 
-      {/* Video: espacio reservado hasta que lleguen los videos de Gymvisual */}
-      <View style={styles.hero}>
-        <Ionicons name="play-circle-outline" size={36} color={colors.textMuted} />
-        <Text style={styles.heroText}>{e.media.provider ? 'Video en camino' : 'Video por definir'}</Text>
-        <Text style={styles.heroSub}>
-          {e.media.provider
-            ? `Gymvisual · ${e.media.provider.id} · estilo gris`
-            : 'Ejercicio nuevo: consultando video con el proveedor'}
-        </Text>
-      </View>
+      {e.media.youtubeId ? (
+        <YouTubeVideo videoId={e.media.youtubeId} title={e.name.es} />
+      ) : (
+        <View style={styles.hero}>
+          <Ionicons name="play-circle-outline" size={36} color={colors.textMuted} />
+          <Text style={styles.heroText}>Video próximamente</Text>
+        </View>
+      )}
 
       <Text style={styles.title}>{e.name.es}</Text>
       <Text style={styles.body}>{e.description.es}</Text>
       <Text style={styles.meta}>
-        {e.blockTypes.map((b) => BLOCK_LABELS[b]).join(' · ')} · Nivel {e.complexityLevel} ·{' '}
+        {e.blockTypes.map((b) => BLOCK_LABELS[b]).join(' · ')} · Dificultad {e.complexityLevel} de 5 ·{' '}
         {[
           ...e.equipment.required.map((q) => EQUIPMENT[q]),
           ...e.equipment.optional.map((q) => `${EQUIPMENT[q]} (opcional)`),
@@ -51,7 +51,9 @@ export default function ExerciseDetail() {
       <View style={styles.statsRow}>
         <Stat label="Series" value={String(e.prescription.sets)} />
         <Stat
-          label={e.prescription.mode === 'time' ? 'Tiempo' : 'Reps'}
+          label={[e.prescription.mode === 'time' ? 'Tiempo' : 'Reps', sideLabel(e.id, e.prescription.mode === 'time')]
+            .filter(Boolean)
+            .join(' ')}
           value={
             e.prescription.mode === 'time'
               ? `${e.prescription.durationSec}s`
@@ -236,8 +238,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   heroText: { color: colors.textMuted, fontWeight: '700' },
-  heroSub: { color: colors.border, fontSize: 11 },
-  title: { color: colors.text, fontSize: 24, fontWeight: '800' },
+  title: { color: colors.text, ...display(28) },
   body: { color: colors.text, fontSize: 15, lineHeight: 21 },
   meta: { color: colors.textMuted, fontSize: 13, lineHeight: 19 },
   note: { color: colors.textMuted, fontSize: 13, fontStyle: 'italic' },
@@ -260,7 +261,7 @@ const styles = StyleSheet.create({
     height: 26,
     borderRadius: 13,
     backgroundColor: colors.accent,
-    color: '#fff',
+    color: colors.onAccent,
     textAlign: 'center',
     lineHeight: 26,
     fontWeight: '800',
@@ -286,5 +287,5 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   warnTitle: { color: colors.warning, fontWeight: '700' },
-  link: { color: colors.accent, fontSize: 15, fontWeight: '600', paddingVertical: 4 },
+  link: { color: colors.link, fontSize: 15, fontWeight: '600', paddingVertical: 4 },
 });

@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-redeclare -- esquema zod y su tipo comparten nombre a propósito */
 import { z } from 'zod';
+import { type Parsed, salvageList } from '@/lib/safeStore';
 import type { Sex } from './schema';
 
 // Fórmulas, umbrales y tablas portados de la bitácora MetricBody
@@ -166,3 +167,72 @@ export const fmtNum = (n: number | null, digits = 1) =>
   n == null || !Number.isFinite(n)
     ? '—'
     : n.toLocaleString('es-CL', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+
+// ---------- Lo guardado en el teléfono ----------
+
+export type StoredBody = { records: TapeRecord[]; folds: FoldRecord[] };
+
+// Registro por registro: uno inválido no bota a los demás (ver lib/safeStore).
+export function parseBody(json: unknown): Parsed<StoredBody> | null {
+  if (!json || typeof json !== 'object') return null;
+  const { records, folds } = json as { records?: unknown; folds?: unknown };
+  if (records === undefined && folds === undefined) return null;
+  // Una lista dañada (no es lista) cuenta como un registro perdido, sin botar la otra.
+  const list = <T,>(raw: unknown, schema: Parameters<typeof salvageList<T>>[1]) =>
+    salvageList(raw ?? [], schema) ?? { value: [] as T[], dropped: 1 };
+  const r = list(records, TapeRecord);
+  const f = list(folds, FoldRecord);
+  return { value: { records: r.value, folds: f.value }, dropped: r.dropped + f.dropped };
+}
+
+// ---------- Lo último de cada medida ----------
+
+export const TAPE_KEYS = ['weightKg', 'chestCm', 'waistCm', 'abdomenCm', 'hipCm'] as const;
+export type TapeKey = (typeof TAPE_KEYS)[number];
+export type LatestValue = { value: number; date: string; prev: number | null; prevDate: string | null };
+
+// Cada medida se registra cuando la persona quiere: el peso puede ir solo, sin cinta. Por eso lo
+// «último» se busca medida por medida (el registro más reciente que la trae) y no en un solo registro.
+export function latestBody(records: TapeRecord[]): Record<TapeKey, LatestValue | null> {
+  const byDate = [...records].sort((a, b) => b.date.localeCompare(a.date));
+  const out = {} as Record<TapeKey, LatestValue | null>;
+  for (const key of TAPE_KEYS) {
+    const withValue = byDate.filter((r) => r[key] != null);
+    const [cur, prev] = withValue;
+    out[key] = cur
+      ? { value: cur[key] as number, date: cur.date, prev: (prev?.[key] as number | undefined) ?? null, prevDate: prev?.date ?? null }
+      : null;
+  }
+  return out;
+}
+
+// Un registro armado con lo último de cada medida, para calcular los índices.
+export const latestRecord = (latest: Record<TapeKey, LatestValue | null>): TapeRecord => ({
+  id: '',
+  date: TAPE_KEYS.map((k) => latest[k]?.date ?? '').sort().pop() ?? '',
+  weightKg: latest.weightKg?.value ?? null,
+  chestCm: latest.chestCm?.value ?? null,
+  waistCm: latest.waistCm?.value ?? null,
+  abdomenCm: latest.abdomenCm?.value ?? null,
+  hipCm: latest.hipCm?.value ?? null,
+});
+
+// Los últimos pesos, del más antiguo al más reciente, para el gráfico.
+export const weightSeries = (records: TapeRecord[], max = 8) =>
+  [...records]
+    .filter((r) => r.weightKg != null)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(-max)
+    .map((r) => ({ date: r.date, kg: r.weightKg as number }));
+
+// Guardar un dato sobre lo que ya había ese día: no crea un segundo registro de la misma fecha.
+export function mergeIntoDay(
+  records: TapeRecord[],
+  date: string,
+  values: Partial<Record<TapeKey, number | null>>,
+): Omit<TapeRecord, 'id'> & { id?: string } {
+  const same = records.find((r) => r.date === date);
+  const base = same ?? { date, weightKg: null, chestCm: null, waistCm: null, abdomenCm: null, hipCm: null };
+  const filled = Object.fromEntries(Object.entries(values).filter(([, v]) => v != null));
+  return { ...base, ...filled };
+}

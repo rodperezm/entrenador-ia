@@ -1,7 +1,9 @@
 <!doctype html>
-<html lang="%LANG_ISO_CODE%">
+<!-- La app está en español: sin esto Chrome la "traduce" al español y cambia palabras. -->
+<html lang="es" translate="no">
   <head>
     <meta charset="utf-8" />
+    <meta name="google" content="notranslate" />
     <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
     <!-- viewport-fit=cover entrega los márgenes del iPhone (notch y barra de gestos) a la app. -->
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover" />
@@ -33,6 +35,36 @@
         },
         true,
       );
+
+      // Instalada en iPhone (pantalla de inicio), el alto que entrega Safari queda corto por arriba:
+      // la barra de pestañas no llega al borde y sobra una franja negra abajo. Ahí la app ocupa la
+      // pantalla completa, así que el alto se toma del teléfono.
+      var isIos =
+        /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      if (isIos && window.navigator.standalone === true) {
+        var setScreenHeight = function () {
+          var portrait = window.innerHeight >= window.innerWidth;
+          var h = portrait ? Math.max(screen.height, screen.width) : Math.min(screen.height, screen.width);
+          document.documentElement.style.setProperty('--screen-height', h + 'px');
+        };
+        document.documentElement.className += ' ios-app';
+        setScreenHeight();
+        window.addEventListener('resize', setScreenHeight);
+        window.addEventListener('orientationchange', setScreenHeight);
+      }
+
+      // Navegadores antiguos (p. ej. tablets Android) no conocen 100dvh y con 100vh la
+      // parte de abajo queda tapada por la barra del navegador: se usa el alto visible real.
+      if (!(window.CSS && CSS.supports && CSS.supports('height', '100dvh'))) {
+        var setAppHeight = function () {
+          document.documentElement.style.setProperty('--app-height', window.innerHeight + 'px');
+        };
+        document.documentElement.className += ' no-dvh';
+        setAppHeight();
+        window.addEventListener('resize', setAppHeight);
+        window.addEventListener('orientationchange', setAppHeight);
+      }
     </script>
     <style id="expo-reset">
       /* These styles make the body full-height */
@@ -59,6 +91,25 @@
         height: 100dvh;
         box-sizing: border-box;
         padding-top: env(safe-area-inset-top);
+      }
+      html.no-dvh #root {
+        height: var(--app-height, 100vh);
+      }
+      /* Instalada en iPhone: alto de la pantalla completa, y un poco más de aire arriba porque el
+         sistema difumina el contenido que queda pegado a la hora y la batería. */
+      /* Medido en un iPhone real (pantalla 844, ventana 797): la ventana que informa Safari es más
+         corta que la pantalla en lo que mide la zona de la hora. Un elemento «fixed» se recorta a esa
+         ventana y deja una franja vacía abajo; por eso aquí el marco va «absolute» y el documento
+         completo toma el alto de la pantalla. */
+      html.ios-app,
+      html.ios-app body {
+        height: var(--screen-height, 100dvh);
+        overscroll-behavior: none;
+      }
+      html.ios-app #root {
+        position: absolute;
+        height: var(--screen-height, 100dvh);
+        padding-top: calc(env(safe-area-inset-top) + 10px);
       }
     </style>
   </head>

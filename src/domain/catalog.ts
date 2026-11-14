@@ -42,34 +42,60 @@ export const MUSCLE_IDS = Object.keys(MUSCLES) as [MuscleId, ...MuscleId[]];
 export const EQUIPMENT = {
   mat: 'Mat / colchoneta',
   kettlebell: 'Kettlebell',
-  chair: 'Silla / banco',
+  chair: 'Silla firme',
+  bench: 'Banca firme o escalón',
   dumbbells: 'Mancuernas',
   pullup_bar: 'Barra de dominadas',
+  parallel_bars: 'Barras paralelas',
   resistance_band: 'Banda elástica',
+  activation_bar: 'Barra de activación (palo de escoba, pica o barra de yoga)',
 } as const;
 export type EquipmentId = keyof typeof EQUIPMENT;
 export const EQUIPMENT_IDS = Object.keys(EQUIPMENT) as [EquipmentId, ...EquipmentId[]];
 
 // Lo que el usuario lleva consigo: sirve en casa y en el parque.
-export const PORTABLE_EQUIPMENT: EquipmentId[] = ['mat', 'kettlebell', 'dumbbells', 'resistance_band'];
+export const PORTABLE_EQUIPMENT: EquipmentId[] = [
+  'mat',
+  'kettlebell',
+  'dumbbells',
+  'resistance_band',
+  'activation_bar',
+];
 // Lo que puede haber fijo en un parque (el usuario marca qué hay en el suyo).
 export const PARK_EQUIPMENT: Partial<Record<EquipmentId, string>> = {
   pullup_bar: 'Barra de dominadas',
-  chair: 'Banca',
+  parallel_bars: 'Barras paralelas',
+  bench: 'Banca',
 };
 export const PARK_EQUIPMENT_IDS = Object.keys(PARK_EQUIPMENT) as EquipmentId[];
+
+// Una banca firme sirve para todo lo que se hace con silla; la silla no reemplaza a la banca
+// donde hay que subirse, saltar o apoyar la espalda con carga (puede moverse o volcarse).
+export const withImplied = (equipment: EquipmentId[]): EquipmentId[] =>
+  equipment.includes('bench') && !equipment.includes('chair') ? [...equipment, 'chair'] : equipment;
 
 // Equipamiento disponible según dónde entrena ese día.
 export function equipmentAt(
   location: 'home' | 'park',
   profile: { equipment: EquipmentId[]; parkEquipment: EquipmentId[] },
 ): EquipmentId[] {
-  if (location === 'home') return profile.equipment;
-  return [...new Set([...profile.equipment.filter((e) => PORTABLE_EQUIPMENT.includes(e)), ...profile.parkEquipment])];
+  if (location === 'home') return withImplied(profile.equipment);
+  return withImplied([
+    ...new Set([...profile.equipment.filter((e) => PORTABLE_EQUIPMENT.includes(e)), ...profile.parkEquipment]),
+  ]);
 }
 
 // Banderas que describen la exigencia de un ejercicio. El usuario activa las
 // que quiere evitar; el filtro descarta los ejercicios que tengan alguna.
+// Preguntas de alerta antes de empezar: si alguna aplica, conviene consultar a un médico primero.
+export const HEALTH_ALERTS = {
+  chest: 'Dolor u opresión en el pecho al hacer esfuerzo',
+  dizzy: 'Mareos o desmayos sin explicación',
+  heart: 'Una enfermedad del corazón o presión alta sin controlar',
+  surgery: 'Una cirugía o lesión importante en los últimos 3 meses',
+  doctor: 'Un médico te indicó no hacer ejercicio, o hacerlo solo con supervisión',
+} as const;
+
 export const RESTRICTION_FLAGS = {
   jumping: 'Saltos',
   high_impact: 'Alto impacto',
@@ -114,7 +140,7 @@ export const MEDICAL_CONDITIONS: MedicalCondition[] = [
     id: 'shoulder_impingement',
     name: 'Pinzamiento / dolor de hombro',
     suggestedFlags: ['overhead'],
-    prehabExerciseIds: ['wall_slide', 'band_pull_apart'],
+    prehabExerciseIds: ['wall_slide', 'band_pull_apart', 'bar_supine_shoulder_flexion'],
   },
   {
     id: 'wrist_pain',
@@ -138,7 +164,13 @@ export const MEDICAL_CONDITIONS: MedicalCondition[] = [
     id: 'rotator_cuff',
     name: 'Tendinopatía del manguito rotador',
     suggestedFlags: ['overhead', 'ballistic'],
-    prehabExerciseIds: ['band_external_rotation', 'side_lying_external_rotation', 'prone_ytw', 'wall_slide'],
+    prehabExerciseIds: [
+      'band_external_rotation',
+      'side_lying_external_rotation',
+      'prone_ytw',
+      'wall_slide',
+      'bar_external_rotation',
+    ],
   },
   {
     id: 'lateral_epicondylitis',

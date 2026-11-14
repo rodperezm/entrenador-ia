@@ -1,35 +1,56 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Link, Redirect, router, Tabs } from 'expo-router';
-import { StyleSheet } from 'react-native';
+import { Redirect, router, Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { HeaderMenu } from '@/components/HeaderMenu';
+import { AccessGate } from '@/features/account/AccessGate';
+import { LoadingScreen } from '@/components/LoadingScreen';
 import { usePlan } from '@/state/plan';
 import { useProfile } from '@/state/profile';
-import { colors, spacing } from '@/theme';
+import { colors, display } from '@/theme';
+
+// Si una pantalla falla, se muestra este aviso en vez de quedar en blanco.
+export { ErrorScreen as ErrorBoundary } from '@/components/ErrorScreen';
+
+const TAB_BAR_HEIGHT = 64;
 
 export default function TabsLayout() {
   const { profile, loading } = useProfile();
   const { loading: planLoading } = usePlan();
-  if (loading || planLoading) return null;
+  const insets = useSafeAreaInsets();
+  if (loading || planLoading) return <LoadingScreen />;
   if (!profile) return <Redirect href="/onboarding" />;
 
   return (
+    <AccessGate>
     <Tabs
       screenOptions={{
         headerStyle: { backgroundColor: colors.bg },
         headerTintColor: colors.text,
+        headerTitleStyle: display(26),
         headerShadowVisible: false,
         sceneStyle: { backgroundColor: colors.bg },
-        tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
+        // Más alta que la de fábrica (49): con la etiqueta de 12 puntos, el texto se cortaba por abajo.
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+          height: TAB_BAR_HEIGHT + insets.bottom,
+        },
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textMuted,
-        headerRight: () => (
-          <Link href="/onboarding" style={styles.profileLink}>
-            Mi perfil
-          </Link>
-        ),
+        // Alto de línea fijo y sin encogerse: si falta espacio, la etiqueta no se corta por la mitad.
+        tabBarLabelStyle: { fontSize: 12, lineHeight: 16, flexShrink: 0 },
+        headerRight: () => <HeaderMenu />,
       }}
     >
       <Tabs.Screen
         name="index"
+        options={{
+          title: 'Hoy',
+          tabBarIcon: ({ color, size }) => <Ionicons name="today-outline" color={color as string} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="week"
         options={{
           title: 'Mi semana',
           tabBarLabel: 'Semana',
@@ -53,7 +74,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="tabata"
         options={{
-          title: 'Tabata/HIIT',
+          title: 'Temporizador HIIT',
+          tabBarLabel: 'HIIT',
           tabBarIcon: ({ color, size }) => <Ionicons name="timer-outline" color={color as string} size={size} />,
         }}
         listeners={{
@@ -65,9 +87,6 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
+    </AccessGate>
   );
 }
-
-const styles = StyleSheet.create({
-  profileLink: { color: colors.accent, fontWeight: '700', fontSize: 15, paddingHorizontal: spacing.lg },
-});

@@ -3,7 +3,7 @@ import { colors, radius, spacing } from '@/theme';
 
 export function Chip({ label, active, onPress }: { label: string; active?: boolean; onPress?: () => void }) {
   return (
-    <Pressable onPress={onPress} style={[styles.chip, active && styles.active]}>
+    <Pressable accessibilityRole="button" aria-selected={!!(active)} onPress={onPress} style={[styles.chip, active && styles.active]}>
       <Text style={[styles.text, active && styles.activeText]}>{label}</Text>
     </Pressable>
   );
@@ -20,5 +20,5 @@ const styles = StyleSheet.create({
   },
   active: { backgroundColor: colors.accent, borderColor: colors.accent },
   text: { color: colors.textMuted, fontWeight: '600', fontSize: 13 },
-  activeText: { color: '#fff' },
+  activeText: { color: colors.onAccent },
 });

@@ -1,3 +1,5 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { trainingStamp } from '@/domain/profileStamp';
 import { Link, router, Stack, useLocalSearchParams } from 'expo-router';
 import { Fragment, type ReactNode, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
@@ -5,27 +7,41 @@ import { Chip } from '@/components/Chip';
 import { Button, Stepper } from '@/components/ui';
 import { EXERCISES, EXERCISES_BY_ID } from '@/data/exercises.seed';
 import { averageMet, kcalRangeLabel, latestWeight } from '@/domain/calories';
-import { generateDayByRules } from '@/domain/generator';
+import { cycleInfo } from '@/domain/cycle';
+import { generateDayByRules, strongPainIds } from '@/domain/generator';
+import { dayIntensity, strengthInfo, weekFocus } from '@/domain/strength';
+import { explainDay } from '@/domain/explain';
+import { supportNote } from '@/domain/coverage';
+import { AiProgress } from '@/features/planner/AiProgress';
+import { WhyDay } from '@/features/planner/WhyCards';
 import { MUSCLE_GROUP_LABELS, MUSCLE_GROUPS } from '@/domain/catalog';
 import { BLOCK_LABELS, ROLE_LABELS } from '@/domain/labels';
-import { type DayConfig, DayOfWeek, type DayPlan } from '@/domain/schema';
-import { dayMinutes, leadPart, timeStatus } from '@/domain/timeBudget';
+import { type DayConfig, DayOfWeek, type DayPlan, type LocalProfile } from '@/domain/schema';
+import { dayMinutes, leadPart, partCount, timeStatus } from '@/domain/timeBudget';
 import {
   applyDayChoice,
+  minutesRange,
+  strengthLimitNote,
+  toggleDayType,
+  strengthDaysFull,
+  weekChoicesOf,
+  DAY_PARTS,
   configHash,
   dayConfigHash,
   dayHashes,
   DAYS,
   staleDays,
   DAY_LONG,
-  DAY_PARTS,
+  DAY_TYPE_PARTS,
   dayDate,
   fmtDayDate,
+  isFromPastWeek,
   isToday,
   dayChoiceLabel,
   dayChoiceOf,
+  dayIncludedNote,
   dayPartLabel,
-  toggleDayPart,
+  sameChoice,
   withAutoCounts,
   withGentleStrength,
 } from '@/domain/week';
@@ -56,16 +72,28 @@ export default function DayScreen() {
   const cfg = week.days.find((d) => d.day === day)!;
 
   const hasConditions = (profile?.conditions.length ?? 0) > 0;
+  // Lo que se trabaja en Fuerza (y Lesión) este día: base de lo que prepara y estira cada ejercicio de apoyo.
+  const slotsOf = (type: string) =>
+    (plan?.days.find((p) => p.day === day)?.blocks.find((x) => x.type === type)?.slots ?? []).flatMap(
+      (s) => EXERCISES_BY_ID.get(s.exerciseId) ?? [],
+    );
+  const dayMain = slotsOf('main_strength');
+  const dayWorked = [...dayMain, ...slotsOf('prehab')];
   const today = isToday(day);
   const dayPlan = plan?.days.find((p) => p.day === day);
-  const stale = !!plan && !!profile && staleDays(plan, week, profile.updatedAt).has(day);
+  const stale = !!plan && !!profile && staleDays(plan, week, trainingStamp(profile)).has(day);
+  const painful = strongPainIds(sessions);
+  const hasPainful = !!dayPlan?.blocks.some((b) => b.slots.some((s) => painful.includes(s.exerciseId)));
   // Semana vacía (perfil nuevo o recién borrado): conviene partir por la semana completa con IA.
   const weekEmpty = !plan?.days.some((p) => week.days.some((w) => w.day === p.day && w.active));
   const offerWeek = cfg.active && !dayPlan && weekEmpty && !draft;
   // Con la semana ya armada, un día de entrenamiento sin rutina abre los ajustes directamente.
   const editing = draft ?? (cfg.active && !dayPlan && !weekEmpty ? cfg : null);
 
-  const openAdjust = () => setDraft(cfg.active ? cfg : applyDayChoice(cfg, [...STRENGTH_DAY]));
+  // Los otros días ya tienen Fuerza 6 veces: este no puede llevarla (la semana necesita un día libre).
+  const strengthFull = strengthDaysFull(weekChoicesOf(week), day, profile?.level);
+  const openAdjust = () =>
+    setDraft(cfg.active ? cfg : applyDayChoice(cfg, strengthFull ? ['cooldown'] : [...STRENGTH_DAY]));
   const edit = (patch: (d: DayConfig) => DayConfig) => setDraft(patch(editing ?? cfg));
   const setBlock = <K extends keyof Blocks>(key: K, patch: Partial<Blocks[K]>) =>
     edit((d) => ({ ...d, blocks: { ...d.blocks, [key]: { ...d.blocks[key], ...patch } } }));
@@ -86,7 +114,12 @@ export default function DayScreen() {
     const isActive = (d: DayOfWeek) => nextWeek.days.some((w) => w.day === d && w.active);
     // Incluye la rutina actual del día para que la nueva prefiera ejercicios distintos.
     const others = (plan?.days ?? []).filter((p) => isActive(p.day));
-    const newDay = generateDayByRules(next, others, profile, EXERCISES, sessions);
+    const cycleBlock = cycleInfo(sessions, profile, week.days).blockStart;
+    const locked =
+      plan?.cycleBlock === cycleBlock && dayPlan?.location === next.location
+        ? dayPlan.blocks.filter((b) => b.type === 'main_strength').flatMap((b) => b.slots.map((s) => s.exerciseId))
+        : [];
+    const newDay = generateDayByRules(next, others, profile, EXERCISES, sessions, Date.now(), locked, nextWeek.days);
     const order = DAYS.map((d) => d.id);
     const days = [...(plan?.days ?? []).filter((p) => p.day !== day), newDay].sort(
       (a, b) => order.indexOf(a.day) - order.indexOf(b.day),
@@ -94,14 +127,15 @@ export default function DayScreen() {
     // Un plan antiguo sin huellas por día, si estaba al día, las hereda de la semana actual.
     const previousHashes =
       plan?.dayHashes ??
-      (plan?.configHash === configHash(week, profile.updatedAt) ? dayHashes(week, profile.updatedAt) : {});
+      (plan?.configHash === configHash(week, trainingStamp(profile)) ? dayHashes(week, trainingStamp(profile)) : {});
     await savePlan({
       days,
       summary: plan?.summary ?? 'Rutina armada día a día con las reglas de la app.',
       generatedAt: plan?.generatedAt ?? new Date().toISOString(),
       generator: plan?.generator ?? 'rules',
-      configHash: plan?.configHash ?? configHash(nextWeek, profile.updatedAt),
-      dayHashes: { ...previousHashes, [day]: dayConfigHash(next, profile.updatedAt) },
+      configHash: plan?.configHash ?? configHash(nextWeek, trainingStamp(profile)),
+      cycleBlock,
+      dayHashes: { ...previousHashes, [day]: dayConfigHash(next, trainingStamp(profile), nextWeek) },
     });
   };
 
@@ -123,14 +157,15 @@ export default function DayScreen() {
         <>
           <Text style={[styles.section, { marginTop: 0 }]}>Rutina de este día</Text>
           <Text style={styles.muted}>
-            Tu semana aún no tiene rutina. Lo mejor es armarla completa con IA: reparte los grupos musculares y varía
-            los ejercicios entre días.
+            Tu semana aún no tiene rutina. Lo mejor es armarla completa con IA: equilibra tus sesiones de cuerpo
+            completo y varía los ejercicios entre días.
           </Text>
           <Button
-            label={generating ? 'Armando tu semana… (hasta 1 minuto)' : 'Generar mi semana con IA'}
+            label={generating ? 'Armando tu semana…' : 'Generar mi semana con IA'}
             onPress={generate}
             disabled={generating}
           />
+          <AiProgress active={generating} />
           {notice && <Text style={styles.stale}>{notice}</Text>}
           {!generating && <Button label="Armar solo este día" variant="ghost" onPress={() => setDraft(cfg)} />}
         </>
@@ -147,26 +182,63 @@ export default function DayScreen() {
       {cfg.active && dayPlan && (
         <>
           <Text style={[styles.section, { marginTop: 0 }]}>Rutina de este día</Text>
+          {sameChoice(dayChoiceOf(cfg), ['cooldown']) && (
+            <Text style={styles.muted}>{dayIncludedNote(['cooldown'])}</Text>
+          )}
           {stale && !editing && (
             <Text style={styles.stale}>
-              Tu perfil cambió desde que se armó esta rutina. Toca «Rehacer o ajustar este día» para actualizarla.
+              Este día o tu perfil cambiaron desde que se armó esta rutina. Toca «Rehacer o ajustar este día» para
+              actualizarla.
+            </Text>
+          )}
+          {hasPainful && !editing && (
+            <Text style={styles.stale}>
+              Marcaste dolor fuerte en un ejercicio de este día. Toca «Rehacer o ajustar este día» para cambiarlo.
+            </Text>
+          )}
+          {!stale && plan && isFromPastWeek(plan.generatedAt) && (
+            <Text style={styles.stale}>
+              Esta rutina es de la semana pasada. Vuelve a Hoy para armar la nueva con lo que registraste.
             </Text>
           )}
           <TimeNotice
             dayPlan={dayPlan}
             cfg={cfg}
             weightKg={latestWeight(records)}
-            onFit={() => rebuild(withAutoCounts(cfg))}
+            onFit={() => rebuild({ ...withAutoCounts(cfg), fitToTime: true })}
+            onFull={() => rebuild({ ...cfg, fitToTime: undefined })}
             onAddGentle={() => rebuild(withGentleStrength(cfg))}
+            // La Lesión ya no se junta con la Fuerza en un mismo día: no se ofrece sumar fuerza suave.
+            canAddStrength={false}
             onDismiss={dismissTimeNotice}
           />
           <Button
             label="Empezar entrenamiento"
             onPress={() => router.push({ pathname: '/workout/[day]', params: { day } })}
           />
+          {profile && !editing && (
+            <WhyDay
+              lines={explainDay({
+                dayPlan,
+                cfg,
+                profile,
+                exercises: EXERCISES,
+                intensity: cfg.blocks.main.enabled
+                  ? cycleInfo(sessions, profile, week.days).preparation
+                    ? 'light'
+                    : dayIntensity(week.days, day, profile.level)
+                  : null,
+                focus: weekFocus(week.days)[day]?.focus,
+              })}
+            />
+          )}
+          {/* Qué prepara cada calentamiento y qué estira cada elongación, según la Fuerza del día. */}
           {dayPlan.blocks.map((b) => (
             <View key={b.type} style={styles.routineBlock}>
               <Text style={styles.routineTitle}>{BLOCK_LABELS[b.type]}</Text>
+              {b.type === 'main_strength' && (
+                <Text style={styles.muted}>Repites estos ejercicios durante el ciclo para medir tu progreso.</Text>
+              )}
               {b.slots.map((s, i) => {
                 const ex = EXERCISES_BY_ID.get(s.exerciseId);
                 if (!ex) return null;
@@ -176,12 +248,19 @@ export default function DayScreen() {
                       <Text style={styles.roleTitle}>{ROLE_LABELS[s.role]}</Text>
                     )}
                     <Link href={{ pathname: '/exercise/[id]', params: { id: ex.id } }} asChild>
-                      <Pressable style={styles.slot}>
+                      <Pressable accessibilityRole="link" style={styles.slot}>
                         <View style={{ flex: 1, gap: 2 }}>
                           <Text style={styles.slotName}>{ex.name.es}</Text>
-                          {s.rationale && <Text style={styles.muted}>{s.rationale}</Text>}
+                          {/* Debajo del nombre y no al lado: con «8 en total (4 con cada brazo)» no cabe en una fila. */}
+                          <Text style={styles.slotRx}>{slotLabel(s)}</Text>
+                          {b.type === 'main_strength' && <Text style={styles.muted}>{strengthInfo(ex)}</Text>}
+                          {(s.rationale ?? supportNote(s, b.type, dayMain, dayWorked, EXERCISES_BY_ID)) && (
+                            <Text style={styles.muted}>
+                              {s.rationale ?? supportNote(s, b.type, dayMain, dayWorked, EXERCISES_BY_ID)}
+                            </Text>
+                          )}
                         </View>
-                        <Text style={styles.slotRx}>{slotLabel(s)}</Text>
+                        <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
                       </Pressable>
                     </Link>
                   </Fragment>
@@ -190,7 +269,11 @@ export default function DayScreen() {
             </View>
           ))}
           {!editing && (
-            <Button label="Rehacer o ajustar este día" variant={stale ? 'primary' : 'ghost'} onPress={openAdjust} />
+            <Button
+              label="Rehacer o ajustar este día"
+              variant={stale || hasPainful ? 'primary' : 'ghost'}
+              onPress={openAdjust}
+            />
           )}
         </>
       )}
@@ -200,7 +283,9 @@ export default function DayScreen() {
           cfg={editing}
           hasConditions={hasConditions}
           hasRoutine={!!dayPlan}
+          level={profile?.level ?? 'intermediate'}
           estimate={estimate}
+          strengthFull={strengthFull}
           onEdit={edit}
           setBlock={setBlock}
           onConfirm={() => rebuild(editing)}
@@ -218,21 +303,26 @@ function TimeNotice({
   cfg,
   weightKg,
   onFit,
+  onFull,
   onAddGentle,
+  canAddStrength,
   onDismiss,
 }: {
   dayPlan: DayPlan;
   cfg: DayConfig;
   weightKg: number | null;
   onFit: () => void;
+  onFull: () => void;
   onAddGentle: () => void;
+  /** false: los otros días ya ocupan los 6 de Fuerza; este queda libre de ella. */
+  canAddStrength: boolean;
   onDismiss: () => void;
 }) {
   const { minutes, available, state } = timeStatus(dayPlan.blocks, cfg);
   const free = available - minutes;
   const over = state === 'over' || state === 'far_over';
   const dismissed = !!dayPlan.timeNoticeDismissed;
-  const offerGentle = state === 'short' && !cfg.blocks.main.enabled && free >= 15 && !dismissed;
+  const offerGentle = state === 'short' && !cfg.blocks.main.enabled && free >= 15 && !dismissed && canAddStrength;
   const kcal = weightKg ? kcalRangeLabel(averageMet(dayPlan.blocks, EXERCISES_BY_ID), weightKg, minutes) : null;
 
   return (
@@ -256,15 +346,22 @@ function TimeNotice({
           <Button label="No, gracias" variant="ghost" onPress={onDismiss} />
         </>
       )}
-      {over && !dismissed && (
+      {over && !dismissed && !cfg.fitToTime && (
         <>
           <Text style={styles.stale}>
-            {state === 'over'
-              ? `Esta sesión dura ≈ ${minutes} min, ${minutes - available} más de los que tienes.`
-              : `Con esta cantidad de ejercicios serían ≈ ${minutes} min. Te recomendamos ajustarla.`}
+            Para que tu entrenamiento sea efectivo, tu sesión completa dura ≈ {minutes} min: {minutes - available} más
+            de los {available} que tienes. Te recomendamos hacerla completa; si hoy no te alcanza, la ajustamos.
           </Text>
-          <Button label={`Ajustar a ${available} min`} onPress={onFit} />
-          <Button label="Dejarla así" variant="ghost" onPress={onDismiss} />
+          <Button label="Hacerla completa" onPress={onDismiss} />
+          <Button label={`Ajustar a ${available} min`} variant="ghost" onPress={onFit} />
+        </>
+      )}
+      {cfg.fitToTime && cfg.blocks.main.enabled && (
+        <>
+          <Text style={styles.muted}>
+            Ajustamos la fuerza a tus {available} min, con menos series o ejercicios que la sesión completa.
+          </Text>
+          <Button label="Volver a la sesión completa" variant="ghost" onPress={onFull} />
         </>
       )}
     </>
@@ -275,15 +372,19 @@ function AdjustPanel({
   cfg,
   hasConditions,
   hasRoutine,
+  level,
   estimate,
+  strengthFull,
   onEdit,
   setBlock,
   onConfirm,
   onCancel,
 }: {
   cfg: DayConfig;
+  strengthFull: boolean;
   hasConditions: boolean;
   hasRoutine: boolean;
+  level: LocalProfile['level'];
   estimate: number | null;
   onEdit: (patch: (d: DayConfig) => DayConfig) => void;
   setBlock: <K extends keyof Blocks>(key: K, patch: Partial<Blocks[K]>) => void;
@@ -292,6 +393,9 @@ function AdjustPanel({
 }) {
   const parts = dayChoiceOf(cfg);
   const groups = cfg.blocks.main.muscleGroups;
+  // Abierto solo si la persona ya fijó alguna cantidad a mano.
+  const [showCounts, setShowCounts] = useState(() => DAY_PARTS.some((p) => cfg.blocks[p].fixedCount));
+  const [restNote, setRestNote] = useState(false);
   const set = (patch: Partial<DayConfig>) => onEdit((d) => ({ ...d, ...patch }));
   const confirmLabel = !cfg.active
     ? 'Guardar como descanso'
@@ -307,17 +411,31 @@ function AdjustPanel({
 
       <Text style={styles.section}>¿Qué haces este día?</Text>
       <View style={styles.chips}>
-        {DAY_PARTS.map((p) => (
+        {DAY_TYPE_PARTS.map((p) => (
           <Chip
             key={p}
             label={dayPartLabel(p, hasConditions)}
             active={parts.includes(p)}
-            onPress={() => onEdit((d) => applyDayChoice(d, toggleDayPart(dayChoiceOf(d), p)))}
+            onPress={() => {
+              // Agregar Fuerza cuando ya hay 6 días: no se aplica y se explica por qué.
+              if (p === 'main' && !parts.includes('main') && strengthFull) return setRestNote(true);
+              setRestNote(false);
+              // Fuerza y Lesión van en días distintos: al elegir una, sale la otra. Los minutos se
+              // acomodan al tipo de día (Fuerza 30 a 90; apoyo 10 a 40).
+              onEdit((d) => {
+                const next = applyDayChoice(d, toggleDayType(dayChoiceOf(d), p));
+                const range = minutesRange(dayChoiceOf(next));
+                const availableMinutes = Math.min(range.max, Math.max(range.min, next.availableMinutes));
+                return next.active ? { ...next, availableMinutes } : next;
+              });
+            }}
           />
         ))}
         <Chip label="Descanso" active={!parts.length} onPress={() => onEdit((d) => applyDayChoice(d, []))} />
       </View>
+      {restNote && <Text style={styles.restNote}>{strengthLimitNote(level)}</Text>}
       <Text style={styles.muted}>{parts.length ? dayChoiceLabel(parts, hasConditions) : 'Sin entrenamiento'}</Text>
+      {parts.length > 0 && <Text style={styles.muted}>{dayIncludedNote(parts)}</Text>}
 
       {cfg.active && (
         <>
@@ -331,103 +449,121 @@ function AdjustPanel({
           <Row label="Tiempo disponible">
             <Stepper
               value={cfg.availableMinutes}
-              min={10}
-              max={120}
+              min={Math.min(cfg.availableMinutes, minutesRange(parts).min)}
+              max={Math.max(cfg.availableMinutes, minutesRange(parts).max)}
               step={5}
               suffix="'"
               onChange={(availableMinutes) => set({ availableMinutes })}
             />
           </Row>
+          {cfg.blocks.main.enabled && (
+            <Text style={styles.muted}>
+              Fuerza necesita al menos 20 min. Con menos tiempo, elige {dayPartLabel('prehab', hasConditions)} o
+              Elongación.
+            </Text>
+          )}
           <Text style={styles.muted}>{estimateLabel}</Text>
 
-          <Text style={styles.section}>Bloques</Text>
+          {/* La cantidad de ejercicios la decide la app con los minutos; fijarla a mano es opcional. */}
+          <Pressable accessibilityRole="button" onPress={() => setShowCounts(!showCounts)} hitSlop={8}>
+            <Text style={styles.link}>
+              {showCounts ? 'Ocultar la cantidad de ejercicios' : 'Elegir la cantidad de ejercicios (avanzado)'}
+            </Text>
+          </Pressable>
+          {!showCounts && (
+            <Text style={styles.muted}>
+              La app calcula cuántos ejercicios lleva cada parte con tus minutos y tu nivel.
+            </Text>
+          )}
 
-          <BlockCard
-            title="Calentamiento / activación"
-            enabled={cfg.blocks.warmup.enabled}
-            onToggle={(enabled) => setBlock('warmup', { enabled })}
-          >
-            <CountRow
-              count={cfg.blocks.warmup.exerciseCount}
-              max={8}
-              fixed={!!cfg.blocks.warmup.fixedCount}
-              onChange={(patch) => setBlock('warmup', patch)}
-            />
-          </BlockCard>
+          {showCounts && cfg.blocks.warmup.enabled && (
+            <BlockCard title="Calentamiento">
+              <CountRow
+                count={cfg.blocks.warmup.exerciseCount}
+                auto={partCount('warmup', cfg, level)}
+                max={8}
+                fixed={!!cfg.blocks.warmup.fixedCount}
+                onChange={(patch) => setBlock('warmup', patch)}
+              />
+            </BlockCard>
+          )}
 
-          <BlockCard
-            title="Prehab / condición médica"
-            description={
-              hasConditions
-                ? 'Prioriza ejercicios preventivos para tus condiciones.'
-                : 'Ejercicios preventivos de movilidad y estabilidad.'
-            }
-            enabled={cfg.blocks.prehab.enabled}
-            onToggle={(enabled) => setBlock('prehab', { enabled })}
-          >
-            <CountRow
-              count={cfg.blocks.prehab.exerciseCount}
-              max={6}
-              fixed={!!cfg.blocks.prehab.fixedCount}
-              onChange={(patch) => setBlock('prehab', patch)}
-            />
-          </BlockCard>
+          {showCounts && cfg.blocks.prehab.enabled && (
+            <BlockCard
+              title={dayPartLabel('prehab', hasConditions)}
+              description={
+                hasConditions
+                  ? 'Prioriza ejercicios para cuidar tus condiciones.'
+                  : 'Ejercicios de movilidad y estabilidad.'
+              }
+            >
+              <CountRow
+                auto={partCount('prehab', cfg, level)}
+                count={cfg.blocks.prehab.exerciseCount}
+                max={6}
+                fixed={!!cfg.blocks.prehab.fixedCount}
+                onChange={(patch) => setBlock('prehab', patch)}
+              />
+            </BlockCard>
+          )}
 
-          <BlockCard
-            title="Entrenamiento principal / fuerza"
-            enabled={cfg.blocks.main.enabled}
-            onToggle={(enabled) => setBlock('main', { enabled })}
-          >
-            <CountRow
-              count={cfg.blocks.main.exerciseCount}
-              max={10}
-              fixed={!!cfg.blocks.main.fixedCount}
-              onChange={(patch) => setBlock('main', patch)}
-            />
-            {hasConditions && cfg.blocks.prehab.enabled && (
-              <Row label="Suave (día de lesión)">
-                <Switch
-                  value={cfg.gentleStrength}
-                  onValueChange={(gentleStrength) => set({ gentleStrength })}
-                  trackColor={{ false: colors.surfaceAlt, true: colors.accent }}
-                  thumbColor="#fff"
-                  ios_backgroundColor={colors.surfaceAlt}
-                  {...({ activeThumbColor: '#fff' } as object)}
+          {cfg.blocks.main.enabled && (
+            <BlockCard title="Fuerza">
+              {showCounts && (
+                <CountRow
+                  count={cfg.blocks.main.exerciseCount}
+                  auto={partCount('main', cfg, level)}
+                  max={10}
+                  fixed={!!cfg.blocks.main.fixedCount}
+                  onChange={(patch) => setBlock('main', patch)}
                 />
-              </Row>
-            )}
-            {cfg.gentleStrength && (
-              <Text style={styles.muted}>Máximo 2 ejercicios sencillos, sin balísticos ni saltos.</Text>
-            )}
-            <Text style={styles.rowLabel}>Grupos musculares</Text>
-            <View style={styles.chips}>
-              {MUSCLE_GROUPS.map((g) => (
-                <Chip
-                  key={g}
-                  label={MUSCLE_GROUP_LABELS[g]}
-                  active={groups.includes(g)}
-                  onPress={() => {
-                    const next = groups.includes(g) ? groups.filter((x) => x !== g) : [...groups, g];
-                    if (next.length) setBlock('main', { muscleGroups: next });
-                  }}
-                />
-              ))}
-            </View>
-          </BlockCard>
+              )}
+              {hasConditions && cfg.blocks.prehab.enabled && (
+                <Row label="Suave (día de lesión)">
+                  <Switch
+                    value={cfg.gentleStrength}
+                    onValueChange={(gentleStrength) => set({ gentleStrength })}
+                    trackColor={{ false: colors.surfaceAlt, true: colors.accent }}
+                    thumbColor="#fff"
+                    ios_backgroundColor={colors.surfaceAlt}
+                    {...({ activeThumbColor: colors.white } as object)}
+                  />
+                </Row>
+              )}
+              {cfg.gentleStrength && (
+                <Text style={styles.muted}>Máximo 2 ejercicios sencillos, sin balísticos ni saltos.</Text>
+              )}
+              <Text style={styles.rowLabel}>Zonas con preferencia</Text>
+              <Text style={styles.muted}>
+                Esto solo inclina la elección de ejercicios; la estructura del día la arma la app.
+              </Text>
+              <View style={styles.chips}>
+                {MUSCLE_GROUPS.map((g) => (
+                  <Chip
+                    key={g}
+                    label={MUSCLE_GROUP_LABELS[g]}
+                    active={groups.includes(g)}
+                    onPress={() => {
+                      const next = groups.includes(g) ? groups.filter((x) => x !== g) : [...groups, g];
+                      if (next.length) setBlock('main', { muscleGroups: next });
+                    }}
+                  />
+                ))}
+              </View>
+            </BlockCard>
+          )}
 
-          <BlockCard
-            title="Enfriamiento y elongación"
-            description="Estiramientos de los músculos trabajados en la sesión."
-            enabled={cfg.blocks.cooldown.enabled}
-            onToggle={(enabled) => setBlock('cooldown', { enabled })}
-          >
-            <CountRow
-              count={cfg.blocks.cooldown.exerciseCount}
-              max={8}
-              fixed={!!cfg.blocks.cooldown.fixedCount}
-              onChange={(patch) => setBlock('cooldown', patch)}
-            />
-          </BlockCard>
+          {showCounts && cfg.blocks.cooldown.enabled && (
+            <BlockCard title="Elongación" description="Estiramientos de los músculos trabajados en la sesión.">
+              <CountRow
+                auto={partCount('cooldown', cfg, level)}
+                count={cfg.blocks.cooldown.exerciseCount}
+                max={8}
+                fixed={!!cfg.blocks.cooldown.fixedCount}
+                onChange={(patch) => setBlock('cooldown', patch)}
+              />
+            </BlockCard>
+          )}
         </>
       )}
 
@@ -442,11 +578,13 @@ function AdjustPanel({
 // Auto: la app ajusta la cantidad a los minutos. Al mover el número, queda fija.
 function CountRow({
   count,
+  auto,
   max,
   fixed,
   onChange,
 }: {
   count: number;
+  auto: number;
   max: number;
   fixed: boolean;
   onChange: (patch: { exerciseCount?: number; fixedCount?: boolean }) => void;
@@ -457,7 +595,7 @@ function CountRow({
         <View style={styles.countControls}>
           <Chip label="Auto" active={!fixed} onPress={() => onChange({ fixedCount: undefined })} />
           <Stepper
-            value={count}
+            value={fixed ? count : auto}
             min={1}
             max={max}
             onChange={(exerciseCount) => onChange({ exerciseCount, fixedCount: true })}
@@ -467,7 +605,7 @@ function CountRow({
       <Text style={styles.muted}>
         {fixed
           ? `Respetamos estos ${count}; ajustamos vueltas y duración.`
-          : 'La cantidad se ajusta a tus minutos.'}
+          : `Con tus minutos, la app propone ${auto}.`}
       </Text>
     </>
   );
@@ -475,43 +613,20 @@ function CountRow({
 
 function Segment({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={[styles.segBtn, on && styles.segOn]}>
-      <Text style={[styles.segText, on && { color: '#fff' }]}>{label}</Text>
+    <Pressable accessibilityRole="button" aria-selected={!!(on)} onPress={onPress} style={[styles.segBtn, on && styles.segOn]}>
+      <Text style={[styles.segText, on && { color: colors.onAccent }]}>{label}</Text>
     </Pressable>
   );
 }
 
-function BlockCard({
-  title,
-  description,
-  enabled,
-  onToggle,
-  children,
-}: {
-  title: string;
-  description?: string;
-  enabled: boolean;
-  onToggle: (v: boolean) => void;
-  children?: ReactNode;
-}) {
+function BlockCard({ title, description, children }: { title: string; description?: string; children?: ReactNode }) {
   return (
-    <View style={[styles.block, enabled && styles.blockOn]}>
-      <View style={styles.blockHead}>
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text style={styles.blockTitle}>{title}</Text>
-          {description && <Text style={styles.muted}>{description}</Text>}
-        </View>
-        <Switch
-          value={enabled}
-          onValueChange={onToggle}
-          trackColor={{ false: colors.surfaceAlt, true: colors.accent }}
-          thumbColor="#fff"
-          ios_backgroundColor={colors.surfaceAlt}
-          // En web, react-native-web usa su propio color para la bolita activa.
-          {...({ activeThumbColor: '#fff' } as object)}
-        />
+    <View style={styles.block}>
+      <View style={{ gap: 2 }}>
+        <Text style={styles.blockTitle}>{title}</Text>
+        {description && <Text style={styles.muted}>{description}</Text>}
       </View>
-      {enabled && children}
+      {children}
     </View>
   );
 }
@@ -547,16 +662,15 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: spacing.lg,
     gap: spacing.md,
-    opacity: 0.7,
   },
-  blockOn: { opacity: 1 },
-  blockHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   blockTitle: { color: colors.text, fontSize: 16, fontWeight: '700' },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   rowLabel: { color: colors.textMuted, fontSize: 14, fontWeight: '600' },
   countControls: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   estimate: { color: colors.text, fontSize: 15, fontWeight: '700', textAlign: 'center' },
+  link: { color: colors.link, fontSize: 14, fontWeight: '700', marginTop: spacing.sm },
+  restNote: { color: colors.warning, fontSize: 14, lineHeight: 20 },
   muted: { color: colors.textMuted, fontSize: 13, lineHeight: 18 },
   stale: { color: colors.warning, fontSize: 13 },
   routineBlock: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.md, gap: 2 },
@@ -578,5 +692,5 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   slotName: { color: colors.text, fontSize: 15, fontWeight: '600' },
-  slotRx: { color: colors.text, fontSize: 14, fontWeight: '800' },
+  slotRx: { color: colors.accent, fontSize: 14, fontWeight: '800' },
 });

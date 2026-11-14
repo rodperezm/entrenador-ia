@@ -5,14 +5,25 @@
 // historial. Claude solo puede elegir entre esos candidatos; la respuesta se
 // valida aquí (y otra vez en la app) antes de devolverla.
 //
+// Cada cuenta tiene un límite de semanas con IA (migraciones 0003 y 0005). El cupo se reserva
+// antes de llamar a Claude, para que varias consultas simultáneas no pasen con un solo cupo, y
+// solo las consultas exitosas se cuentan (migración 0012):
+//   - con plan: la fila queda con el modelo y los tokens gastados;
+//   - Claude respondió pero no sirvió: la fila queda marcada como fallida, con su gasto, y no
+//     cuenta para el cupo de la persona;
+//   - Claude no alcanzó a responder: no hubo gasto y la fila se borra.
+//
 // Secretos (Edge Functions → Secrets):
 //   ANTHROPIC_API_KEY  (obligatorio)
 //   CLAUDE_MODEL       (opcional; por defecto claude-opus-5-5)
 
 import Anthropic from 'npm:@anthropic-ai/sdk';
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { type ClaudeReply, settle, usageRecord } from './usage.ts';
 
 const MODEL = Deno.env.get('CLAUDE_MODEL') ?? 'claude-opus-5-5';
+// Modelos más económicos que un pedido puede elegir para compararlos; nunca uno más caro.
+const TEST_MODELS = ['claude-sonnet-5-5', 'claude-haiku-5-5'];
 const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY') });
 
 const CORS = {
@@ -51,41 +62,65 @@ function keepAliveResponse(work: Promise<unknown>) {
   });
 }
 
+type Reservation = {
+  status: 'ok' | 'weekly_limit' | 'daily_cap' | 'needs_account';
+  generation_id: number | null;
+  weekly_limit: number | null;
+  resets_at: string;
+};
+// El pedido más grande medido (todo el equipamiento, 6 días, sin historial) pesa unos 90 KB.
+const MAX_BODY_BYTES = 400_000;
+const MAX_CANDIDATES = 400;
+const MAX_DAYS = 7;
 type Block = 'warmup' | 'prehab' | 'main_strength' | 'cooldown';
-type Candidate = { id: string; blocks: Block[]; kettlebell: boolean; [k: string]: unknown };
+type Candidate = { id: string; blocks: Block[]; kettlebell: boolean; dumbbells?: number; [k: string]: unknown };
 type RequestBody = {
-  profile: { kettlebellWeightsKg: number[]; [k: string]: unknown };
+  profile: { kettlebellWeightsKg: number[]; dumbbellWeightsKg?: number[]; [k: string]: unknown };
   week: { day: string; [k: string]: unknown }[];
   candidates: Candidate[];
   history: unknown[];
   body?: unknown;
+  model?: string;
 };
 
 const SYSTEM = `Eres un entrenador personal experto en kettlebell, fuerza y prevención de lesiones. Armas la rutina semanal de un usuario de una app de entrenamiento en casa y parque.
 
 Reglas obligatorias:
 - Usa SOLO ejercicios de la lista "candidates", y cada uno solo en un bloque que aparezca en su campo "blocks". Ya están filtrados por las restricciones médicas y el equipamiento del usuario: no inventes otros.
-- Genera exactamente los días de "week" (los activos) y, en cada día, solo los bloques habilitados, en este orden: warmup, prehab, main_strength, cooldown.
-- Cantidad de ejercicios: cada bloque trae "exerciseCount"; es una base que se ajusta a los minutos, salvo que traiga "fixedCount": true, y entonces esa cantidad se respeta y solo cambian series y duración. warmup: la cantidad pedida, activando los grupos del día. prehab: la cantidad pedida, priorizando los marcados "forConditions". main_strength: la cantidad pedida, repartida entre los grupos musculares del día. cooldown: la cantidad pedida de estiramientos de los músculos trabajados ese día (usa "cooldownStretchIds" de los ejercicios de fuerza y de prehab cuando estén disponibles). Los días sin fuerza (solo prehab) son de recuperación de la lesión: elige prehab y estiramientos suaves que la complementen.
-- Tiempo: cada día trae "availableMinutes" (el tiempo total), "leadPart" (la parte protagonista) y "minutesByPart" (los minutos máximos de cada parte: warmup, prehab, main = main_strength, cooldown). Calcula la duración con series, repeticiones a ~4 s cada una, descansos y unos 30 s para cambiar de ejercicio. Cada parte debe caber en sus minutos y aprovecharlos: si falta tiempo, sube series, luego duración y al final agrega ejercicios; si sobra, usa menos ejercicios, nunca menos de 1 por bloque. Con "fixedCount": true ajusta solo series y duración. Apunta a usar entre 80% y 100% de "availableMinutes" si hay fuerza. Sin fuerza es una referencia: no rellenes por rellenar, y en prehab manda la calidad.
+- Genera exactamente los días de "week" (los activos) y, en cada día, todos los bloques habilitados y solo esos, en este orden: warmup, prehab, main_strength, cooldown. Con main_strength siempre van warmup y cooldown; con prehab siempre va warmup.
+- Cantidad de ejercicios: cada bloque trae "exerciseCount", ya calculado por la app con los minutos de esa parte y el nivel: úsalo tal cual (cambia 1 solo si hace falta para caber en los minutos). Con "fixedCount": true lo eligió la persona: respétalo y cambia solo series y duración. warmup: la cantidad pedida, activando los grupos del día. prehab: la cantidad pedida, priorizando los marcados "forConditions". main_strength: la cantidad pedida, repartida por patrones según la zona del día (cuerpo completo, o la que indique "focus"); los grupos musculares del día solo dan preferencia. cooldown: la cantidad pedida de estiramientos de los músculos trabajados ese día (usa "cooldownStretchIds" de los ejercicios de fuerza y de prehab cuando estén disponibles). Los días sin fuerza son de recuperación de la lesión: warmup breve y suave que no cargue la zona lesionada, prehab como parte principal y, si cooldown está habilitado, estiramientos suaves que lo complementen. Un día solo con cooldown son estiramientos lentos y sin forzar.
+- Tiempo: cada día trae "availableMinutes" (el tiempo total), "leadPart" (la parte protagonista) y "minutesByPart" (los minutos máximos de cada parte: warmup, prehab, main = main_strength, cooldown). Calcula la duración con series, repeticiones a ~4 s cada una, descansos y unos 30 s para cambiar de ejercicio. Cada parte debe caber en sus minutos y aprovecharlos: si falta tiempo, sube series, luego duración y al final agrega ejercicios; si sobra, usa menos ejercicios, nunca menos de 1 por bloque. Con "fixedCount": true ajusta solo series y duración. Excepción en main_strength: primero va un entrenamiento efectivo. Si la dosis adecuada no cabe, no bajes series ni quites ejercicios A o B; entrégala completa (puedes quitar C) y la app le avisará que toma más tiempo. Solo si el día trae "fitToTime": true (la persona pidió ajustarla a sus minutos) recorta main_strength para que quepa, quitando primero C. Apunta a usar entre 80% y 100% de "availableMinutes" si hay fuerza. Sin fuerza es una referencia: no rellenes por rellenar, y en prehab manda la calidad.
 - Lugar y equipamiento: cada día trae "location" (home = casa, park = parque) y "availableEquipment". Ese día usa SOLO candidatos cuyo "equipment" esté completo en "availableEquipment" (por ejemplo, sin barra de dominadas en el parque si no aparece "pullup_bar"). En el parque, si cabe, prefiere acarreos y caminatas con kettlebell; en casa evita saltos si hay otras opciones.
 - Fuerza suave: si un día trae "gentleStrength": true es un día de lesión. En main_strength usa como máximo 2 ejercicios sencillos (complejidad ≤ 2), sin balísticos ni saltos, que no carguen la zona lesionada; la prioridad del día es el prehab.
-- Bloques de fuerza: cada candidato trae "strengthRole". En main_strength ordena A (potencia: balísticos, pocas repeticiones de calidad, 2-3 min de descanso), luego B (fuerza: "baja en 3 s, sube rápido") y al final C (remate opcional). Reparto: 2-3 ejercicios 1 A + B; 4 ejercicios 1 A + 3 B; 5 ejercicios 1 A + 3 B + 1 C; 6 o más 2 A + 3-4 B + 1 C. Si no hay A disponible, usa B. Si falta tiempo, quita C primero.
-- Ciclo: "cycle" indica bloque, semana y foco; sigue "cycle.guide". Dentro de un bloque mantén los ejercicios de fuerza de cada día para poder medir el progreso. Al empezar un bloque nuevo cambia la mayoría respecto de "cycle.previousBlockExercises". Lesiones, dolor y equipamiento mandan sobre el ciclo.
+- Fuerza: mandan los patrones ("pattern"), no los músculos. Si el día NO trae "focus", la sesión es de cuerpo completo y vale el reparto de esta regla; si trae "focus", manda la regla "División por zonas". Ordena A, B y C según "strengthRole". A: bisagra de la etapa disponible, pocas repeticiones de calidad y 2-3 min de descanso, con 3 a 5 series. B: solo empuje, tirón, sentadilla o zancada, y bisagra; indica "baja en 3 s, sube rápido", con 90 s de descanso como mínimo. C: acarreo, core o remate opcional. Reparto: 3 ejercicios A + empuje + tirón; 4 agrega sentadilla; 5 agrega C; 6 agrega un segundo A si hay opción. Sin A disponible, usa bisagra en B. Si falta tiempo, quita C primero. Cada día trae "intensity": intense, moderate (una serie menos y balístico corto) o light (técnica, sin balísticos, máximo 2 series).
+- División por zonas: con 4, 5 o 6 días de Fuerza la semana no es de cuerpo completo (repetirlo no deja recuperar). Cada día de Fuerza trae "focus" y "focusGuide", y ese día SOLO usa ejercicios de su zona, siguiendo "focusGuide" al pie de la letra. "lower" (tren inferior): bisagra, sentadilla, zancada y una pierna; sin empujes ni tirones. "upper" (tren superior): empujes y tirones, sin bloque A, sin bisagra ni piernas, y con un remate C de brazos. "power_core": bisagra técnica, acarreos y core; sin empujes, tirones ni piernas. Los remates C de core y acarreo valen en cualquier zona. Los aislados (strengthRole "C" que no son core ni acarreo: gemelos, glúteos, isquiotibiales, hombros, trapecio) solo se usan en días con "focus" y en su zona; nunca en cuerpo completo. La exigencia de cada día sigue viniendo en "intensity": en la semana dividida la primera vuelta de cada zona es la fuerte y las siguientes bajan. Si mezclas zonas en un día, la app descarta tu Fuerza de ese día.
+- Brazos: en la semana incluye al menos un ejercicio de bíceps y uno de tríceps (strengthRole "C", remate) en días distintos, si hay tiempo y la lesión lo permite; en el empuje que rota puedes elegir variantes que trabajen el tríceps.
+- Ciclo: "cycle" indica bloque, semana y foco; sigue "cycle.guide". Dentro de un bloque, "cycle.fixedByDay" va siempre en main_strength de ese día, salvo dolor o equipamiento. Si "cycle.rotateOthers" es true, fixedByDay son solo las anclas (en cuerpo completo y tren inferior, el ejercicio de potencia y el principal de piernas; en tren superior, el empuje y el tirón principales; miden el progreso): completa el resto de main_strength con otros ejercicios de los mismos patrones (empuje, tirón, remate) que no estén en "recentExercises", para que la semana no sea una copia de la anterior, manteniendo la zona de cada día (cuerpo completo, o su "focus"). Si es false (misma semana), usa exactamente fixedByDay. Al empezar un bloque nuevo mantén cada patrón y sube un peldaño respecto de "cycle.previousBlockExercises": más peso si existe otra kettlebell, variante más difícil del mismo patrón, más tempo o tensión, y al final más densidad o menos descanso. Lesiones, dolor, esfuerzo excesivo y equipamiento mandan sobre el ciclo.
 - Varía los ejercicios entre días de la semana; no repitas en un mismo día dos variantes de la misma cadena de progresión ("chain").
 - Ajusta la complejidad al nivel del usuario.
 - Series, repeticiones y descansos: parte de "defaults" de cada ejercicio. Si es por tiempo, usa durationSec y deja reps en null; si es por repeticiones, al revés.
-- weightKg: solo en ejercicios con kettlebell, y SOLO con pesos de "profile.kettlebellWeightsKg". En los demás, null.
+- HIIT y AMRAP: una serie del historial con "format" se hizo en circuito con menos peso. No la uses para subir carga, pero respeta su dolor.
+- Cierre de la sesión: cada día lleva "finisher" con "format" normal, hiit o amrap. La persona decide; tú solo sugieres para desafiar y romper la monotonía. Usa hiit o amrap solo en días con ejercicio C, "intensity" moderate o intense, sin dolor reciente, sin semana de descarga y nunca para principiantes. En semana de máxima intensidad usa normal. Sugiere hiit uno o dos días por semana y amrap máximo un día. Decide con su evolución en "recentFinishers": si un AMRAP mejoró su marca o quedó cerca, propón repetirlo; si el último cierre fue muy exigente (effortRpe 10) o tuvo dolor, prefiere normal o el formato más guiado (hiit); si aún no prueba un formato y llega bien, puedes proponerlo. Los demás días usa normal. Nunca inventes marcas que no estén en "recentFinishers". En "reason" escribe una frase corta en español de Chile, tuteando, que diga por qué ese cierre conviene ese día; con normal usa null.
+- Lados: con "laterality": "unilateral", reps o durationSec son por lado y cada serie incluye ambos, así que tarda el doble. Con "alternating", el número es el total de la serie.
+- weightKg: solo en ejercicios con kettlebell, y SOLO con pesos de "profile.kettlebellWeightsKg". En los demás, null. Si un candidato trae "kettlebells": 2, weightKg es el peso de cada una y debe estar en "profile.kettlebellPairsKg". Si un candidato trae "dumbbells" (1 o 2), weightKg es el peso de cada mancuerna: con 2 debe estar en "profile.dumbbellPairsKg" y con 1 en "profile.dumbbellWeightsKg". Si ese peso queda bajo "suggestedKgByLevel", sube las repeticiones al tope y pide bajar en 3 s con pausa abajo.
 - Progresión con "history" (última vez que hizo cada ejercicio):
   * Calentamiento, movilidad, equilibrio y elongación no progresan en carga: mantén series, reps o tiempo.
   * Ejercicios por tiempo (planchas, acarreos, isometrías): con RPE ≤ 8 sube 5 s; con RPE ≥ 9 mantén.
-  * Completó todas las series con las reps objetivo y esfuerzo (RPE) ≤ 8 → sube 1-2 reps; si ya estaba en el máximo del rango, sube a la siguiente kettlebell que tenga y vuelve al mínimo del rango.
+  * Completó todas las series con las reps objetivo y esfuerzo (RPE) ≤ 8 → sube 1-2 reps; si ya estaba en el máximo del rango, sube a la siguiente kettlebell que tenga y vuelve al mínimo del rango. Si ese salto es mayor al 20 % (por ejemplo, de 12 a 16 kg) o no tiene una más pesada, antes sube peldaños: primero una serie más y la vez siguiente "baja en 4 s con pausa de 1 s abajo"; recién después sube el peso.
   * RPE ≥ 9.5 o no completó → mantén la carga.
+  * "tooHard": true → quedó muy pesado (sin reserva, no completó o bajó el peso): repite la última carga y no la subas, ni siquiera en semana de máxima intensidad.
   * "pain" leve → mantén la misma carga, no subas.
   * "pain" moderado → baja la exigencia (menos reps o kettlebell más liviana).
-  * "pain" fuerte → NO uses ese ejercicio esta semana: cámbialo por un candidato más suave del mismo grupo muscular y explícalo en "rationale".
-- "rationale": una frase corta en español de Chile, tuteando (tú, no vos), explicando la elección o el cambio de carga (ej: "Subimos a 16 kg: completaste 20 reps con esfuerzo 7."). Puede ser null en calentamiento y elongación.
-- "summary": 1 o 2 frases en español resumiendo el enfoque de la semana.`;
+  * "pain" fuerte → NO uses ese ejercicio esta semana: cámbialo por un candidato más suave del mismo patrón y explícalo en "rationale".
+- Sensación de la persona ("recentFeelings"): manda sobre las reglas de progresión. "arrival" es cómo llegó (energized, normal, tired, pain), "afterWarmup" cómo se sintió tras calentar (activated, tired, very_tired), "feeling" cómo estuvo al terminar (wanted_more = se quedó con ganas, right = justo, too_much = fue mucho) y "painNextDay" cómo amaneció la molestia (better, same, worse).
+  * too_much → no subas nada en esos ejercicios; dos veces seguidas → una serie menos.
+  * wanted_more → puedes subir aunque el RPE haya sido 9.
+  * Si llega cansado seguido pero se activa al calentar, mantén la exigencia; si sigue cansado tras calentar varias veces, baja el volumen de la semana y explícalo.
+  * Dolor al llegar en una zona (painZone), o painNextDay worse → evita esa semana los ejercicios que carguen esa zona.
+- "rationale": una frase corta en español de Chile, tuteando (tú, no vos), explicando la elección o el cambio de carga (ej: "Subimos a 16 kg: completaste 20 reps con esfuerzo 7."). Habla simple: nunca digas que un ejercicio "no está disponible". Puede ser null en calentamiento y elongación.
+- Variedad entre semanas: "recentExercises" son los ejercicios que hizo en los últimos 8 días. En warmup, prehab y cooldown prefiere otros equivalentes que cumplan lo mismo, para que la semana no sea una copia de la anterior. En prehab incluye siempre al menos 2 marcados "forConditions" (esos sí pueden repetirse) y complementa con otros de la misma zona. En main_strength solo se mantienen las anclas de "cycle.fixedByDay". La variedad nunca descuida el objetivo: primero el warmup incluye al menos un ejercicio que prepare cada patrón de main_strength de ese día (empezando por el del bloque A: bisagra, sentadilla o zancada, empuje, tirón) y el cooldown al menos un estiramiento del músculo principal de cada ejercicio de main_strength; recién después elige por variedad. La app revisa esa cobertura y completa lo que falte.
+- "summary": 2 o 3 frases en español que expliquen el porqué de la semana: qué semana del ciclo es y para qué sirve, qué cambia en la carga y por qué los ejercicios de Fuerza se mantienen. No menciones cambios que no hiciste.
+- En "rationale" y "summary", llama "ciclo" a las 4 semanas; nunca digas "bloque".`;
 
 const nullableInt = { anyOf: [{ type: 'integer' }, { type: 'null' }] };
 const SCHEMA = {
@@ -99,9 +134,18 @@ const SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['day', 'blocks'],
+        required: ['day', 'finisher', 'blocks'],
         properties: {
           day: { type: 'string', enum: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] },
+          finisher: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['format', 'reason'],
+            properties: {
+              format: { type: 'string', enum: ['normal', 'hiit', 'amrap'] },
+              reason: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+            },
+          },
           blocks: {
             type: 'array',
             items: {
@@ -145,12 +189,20 @@ type Slot = {
   restSec: number;
   rationale: string | null;
 };
-type Plan = { summary: string; days: { day: string; blocks: { type: Block; slots: Slot[] }[] }[] };
+type Plan = {
+  summary: string;
+  days: {
+    day: string;
+    finisher: { format: 'normal' | 'hiit' | 'amrap'; reason: string | null };
+    blocks: { type: Block; slots: Slot[] }[];
+  }[];
+};
 
 // Descarta lo que no cumpla las reglas duras en vez de confiar en el modelo.
 function sanitize(plan: Plan, body: RequestBody): Plan {
   const byId = new Map(body.candidates.map((c) => [c.id, c]));
   const owned = body.profile.kettlebellWeightsKg;
+  const ownedDumbbells = body.profile.dumbbellWeightsKg ?? [];
   const days = new Set(body.week.map((d) => d.day));
   return {
     summary: plan.summary,
@@ -158,6 +210,7 @@ function sanitize(plan: Plan, body: RequestBody): Plan {
       .filter((d) => days.has(d.day))
       .map((d) => ({
         day: d.day,
+        finisher: d.finisher,
         blocks: d.blocks
           .map((b) => ({
             type: b.type,
@@ -170,7 +223,10 @@ function sanitize(plan: Plan, body: RequestBody): Plan {
                 durationSec: s.durationSec != null ? Math.min(900, Math.max(5, s.durationSec)) : null,
                 restSec: Math.min(300, Math.max(0, s.restSec)),
                 weightKg:
-                  byId.get(s.exerciseId)!.kettlebell && s.weightKg != null && owned.includes(s.weightKg)
+                  s.weightKg != null &&
+                  (byId.get(s.exerciseId)!.dumbbells
+                    ? ownedDumbbells.includes(s.weightKg)
+                    : byId.get(s.exerciseId)!.kettlebell && owned.includes(s.weightKg))
                     ? s.weightKg
                     : null,
               })),
@@ -190,52 +246,146 @@ function publishableKey(): string {
   return Deno.env.get('SUPABASE_ANON_KEY')!;
 }
 
+// Clave del servidor, solo para anotar el gasto o devolver un cupo reservado.
+function secretKey(): string | null {
+  const keys = Deno.env.get('SUPABASE_SECRET_KEYS');
+  if (keys) {
+    const parsed = JSON.parse(keys) as Record<string, string>;
+    return parsed.default ?? Object.values(parsed)[0] ?? null;
+  }
+  return Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? null;
+}
+
+function serverClient() {
+  const key = secretKey();
+  return key ? createClient(Deno.env.get('SUPABASE_URL')!, key, { auth: { persistSession: false } }) : null;
+}
+
+// Si no se puede devolver, la consulta fallida queda contada: se prefiere eso a regalar cupos.
+async function release(generationId: number) {
+  const admin = serverClient();
+  if (!admin) return console.error('Sin clave del servidor: no se devolvió el cupo', generationId);
+  const { error } = await admin.rpc('release_ai_generation', { generation: generationId });
+  if (error) console.error('No se pudo devolver el cupo', error.message);
+}
+
+// Anota en la reserva el modelo y los tokens. Devuelve false si no pudo.
+async function recordUsage(generationId: number, claude: ClaudeReply, failed: boolean) {
+  const admin = serverClient();
+  if (!admin) {
+    console.error('Sin clave del servidor: no se anotó el gasto', generationId);
+    return false;
+  }
+  const r = usageRecord(claude, failed);
+  const { error } = await admin.rpc('record_ai_usage', {
+    generation: generationId,
+    used_model: r.model,
+    tokens_in: r.input_tokens,
+    tokens_out: r.output_tokens,
+    cache_read: r.cache_read_tokens,
+    cache_write: r.cache_write_tokens,
+    is_failed: r.failed,
+  });
+  if (error) console.error('No se pudo anotar el gasto', error.message);
+  return !error;
+}
+
+// Cierra la reserva según cómo terminó la consulta (ver `settle` en usage.ts).
+async function closeReservation(generationId: number, outcome: Outcome) {
+  const step = settle({ hasPlan: 'plan' in outcome.reply, claude: outcome.claude });
+  if (step === 'release') return release(generationId);
+  const recorded = await recordUsage(generationId, outcome.claude!, step === 'failed');
+  // Si una fallida no quedó marcada, contaría para el cupo de la persona: mejor devolverlo.
+  if (!recorded && step === 'failed') await release(generationId);
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
 
   // Solo usuarios con sesión (anónima o con correo) pueden gastar créditos.
-  const token = req.headers.get('Authorization')?.replace('Bearer ', '');
-  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, publishableKey());
+  const authorization = req.headers.get('Authorization') ?? '';
+  const token = authorization.replace('Bearer ', '');
+  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, publishableKey(), {
+    global: { headers: { Authorization: authorization } },
+  });
   const { data: auth } = await supabase.auth.getUser(token);
   if (!auth?.user) return json({ error: 'unauthorized' }, 401);
 
+  // El pedido se revisa antes de reservar el cupo: uno inválido o gigante no gasta nada.
   let body: RequestBody;
   try {
-    body = await req.json();
-    if (!Array.isArray(body.candidates) || !Array.isArray(body.week) || body.week.length === 0) throw new Error();
+    const text = await req.text();
+    if (new TextEncoder().encode(text).length > MAX_BODY_BYTES) return json({ error: 'too_large' }, 413);
+    body = JSON.parse(text);
+    if (!body || typeof body.profile !== 'object' || body.profile === null) throw new Error();
+    if (!Array.isArray(body.candidates) || body.candidates.length === 0 || body.candidates.length > MAX_CANDIDATES) {
+      throw new Error();
+    }
+    if (!Array.isArray(body.week) || body.week.length === 0 || body.week.length > MAX_DAYS) throw new Error();
   } catch {
     return json({ error: 'bad_request' }, 400);
   }
 
-  return keepAliveResponse(generatePlan(body));
+  // Reserva del cupo antes de llamar a Claude.
+  const { data: reserved, error: reserveError } = await supabase.rpc('reserve_ai_generation').single<Reservation>();
+  if (reserveError || !reserved) {
+    console.error('No se pudo reservar el cupo', reserveError?.message);
+    return json({ error: 'quota_unavailable' }, 503);
+  }
+  if (reserved.status !== 'ok' || reserved.generation_id == null) {
+    const status = reserved.status === 'needs_account' ? 403 : 429;
+    return json({ error: reserved.status, resetsAt: reserved.resets_at, limit: reserved.weekly_limit }, status);
+  }
+  const generationId = reserved.generation_id;
+
+  return keepAliveResponse(
+    generatePlan(body)
+      .catch((): Outcome => ({ reply: { error: 'internal_error' }, claude: null }))
+      .then(async (outcome) => {
+        await closeReservation(generationId, outcome);
+        return outcome.reply;
+      }),
+  );
 });
 
+// `reply` es lo que recibe la app (igual que antes); `claude`, lo que gastó la llamada si alcanzó
+// a responder, aunque la respuesta no sirva.
+type Outcome = { reply: Record<string, unknown>; claude: ClaudeReply | null };
+
 // La respuesta ya empezó, así que los errores van dentro del JSON y no como estado HTTP.
-async function generatePlan(body: RequestBody) {
+async function generatePlan(body: RequestBody): Promise<Outcome> {
+  let claude: ClaudeReply | null = null;
   try {
+    const { model: requested, ...request } = body;
     const response = await anthropic.beta.messages.create({
-      model: MODEL,
+      model: requested && TEST_MODELS.includes(requested) ? requested : MODEL,
       max_tokens: 16000,
       betas: ['server-side-fallback-2026-07-01'],
       fallbacks: 'default',
       system: SYSTEM,
       output_config: { effort: 'medium', format: { type: 'json_schema', schema: SCHEMA } },
-      messages: [{ role: 'user', content: JSON.stringify(body) }],
+      messages: [{ role: 'user', content: JSON.stringify(request) }],
     });
+    claude = { model: response.model, usage: response.usage };
 
-    if (response.stop_reason === 'refusal') return { error: 'refusal' };
-    if (response.stop_reason === 'max_tokens') return { error: 'truncated' };
+    if (response.stop_reason === 'refusal') return { reply: { error: 'refusal' }, claude };
+    if (response.stop_reason === 'max_tokens') return { reply: { error: 'truncated' }, claude };
 
     const text = response.content.find((b) => b.type === 'text');
-    if (!text || text.type !== 'text') return { error: 'empty_response' };
+    if (!text || text.type !== 'text') return { reply: { error: 'empty_response' }, claude };
     const plan = sanitize(JSON.parse(text.text) as Plan, body);
 
-    return { plan, model: response.model, usage: response.usage };
+    return { reply: { plan, model: response.model, usage: response.usage }, claude };
   } catch (err) {
-    if (err instanceof Anthropic.AuthenticationError) return { error: 'anthropic_key_invalid' };
-    if (err instanceof Anthropic.RateLimitError) return { error: 'rate_limited' };
-    if (err instanceof Anthropic.APIError) return { error: 'anthropic_error', status: err.status };
-    return { error: 'internal_error' };
+    if (err instanceof Anthropic.AuthenticationError) return { reply: { error: 'anthropic_key_invalid' }, claude };
+    if (err instanceof Anthropic.RateLimitError) return { reply: { error: 'rate_limited' }, claude };
+    if (err instanceof Anthropic.APIError) {
+      console.error('Error de Claude', err.status, err.message);
+      return { reply: { error: 'anthropic_error', status: err.status }, claude };
+    }
+    // Un formato roto llega aquí después de que Claude respondió: `claude` ya tiene su gasto.
+    console.error('Error interno', err);
+    return { reply: { error: 'internal_error' }, claude };
   }
 }

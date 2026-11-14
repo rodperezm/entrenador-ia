@@ -1,15 +1,14 @@
-/* eslint-disable @typescript-eslint/no-redeclare -- esquema zod y su tipo comparten nombre a propósito */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react';
-import { z } from 'zod';
-import { FoldRecord, TapeRecord } from '@/domain/body';
+import { type FoldRecord, parseBody, type StoredBody as Stored, type TapeRecord } from '@/domain/body';
+import { loadSafely, persistSafely } from '@/lib/safeStore';
 
 const BODY_KEY = 'body.v1';
-const Stored = z.object({ records: z.array(TapeRecord), folds: z.array(FoldRecord) });
-type Stored = z.infer<typeof Stored>;
 
 type BodyState = Stored & {
   loading: boolean;
+  /** La carga dejó registros fuera o no se pudo leer: lo que falta NO son borrados de la persona. */
+  uncertain: boolean;
   // Sin id = registro nuevo (el id se genera aquí).
   saveRecord: (r: WithOptionalId<TapeRecord>) => void;
   saveFold: (f: WithOptionalId<FoldRecord>) => void;
@@ -36,20 +35,28 @@ const mergeById = <T extends { id: string; date: string }>(incoming: T[], curren
 export function BodyProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<Stored>({ records: [], folds: [] });
   const [loading, setLoading] = useState(true);
+  const [load, setLoad] = useState({ safe: false, dropped: 0 });
 
   useEffect(() => {
-    AsyncStorage.getItem(BODY_KEY)
-      .then((raw) => {
-        const parsed = raw ? Stored.safeParse(JSON.parse(raw)) : null;
-        if (parsed?.success) setData(parsed.data);
+    loadSafely(AsyncStorage, BODY_KEY, parseBody)
+      .then((res) => {
+        const base = res.value ?? { records: [], folds: [] };
+        setData({
+          records: mergeById(base.records, res.pending?.records ?? [], []),
+          folds: mergeById(base.folds, res.pending?.folds ?? [], []),
+        });
+        setLoad({ safe: res.safe, dropped: res.dropped });
+        if (res.dropped || !res.safe) {
+          console.warn(`Medidas: ${res.dropped} sin leer, carga ${res.safe ? 'con copia' : 'no segura'}`);
+        }
       })
-      .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
+  // Solo después de la carga inicial; si no fue segura, se guarda aparte y body.v1 no se toca.
   useEffect(() => {
-    if (!loading) AsyncStorage.setItem(BODY_KEY, JSON.stringify(data)).catch(() => {});
-  }, [data, loading]);
+    if (!loading) persistSafely(AsyncStorage, BODY_KEY, data, load.safe).catch(() => {});
+  }, [data, loading, load.safe]);
 
   const saveRecord = useCallback((r: WithOptionalId<TapeRecord>) => {
     const rec = { ...r, id: r.id ?? newId('r') };
@@ -81,7 +88,7 @@ export function BodyProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <BodyContext.Provider value={{ ...data, loading, saveRecord, saveFold, remove, clearBody, importBody }}>
+    <BodyContext.Provider value={{ ...data, loading, uncertain: !load.safe || load.dropped > 0, saveRecord, saveFold, remove, clearBody, importBody }}>
       {children}
     </BodyContext.Provider>
   );

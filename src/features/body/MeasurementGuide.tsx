@@ -1,19 +1,19 @@
 import { type ReactNode, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, G, Line, Text as SvgText } from 'react-native-svg';
-import { Silhouette } from '@/components/BodyMap';
+import { BodyMap } from '@/components/BodyMap';
 import { ageAt, fatCuts, todayISO } from '@/domain/body';
 import type { Sex } from '@/domain/schema';
-import { colors, radius, spacing } from '@/theme';
+import { colors, display, radius, spacing } from '@/theme';
 
 // Guía de medición (cinta y caliper), basada en la de MetricBody.
 
 export type GuideTab = 'tape' | 'folds';
 
-const GREEN = '#2EBD6B';
-const YELLOW = '#F5B700';
-const RED = '#E5484D';
-const BLUE = '#6FA6D6';
+const GREEN = colors.good;
+const YELLOW = colors.warning;
+const RED = colors.bad;
+const BLUE = colors.low;
 
 const num = (n: number, d = 2) => n.toLocaleString('es-CL', { minimumFractionDigits: d, maximumFractionDigits: d });
 
@@ -22,36 +22,36 @@ const num = (n: number, d = 2) => n.toLocaleString('es-CL', { minimumFractionDig
 const TAPE_TIPS: ReactNode[] = [
   'Mide siempre a la misma hora, idealmente en la mañana, en ayunas y después de ir al baño.',
   'Usa una cinta métrica flexible, sin apretar la piel. Debe quedar paralela al suelo.',
-  'Mantente de pie, relajado, y toma la medida al final de una exhalación normal, sin contraer el abdomen.',
+  'Mantente de pie, sin tensión, y toma la medida al final de una exhalación normal, sin contraer el abdomen.',
   'Pésate en la misma balanza y con poca ropa. Basta con un registro por semana para ver la tendencia.',
 ];
 
+// `at`: dónde va la cinta sobre la figura (lienzo de 200 × 400), para cada cuerpo.
 const TAPE_SITES = [
   {
     n: 1,
     title: 'Tórax',
     text: 'A la altura de las tetillas, pasando bajo las axilas y por la parte más ancha de la espalda.',
-    y: 100,
-    x1: 54,
-    x2: 146,
+    at: { male: { y: 106, x1: 64, x2: 136 }, female: { y: 109, x1: 68, x2: 132 } },
   },
   {
     n: 2,
     title: 'Cintura',
     text: 'La parte más estrecha del torso, entre la última costilla y la cadera.',
-    y: 148,
-    x1: 60,
-    x2: 140,
+    at: { male: { y: 148, x1: 74, x2: 126 }, female: { y: 146, x1: 77, x2: 123 } },
   },
   {
     n: 3,
     title: 'Abdomen',
     text: 'A la altura del ombligo, tal como lo mide habitualmente el médico, con la cinta horizontal alrededor del torso.',
-    y: 172,
-    x1: 63,
-    x2: 137,
+    at: { male: { y: 164, x1: 73, x2: 127 }, female: { y: 163, x1: 75, x2: 125 } },
   },
-  { n: 4, title: 'Cadera', text: 'La parte más ancha de los glúteos, con los pies juntos.', y: 208, x1: 62, x2: 138 },
+  {
+    n: 4,
+    title: 'Cadera',
+    text: 'La parte más ancha de los glúteos, con los pies juntos.',
+    at: { male: { y: 188, x1: 68, x2: 132 }, female: { y: 190, x1: 66, x2: 134 } },
+  },
 ];
 
 const FOLD_TIPS: ReactNode[] = [
@@ -73,16 +73,16 @@ const FOLD_SITES: Record<Sex, { n: number; title: string; text: string; x: numbe
       n: 1,
       title: 'Pecho (pectoral)',
       text: 'Pliegue diagonal, a mitad de camino entre el pezón y la parte frontal de la axila, sobre la línea imaginaria que los une.',
-      x: 74,
-      y: 92,
+      x: 80,
+      y: 100,
     },
-    { n: 2, title: 'Abdomen', text: 'Pliegue vertical, 2 cm a la derecha del ombligo.', x: 86, y: 176 },
+    { n: 2, title: 'Abdomen', text: 'Pliegue vertical, 2 cm a la derecha del ombligo.', x: 91, y: 164 },
     {
       n: 3,
       title: 'Muslo',
       text: 'Pliegue vertical en el centro del muslo, a mitad de camino entre la ingle y la parte superior de la rótula.',
-      x: 82,
-      y: 280,
+      x: 80,
+      y: 218,
     },
   ],
   female: [
@@ -90,32 +90,25 @@ const FOLD_SITES: Record<Sex, { n: number; title: string; text: string; x: numbe
       n: 1,
       title: 'Tríceps',
       text: 'Pliegue vertical en la parte posterior del brazo, sobre el tríceps, a mitad de camino entre el hombro y el codo.',
-      x: 49,
-      y: 125,
+      x: 62,
+      y: 130,
     },
     {
       n: 2,
       title: 'Suprailíaco',
       text: 'Pliegue diagonal, justo por encima de la parte frontal y más adelantada del hueso de la cadera.',
-      x: 70,
-      y: 190,
+      x: 79,
+      y: 172,
     },
     {
       n: 3,
       title: 'Muslo',
       text: 'Pliegue vertical en el centro del muslo, a mitad de camino entre la ingle y la parte superior de la rótula.',
-      x: 82,
-      y: 280,
+      x: 81,
+      y: 218,
     },
   ],
 };
-
-const REFERENCE = [
-  ['Tórax', '100–108 cm', '88–94 cm'],
-  ['Cintura', '80–86 cm', '64–70 cm'],
-  ['Abdomen', '82–88 cm', '68–76 cm'],
-  ['Cadera', '95–100 cm', '92–98 cm'],
-];
 
 const AGE_LABELS = ['Hasta 20', '21–25', '26–30', '31–35', '36–40', '41–45', '46–50', '51–55', '56 o más'];
 const AGE_FOR_ROW = [20, 25, 30, 35, 40, 45, 50, 55, 60];
@@ -149,7 +142,7 @@ export function MeasurementGuide({
             ['folds', 'Caliper · pliegues'],
           ] as const
         ).map(([id, label]) => (
-          <Pressable key={id} onPress={() => setTab(id)} style={[styles.segBtn, tab === id && styles.segOn]}>
+          <Pressable accessibilityRole="button" aria-selected={!!(tab === id)} key={id} onPress={() => setTab(id)} style={[styles.segBtn, tab === id && styles.segOn]}>
             <Text style={[styles.segText, tab === id && { color: colors.text }]} numberOfLines={1}>
               {label}
             </Text>
@@ -166,9 +159,8 @@ export function MeasurementGuide({
           </Section>
 
           <Section title="Dónde medir">
-            <Figure caption="Vista frontal">
-              <Circle cx={100} cy={176} r={1.8} fill={colors.textMuted} />
-              {TAPE_SITES.map((s) => (
+            <Figure caption="Vista frontal" gender={sex ?? 'male'}>
+              {TAPE_SITES.map(({ n, at }) => ({ n, ...at[sex ?? 'male'] })).map((s) => (
                 <G key={s.n}>
                   <Line
                     x1={s.x1}
@@ -179,7 +171,8 @@ export function MeasurementGuide({
                     strokeWidth={2.2}
                     strokeDasharray="5 4"
                   />
-                  <Badge x={s.x2 + 16} y={s.y} n={s.n} />
+                  {/* Alternan de lado: cintura y abdomen quedan muy cerca y se encimarían. */}
+                  <Badge x={s.n % 2 ? s.x2 + 16 : s.x1 - 16} y={s.y} n={s.n} />
                 </G>
               ))}
             </Figure>
@@ -219,18 +212,6 @@ export function MeasurementGuide({
             />
           </Section>
 
-          <Section title="Medidas de referencia">
-            <Text style={styles.muted}>
-              Valores habituales en contexturas medias o atléticas. Sirven para orientarte, no como meta.
-            </Text>
-            <View style={styles.table}>
-              <Row cells={['Zona', 'Hombre', 'Mujer']} head />
-              {REFERENCE.map((r) => (
-                <Row key={r[0]} cells={r} />
-              ))}
-            </View>
-          </Section>
-
           <Text style={styles.footer}>
             Estas referencias son orientativas y no reemplazan una evaluación profesional.
           </Text>
@@ -245,8 +226,7 @@ export function MeasurementGuide({
 
           {sexOrder.map((s) => (
             <Section key={s} title={`Dónde medir · ${s === 'male' ? 'Hombres' : 'Mujeres'}`}>
-              <Figure caption="Lado derecho de la persona">
-                {s === 'male' && <Circle cx={100} cy={176} r={1.8} fill={colors.textMuted} />}
+              <Figure caption="Lado derecho de la persona" gender={s}>
                 {FOLD_SITES[s].map((p) => (
                   <Badge key={p.n} x={p.x} y={p.y} n={p.n} />
                 ))}
@@ -317,7 +297,7 @@ export function MeasurementGuide({
             </View>
             <View style={styles.segmentSmall}>
               {(['male', 'female'] as const).map((s) => (
-                <Pressable key={s} onPress={() => setFatSex(s)} style={[styles.segBtn, fatSex === s && styles.segOn]}>
+                <Pressable accessibilityRole="button" aria-selected={!!(fatSex === s)} key={s} onPress={() => setFatSex(s)} style={[styles.segBtn, fatSex === s && styles.segOn]}>
                   <Text style={[styles.segText, fatSex === s && { color: colors.text }]}>
                     {s === 'male' ? 'Hombres' : 'Mujeres'}
                   </Text>
@@ -385,13 +365,19 @@ function Bullet({ children }: { children: ReactNode }) {
   );
 }
 
-function Figure({ caption, children }: { caption: string; children: ReactNode }) {
+// La misma figura anatómica del resto de la app; encima van las marcas de dónde medir.
+const FIGURE_W = 170;
+const FIGURE_H = 340;
+
+function Figure({ caption, gender, children }: { caption: string; gender: Sex; children: ReactNode }) {
   return (
     <View style={styles.figure}>
-      <Svg width={170} height={357} viewBox="0 0 200 420">
-        <Silhouette />
-        {children}
-      </Svg>
+      <View style={{ width: FIGURE_W, height: FIGURE_H }}>
+        <BodyMap primary={[]} views={['front']} height={FIGURE_H} gender={gender} />
+        <Svg width={FIGURE_W} height={FIGURE_H} viewBox="0 0 200 400" style={StyleSheet.absoluteFill}>
+          {children}
+        </Svg>
+      </View>
       <Text style={styles.caption}>{caption}</Text>
     </View>
   );
@@ -401,7 +387,7 @@ function Badge({ x, y, n }: { x: number; y: number; n: number }) {
   return (
     <G>
       <Circle cx={x} cy={y} r={13} fill={colors.accent} stroke={colors.bg} strokeWidth={2.5} />
-      <SvgText x={x} y={y + 5.5} fontSize={15} fontWeight="800" fill="#fff" textAnchor="middle">
+      <SvgText x={x} y={y + 5.5} fontSize={15} fontWeight="800" fill={colors.onAccent} textAnchor="middle">
         {String(n)}
       </SvgText>
     </G>
@@ -504,7 +490,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing.lg, paddingBottom: 48, gap: spacing.md },
   eyebrow: { color: colors.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 1 },
-  title: { color: colors.text, fontSize: 30, fontWeight: '800' },
+  title: { color: colors.text, ...display(36) },
   lead: { color: colors.textMuted, fontSize: 15 },
   segment: {
     flexDirection: 'row',
@@ -520,7 +506,7 @@ const styles = StyleSheet.create({
   segText: { color: colors.textMuted, fontWeight: '700', fontSize: 15 },
   section: { gap: spacing.md, marginTop: spacing.md },
   sectionHead: { alignSelf: 'flex-start', gap: 6 },
-  sectionTitle: { color: colors.text, fontSize: 20, fontWeight: '800' },
+  sectionTitle: { color: colors.text, ...display(24) },
   underline: { height: 2, backgroundColor: colors.accent, borderRadius: 1 },
   bullet: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.text, marginTop: 9 },
@@ -554,8 +540,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stepNumText: { color: '#fff', fontWeight: '800' },
-  label: { color: colors.textMuted, fontSize: 11, fontWeight: '800', letterSpacing: 1, marginTop: 4 },
+  stepNumText: { color: colors.onAccent, fontWeight: '800' },
+  label: { color: colors.textMuted, fontSize: 12, fontWeight: '800', letterSpacing: 1, marginTop: 4 },
   formula: { color: colors.accent, fontSize: 14, fontVariant: ['tabular-nums'], lineHeight: 20 },
   formulaBox: { backgroundColor: colors.bg, borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 8 },
   formulaRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
@@ -577,7 +563,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   rowOn: { backgroundColor: `${GREEN}22` },
-  th: { color: colors.textMuted, fontSize: 11, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
+  th: { color: colors.textMuted, fontSize: 12, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
   td: { color: colors.text, fontSize: 14, fontVariant: ['tabular-nums'] },
   footer: { color: colors.textMuted, fontSize: 13, lineHeight: 19, marginTop: spacing.lg },
 });

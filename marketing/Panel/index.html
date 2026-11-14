@@ -1,0 +1,878 @@
+<!doctype html>
+<html lang="es" translate="no">
+<head>
+<meta charset="utf-8">
+<title>KETTAI · Panel</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="google" content="notranslate">
+<link rel="icon" href="../favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;500;600;700&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
+<style>
+  /* Panel de control de KETTAI: primero lo que pide atención, después el detalle. */
+  :root {
+    color-scheme: dark;
+    --bg: #0e0f13;
+    --surface: #1a1b22;
+    --surface-2: #272933;
+    --line: #333644;
+    --fg: #f4f4f7;
+    --muted: #a7aab8;
+    --red: #ff5040;
+    --red-ink: #1b0705;
+    --lime: #cdd63c;
+    --amber: #f5b02e;
+    --display: "Bebas Neue", "Arial Narrow", Impact, sans-serif;
+    --body: "Barlow", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.5; }
+  .wrap { max-width: 1080px; margin-inline: auto; padding: 24px max(16px, env(safe-area-inset-left, 0px)) 64px; }
+  h1, h2, h3 { font-family: var(--display); font-weight: 400; letter-spacing: .02em; margin: 0; }
+  h1 { font-size: 36px; line-height: 1; }
+  h2 { font-size: 28px; margin: 32px 0 12px; }
+  h3 { font-size: 22px; color: var(--lime); margin-bottom: 4px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand img { width: 40px; height: 40px; border-radius: 10px; }
+  button, input, select { font: inherit; color: inherit; }
+  button { background: var(--red); color: var(--red-ink); border: 0; border-radius: 999px; padding: 10px 18px; font-weight: 700; cursor: pointer; }
+  button.ghost { background: transparent; color: var(--fg); border: 1px solid var(--line); }
+  button:disabled { opacity: .5; cursor: default; }
+  input, select { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+  input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid var(--lime); outline-offset: 2px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 20px; }
+  .login { max-width: 420px; margin: 10vh auto 0; display: grid; gap: 14px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .hidden { display: none !important; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 24px; }
+  .tabs button { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 16px; }
+  .tabs button[aria-selected="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+
+  .hero { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .hero div { background: var(--surface); border-radius: 16px; padding: 18px; display: grid; gap: 2px; align-content: start; }
+  .hero b { font-family: var(--display); font-size: 52px; font-weight: 400; line-height: 1; letter-spacing: .02em; }
+  .hero small { font-size: 13px; color: var(--muted); }
+  .good { color: var(--lime); }
+  .warn { color: var(--amber); }
+  .hero small.good { color: var(--lime); font-weight: 700; }
+  .hero small.warn { color: var(--amber); font-weight: 700; }
+
+  .alerts { display: grid; gap: 8px; }
+  .alert { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 12px; align-items: center; background: var(--surface); border-radius: 12px; padding: 12px 16px; }
+  .alert i { width: 10px; height: 10px; border-radius: 50%; background: var(--amber); }
+  .alert.ok i { background: var(--lime); }
+  .alert button { padding: 4px 12px; font-size: 13px; }
+
+  .lists { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+  .list { border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; }
+  .list div { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--surface-2); }
+  .list div:last-child { border-bottom: 0; }
+  .list span { color: var(--muted); }
+  .list span small { display: block; font-size: 12px; }
+  .list b { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  .chart { width: 100%; height: auto; display: block; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-top: 8px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: middle; }
+
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .chips button { background: var(--surface-2); color: var(--muted); padding: 6px 14px; font-size: 14px; font-weight: 600; }
+  .chips button[aria-pressed="true"] { background: var(--red); color: var(--red-ink); }
+  .users { border: 1px solid var(--line); border-radius: 16px; padding: 4px 18px; }
+  .user { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.1fr) minmax(0, .8fr) auto; gap: 6px 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--surface-2); }
+  .user:last-child { border-bottom: 0; }
+  .user strong { font-weight: 600; overflow-wrap: anywhere; }
+  .user small { display: block; color: var(--muted); font-size: 13px; }
+  .user select { padding: 6px 10px; font-size: 14px; max-width: 100%; }
+  .pill { display: inline-block; border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 700; background: var(--surface-2); color: var(--muted); }
+  .pill.pay { background: #2b3410; color: var(--lime); }
+  .pill.vip { background: #3a1410; color: var(--red); }
+
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 600; background: var(--surface); }
+  tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .settings { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .settings label { display: grid; gap: 6px; }
+
+  .docs { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+  .doc { display: grid; gap: 6px; color: inherit; text-decoration: none; }
+  .doc strong { font-family: var(--display); font-weight: 400; font-size: 26px; letter-spacing: .02em; }
+  .doc .small { color: var(--lime); font-weight: 700; }
+  .doc:hover { border-color: var(--lime); }
+
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 10px 18px; border-radius: 999px; font-weight: 700; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  @media (max-width: 760px) {
+    .hero { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .hero b { font-size: 42px; }
+    .user { grid-template-columns: minmax(0, 1fr) auto; }
+    .user .plan { grid-column: 1 / -1; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Entrar: correo y código. Solo las cuentas de administrador ven los datos. -->
+  <section id="login" class="login card hidden">
+    <div class="brand"><img src="../icon.png" alt=""><h1>Panel</h1></div>
+    <p class="muted">Escribe tu correo de administrador. Te enviaremos un código de 8 dígitos.</p>
+    <input id="email" type="email" autocomplete="email" placeholder="tu@correo.com">
+    <button id="send">Enviarme un código</button>
+    <div id="codeBox" class="hidden" style="display:grid; gap:12px">
+      <input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="Código de 8 dígitos">
+      <button id="verify">Entrar</button>
+    </div>
+    <p id="loginMsg" class="small muted"></p>
+  </section>
+
+  <section id="app" class="hidden">
+    <header>
+      <div class="brand"><img src="../icon.png" alt=""><div><h1>KETTAI · Panel</h1><div id="who" class="small muted"></div></div></div>
+      <div class="row"><span id="updated" class="small muted"></span><button class="ghost" id="excel">Descargar en Excel</button><button class="ghost" id="reload">Actualizar</button><button class="ghost" id="logout">Salir</button></div>
+    </header>
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="hoy" aria-selected="true">Hoy</button>
+      <button role="tab" data-tab="usuarios" aria-selected="false">Usuarios</button>
+      <button role="tab" data-tab="metodo" aria-selected="false">Método</button>
+      <button role="tab" data-tab="negocio" aria-selected="false">Negocio</button>
+      <button role="tab" data-tab="reportes" aria-selected="false">Reportes</button>
+      <button role="tab" data-tab="documentos" aria-selected="false">Documentos</button>
+    </nav>
+
+    <div id="tab-hoy">
+      <div class="hero" id="hero"></div>
+      <h2>Requiere tu atención</h2>
+      <div class="alerts" id="reportAlert" style="margin-bottom:8px"></div>
+      <div class="alerts" id="alerts"></div>
+      <h2>Uso</h2>
+      <div class="lists">
+        <div class="list" id="listGrowth"></div>
+        <div class="list" id="listUse"></div>
+      </div>
+      <h2>Últimas 8 semanas</h2>
+      <div class="card"><div id="chart"></div>
+        <div class="legend"><span><i style="background:var(--red)"></i>Activos (entrenaron)</span><span><i style="background:var(--lime)"></i>Nuevos</span><span><i style="background:var(--muted)"></i>Semanas con IA</span></div>
+      </div>
+      <p class="small muted" style="margin-top:16px">Las sesiones solo llegan a la nube de quienes activaron el respaldo con su correo. Los usuarios sin cuenta no aparecen en estas cifras.</p>
+      <p class="small muted" id="backupNote"></p>
+    </div>
+
+    <div id="tab-usuarios" class="hidden">
+      <div id="pendingBox" class="card hidden" style="margin-bottom:16px">
+        <h3 style="margin-top:0">Pendientes de aprobar</h3>
+        <p class="small muted" id="pendingNote"></p>
+        <div class="list" id="pending" style="margin-top:8px"></div>
+      </div>
+      <div class="chips" id="filters"></div>
+      <div class="row" style="margin-bottom:12px"><input id="search" type="search" placeholder="Buscar por correo" style="flex:1; max-width:360px"><span id="count" class="small muted"></span></div>
+      <div class="users" id="users"></div>
+      <p class="small muted" style="margin-top:12px">El plan se guarda al elegirlo. «Por defecto» sigue el valor de los ajustes. 0 es gratis: solo reglas de la app. Cada semana con IA por semana son 4 al mes.</p>
+    </div>
+
+    <div id="tab-metodo" class="hidden">
+      <p class="muted" style="max-width:640px">Cómo está respondiendo la gente al entrenamiento, en los últimos 30 días.</p>
+      <div class="lists" style="margin-top:16px">
+        <div class="list" id="listSafety"></div>
+        <div class="list" id="listFeel"></div>
+        <div class="list" id="listRetention"></div>
+      </div>
+      <h2>Ejercicios que piden atención</h2>
+      <p class="muted small" id="insightsNote"></p>
+      <div class="table-wrap" style="margin-top:12px"><table>
+        <thead><tr><th>Ejercicio</th><th class="num">Sesiones</th><th class="num">Con dolor</th><th class="num">Con molestia</th><th class="num">«No puedo»</th><th>Motivo más frecuente</th></tr></thead>
+        <tbody id="insightRows"></tbody>
+      </table></div>
+      <h2>Embudo del inicio</h2>
+      <p class="muted small">De quienes crean su cuenta con correo, cuántos llegan a cada etapa. Desde siempre, no solo los últimos días.</p>
+      <div class="list" id="funnel" style="margin-top:12px; max-width:560px"></div>
+      <h2>Abandono dentro del registro</h2>
+      <p class="muted small" id="onboardingNote"></p>
+      <div class="list" id="onboarding" style="margin-top:12px; max-width:560px"></div>
+    </div>
+
+    <div id="tab-negocio" class="hidden">
+      <div class="lists">
+        <div class="list" id="listBiz"></div>
+        <div class="list" id="listPlans"></div>
+      </div>
+      <h2>Precio mensual de cada plan</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Plan</th><th>Semanas con IA</th><th>Precio en pesos (CLP)</th><th>Precio en dólares (USD)</th><th class="num">Costo IA al mes</th></tr></thead>
+        <tbody id="prices"></tbody>
+      </table></div>
+      <div class="row" style="margin-top:12px"><button id="savePrices">Guardar precios</button></div>
+      <h2>Ajustes</h2>
+      <div class="settings card">
+        <label>Una cuenta nueva parte con (semanas con IA por semana)
+          <select id="defaultLimit"></select></label>
+        <label>Costo de una semana armada con IA (USD)
+          <input id="aiCost" type="number" min="0" step="0.01"></label>
+        <label>Valor del dólar (CLP)
+          <input id="usdClp" type="number" min="1" step="1"></label>
+        <label id="dailyCapBox" class="hidden">Tope de semanas con IA en 24 horas, entre todas las cuentas
+          <input id="dailyCap" type="number" min="0" step="10"></label>
+        <label id="approvalBox" class="hidden">Cuentas nuevas
+          <select id="approval"><option value="true">Necesitan mi aprobación (etapa de prueba)</option><option value="false">Entran sin aprobación (app abierta)</option></select></label>
+        <label id="needsEmailBox" class="hidden">¿Quién puede usar la IA?
+          <select id="needsEmail"><option value="false">Cualquiera, con o sin correo</option><option value="true">Solo cuentas con correo</option></select></label>
+      </div>
+      <div class="row" style="margin-top:12px"><button id="saveSettings">Guardar ajustes</button></div>
+    </div>
+
+    <div id="tab-reportes" class="hidden">
+      <p class="muted" style="max-width:640px">Errores que ocurrieron en la app de alguien y comentarios que enviaron. No incluyen entrenamientos ni datos de salud.</p>
+      <div class="chips" id="reportFilters" style="margin-top:16px"></div>
+      <div class="users" id="reports"></div>
+    </div>
+
+    <div id="tab-documentos" class="hidden">
+      <div class="docs">
+        <a class="card doc" href="/Panel/metodo" target="_blank" rel="noopener">
+          <strong>Base técnica del método</strong>
+          <span class="muted">Versión 5 · 12-11-2026. Las 7 capas con que KETTAI arma una rutina, para presentar a un especialista.</span>
+          <span class="small">Abrir en otra pestaña →</span>
+        </a>
+      </div>
+    </div>
+  </section>
+</div>
+<div id="toast" class="toast" role="status"></div>
+<div id="envBanner" class="hidden" style="position:fixed;top:0;left:0;right:0;z-index:50;background:#FFB020;color:#000;font-weight:800;font-size:12px;text-align:center;padding:4px 12px">PRUEBAS · este panel mira la base de pruebas, no la real</div>
+
+<script>
+  // Claves públicas del proyecto (las mismas que usa la app). Los datos los protege la base:
+  // cada función del panel revisa que quien la llama sea administrador.
+  // Dos ambientes, igual que la app. En kettaiapp.com el panel mira la base real; en cualquier otra
+  // dirección (la copia de pruebas de Cloudflare o el computador de desarrollo) mira la de pruebas.
+  const IS_PROD = /(^|\.)kettaiapp\.com$/.test(location.hostname);
+  const SUPABASE_URL = IS_PROD ? 'https://uzehvdheatciusnhfyjr.supabase.co' : 'https://pbmwojrlgvunndlxtcgi.supabase.co';
+  const SUPABASE_KEY = IS_PROD ? 'sb_publishable_yYM3d_2uI9j80fws4tDKoQ_U5i3k7Fb' : 'sb_publishable_9LYt-Qh_rOEea0bZlTSuCg_op3UVEu2';
+  const CODE_LENGTH = 8;
+  if (!IS_PROD) {
+    document.getElementById('envBanner').classList.remove('hidden');
+    document.body.style.paddingTop = '24px';
+    document.title = 'KETTAI · Panel (pruebas)';
+  }
+  const TABS = ['hoy', 'usuarios', 'metodo', 'negocio', 'reportes', 'documentos'];
+  const DAY = 864e5;
+  // Umbrales de las alertas: sobre o bajo esto, el panel lo pone arriba.
+  const PAIN_MAX = 15, TOO_MUCH_MAX = 25, STICK_MIN = 50, W2_MIN = 40, W4_MIN = 25, INACTIVE_DAYS = 14, BACKUP_MAX_DAYS = 2;
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storageKey: IS_PROD ? 'kettai-panel' : 'kettai-panel-pruebas' } });
+
+  const $ = (id) => document.getElementById(id);
+  const show = (el, on) => el.classList.toggle('hidden', !on);
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const clp = (n) => n == null ? '—' : '$' + Math.round(n).toLocaleString('es-CL');
+  const usd = (n) => n == null ? '—' : 'US$' + Number(n).toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const date = (d) => d ? new Date(d).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—';
+  const pct = (n) => n == null ? '—' : n + ' %';
+  const dec = (n) => n == null ? '—' : Number(n).toLocaleString('es-CL', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const toast = (msg) => { const t = $('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200); };
+
+  let config = null;
+  let users = [];
+  let filter = 'todos';
+  let pending = null; // null = la base aún no tiene la aprobación de cuentas (migración 0010)
+  let reports = null; // null = la base aún no tiene los reportes (migración 0006)
+  let reportFilter = 'abiertos';
+  let insights = null; // null = la base aún no tiene la consulta (migración 0008)
+  let exerciseNames = {};
+  let onboarding = null; // null = la base aún no tiene la medición (migración 0009)
+  let anonymous = null; // null = la base aún no tiene el desglose (migración 0011)
+  let lastMetrics = null; // lo último que se cargó, para el Excel
+
+  // ---------- Entrar ----------
+  $('send').onclick = async () => {
+    const email = $('email').value.trim().toLowerCase();
+    if (!email) return;
+    $('send').disabled = true;
+    $('loginMsg').textContent = 'Enviando…';
+    const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
+    $('send').disabled = false;
+    if (error) { $('loginMsg').textContent = 'No se pudo enviar el código. Revisa el correo.'; return; }
+    show($('codeBox'), true);
+    $('loginMsg').textContent = `Te enviamos un código a ${email}. Si no llega, revisa spam.`;
+    $('code').focus();
+  };
+  $('verify').onclick = async () => {
+    const email = $('email').value.trim().toLowerCase();
+    const token = $('code').value.trim();
+    if (token.length !== CODE_LENGTH) { $('loginMsg').textContent = `El código tiene ${CODE_LENGTH} dígitos.`; return; }
+    $('verify').disabled = true;
+    const { error } = await sb.auth.verifyOtp({ email, token, type: 'email' });
+    $('verify').disabled = false;
+    if (error) { $('loginMsg').textContent = 'Código incorrecto o vencido.'; return; }
+    start();
+  };
+  $('logout').onclick = async () => { await sb.auth.signOut(); location.reload(); };
+  $('reload').onclick = () => load();
+
+  async function start() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { show($('login'), true); show($('app'), false); return; }
+    const { data: admin } = await sb.rpc('is_admin');
+    if (!admin) {
+      await sb.auth.signOut();
+      show($('login'), true);
+      $('loginMsg').textContent = 'Esta cuenta no tiene acceso al panel.';
+      return;
+    }
+    $('who').textContent = session.user.email;
+    show($('login'), false);
+    show($('app'), true);
+    load();
+  }
+
+  // ---------- Pestañas ----------
+  function openTab(name) {
+    document.querySelectorAll('[data-tab]').forEach((x) => x.setAttribute('aria-selected', x.dataset.tab === name));
+    TABS.forEach((t) => show($('tab-' + t), t === name));
+  }
+  document.querySelectorAll('[data-tab]').forEach((b) => b.onclick = () => openTab(b.dataset.tab));
+
+  async function load() {
+    const [m, u, c] = await Promise.all([sb.rpc('admin_metrics'), sb.rpc('admin_users'), sb.rpc('admin_config')]);
+    if (m.error || u.error || c.error) { toast('No se pudieron cargar los datos'); console.error(m.error || u.error || c.error); return; }
+    config = c.data;
+    users = u.data;
+    lastMetrics = m.data;
+    // Cuentas que esperan aprobación: antes de las alertas, que las mencionan.
+    const pend = await sb.rpc('admin_pending');
+    pending = pend.error ? null : pend.data;
+    renderPending();
+    // Desglose de anónimos: aparte, por si la base aún no lo tiene.
+    const an = await sb.rpc('admin_anonymous');
+    anonymous = an.error ? null : an.data;
+    renderMetrics(m.data);
+    renderUsers();
+    renderPrices();
+    // Los reportes se piden aparte: si la base aún no los tiene, el resto del panel funciona igual.
+    const r = await sb.rpc('admin_reports', { max_rows: 200 });
+    reports = r.error ? null : r.data;
+    renderReports();
+    // Resultados del método: también aparte, por si la base aún no tiene la consulta.
+    const [ins, names] = await Promise.all([
+      sb.rpc('admin_insights', { days: 90 }),
+      fetch('/Panel/ejercicios.json').then((r) => (r.ok ? r.json() : {})).catch(() => ({})),
+    ]);
+    insights = ins.error ? null : ins.data;
+    exerciseNames = names || {};
+    renderInsights();
+    const onb = await sb.rpc('admin_onboarding', { days: 30 });
+    onboarding = onb.error ? null : onb.data;
+    renderOnboarding();
+    $('updated').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  const setting = (k, d) => Number(config?.settings?.[k] ?? d);
+  const priceOf = (tier) => config?.prices?.find((p) => p.weekly_limit === tier) ?? {};
+  const limitOf = (u) => u.unlimited ? Infinity : (u.has_plan ? u.weekly_limit : setting('default_weekly_limit', 1));
+
+  // ---------- Grupos de usuarios (filtros y alertas) ----------
+  const daysSince = (d) => d ? (Date.now() - new Date(d).getTime()) / DAY : Infinity;
+  const GROUPS = {
+    todos: { label: 'Todos', test: () => true },
+    activos: { label: 'Activos 7 días', test: (u) => daysSince(u.last_session) <= 7 },
+    inactivos: { label: `Inactivos ${INACTIVE_DAYS} días`, test: (u) => u.last_session && daysSince(u.last_session) > INACTIVE_DAYS },
+    nunca: { label: 'Nunca entrenó', test: (u) => !u.last_session },
+    agotaron: { label: 'Agotaron IA', test: (u) => { const l = limitOf(u); return l > 0 && l !== Infinity && u.used_week >= l; } },
+    pagando: { label: 'Pagando', test: (u) => { const l = limitOf(u); return l > 0 && l !== Infinity && Number(priceOf(l).price_clp || priceOf(l).price_usd || 0) > 0; } },
+  };
+  const inGroup = (g) => users.filter(GROUPS[g].test);
+
+  // ---------- Hoy, Método y Negocio ----------
+  const line = (label, value, note = '', tone = '') =>
+    `<div><span>${label}${note ? `<small>${note}</small>` : ''}</span><b class="${tone}">${value}</b></div>`;
+  const listOf = (title, rows) => `<h3>${title}</h3>${rows.join('')}`;
+
+  function renderMetrics(m) {
+    const stick = m.active_30d ? Math.round(100 * m.active_7d / m.active_30d) : null;
+    const perActive = m.active_7d ? dec(m.sessions_7d / m.active_7d) : '—';
+    const rate = setting('usd_to_clp', 950);
+    const aiClp = m.ai_cost_usd_30d * rate;
+    const margin = Number(m.mrr_clp) - aiClp;
+    const conversion = m.users_total ? Math.round(100 * m.paying / m.users_total) : null;
+    const f = m.feelings_30d || {};
+    const fTotal = (f.wanted_more || 0) + (f.right || 0) + (f.too_much || 0);
+    const fShare = (k) => fTotal ? Math.round(100 * (f[k] || 0) / fTotal) : null;
+    const tooMuch = fShare('too_much');
+    const weeks = m.weekly || [];
+    const last = weeks.at(-1), prev = weeks.at(-2);
+    const delta = last && prev ? last.active - prev.active : null;
+    const trend = delta == null ? '' :
+      delta === 0 ? '<small>Igual que la semana anterior</small>' :
+      `<small class="${delta > 0 ? 'good' : 'warn'}">${delta > 0 ? '+' : '−'}${Math.abs(delta)} vs. semana anterior</small>`;
+
+    $('hero').innerHTML =
+      `<div><b>${m.users_total}</b>Usuarios con cuenta<small class="${m.new_7d > 0 ? 'good' : ''}">+${m.new_7d} en 7 días</small></div>` +
+      `<div><b>${m.active_7d}</b>Activos en 7 días${trend}</div>` +
+      `<div><b class="${m.retention_w2 == null ? '' : m.retention_w2 >= W2_MIN ? 'good' : 'warn'}">${pct(m.retention_w2)}</b>Vuelven la semana 2<small>Meta ${W2_MIN} % · de ${m.retention_cohort_w2}</small></div>` +
+      `<div><b class="${margin < 0 ? 'warn' : ''}">${clp(margin)}</b>Margen sobre la IA<small>${Number(m.mrr_clp) > 0 ? 'Ingreso menos costo IA del mes' : 'Aún sin ingresos'}</small></div>`;
+
+    // Alertas: solo lo que se sale de rango. Cada una lleva a donde se ve el detalle.
+    const alerts = [];
+    const alert = (text, action = '', label = '') => alerts.push(
+      `<div class="alert"><i></i><span>${text}</span>${action ? `<button class="ghost" data-go="${action}">${label}</button>` : '<span></span>'}</div>`);
+    if (m.pain_pct_30d > PAIN_MAX) alert(`${m.pain_pct_30d} % de las sesiones con dolor moderado o fuerte (sobre ${PAIN_MAX} %)`, 'tab:metodo', 'Ver método');
+    if (tooMuch != null && tooMuch > TOO_MUCH_MAX) alert(`${tooMuch} % de las respuestas dicen «Fue mucho» (sobre ${TOO_MUCH_MAX} %)`, 'tab:metodo', 'Ver método');
+    if (stick != null && stick < STICK_MIN) alert(`Constancia de ${stick} %: menos de la mitad de los activos del mes entrenó esta semana`);
+    if (m.retention_w2 != null && m.retention_w2 < W2_MIN) alert(`Solo ${m.retention_w2} % vuelve la segunda semana (meta ${W2_MIN} %)`, 'tab:metodo', 'Ver método');
+    if (pending && pending.length) alert(`${pending.length} ${pending.length === 1 ? 'cuenta espera' : 'cuentas esperan'} tu aprobación para entrar`, 'tab:usuarios', 'Ver');
+    // Copia de seguridad en el servidor propio: avisa si lleva más de dos días sin actualizarse.
+    const lastBackup = config?.settings?.last_backup_at ? new Date(config.settings.last_backup_at) : null;
+    const backupDays = lastBackup ? Math.floor((Date.now() - lastBackup.getTime()) / DAY) : null;
+    if (backupDays != null && backupDays >= BACKUP_MAX_DAYS) alert(`La copia de seguridad no se actualiza hace ${backupDays} días: revisa el servidor`);
+    $('backupNote').textContent = lastBackup
+      ? `Última copia de seguridad: ${lastBackup.toLocaleString('es-CL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}.`
+      : 'Copia de seguridad automática: sin configurar.';
+    if (margin < 0) alert(`La IA cuesta más de lo que entra: margen de ${clp(margin)} al mes`, 'tab:negocio', 'Ver negocio');
+    const count = (g, text) => { const n = inGroup(g).length; if (n) alert(`${n} ${n === 1 ? text[0] : text[1]}`, 'users:' + g, 'Ver quiénes'); };
+    count('inactivos', [`usuario sin entrenar hace más de ${INACTIVE_DAYS} días`, `usuarios sin entrenar hace más de ${INACTIVE_DAYS} días`]);
+    count('nunca', ['usuario con cuenta que nunca entrenó', 'usuarios con cuenta que nunca entrenaron']);
+    count('agotaron', ['usuario agotó su IA esta semana', 'usuarios agotaron su IA esta semana']);
+    $('alerts').innerHTML = alerts.join('') || '<div class="alert ok"><i></i><span>Todo dentro de lo esperado.</span><span></span></div>';
+    $('alerts').querySelectorAll('[data-go]').forEach((b) => b.onclick = () => {
+      const [kind, value] = b.dataset.go.split(':');
+      if (kind === 'users') { filter = value; $('search').value = ''; renderUsers(); openTab('usuarios'); } else openTab(value);
+    });
+
+    $('listGrowth').innerHTML = listOf('Crecimiento', [
+      line('Nuevos en 7 días', m.new_7d),
+      line('Nuevos en 30 días', m.new_30d),
+      line('Sin cuenta (anónimos)', m.users_anonymous, 'Teléfonos o navegadores sin correo; no son personas'),
+      ...(anonymous ? [
+        line('Anónimos con actividad', anonymous.with_activity, `Pidieron IA, comentaron o respaldaron · ${anonymous.with_ai} con IA`),
+        line('Anónimos nuevos en 7 días', anonymous.new_7d),
+      ] : []),
+    ]);
+    $('listUse').innerHTML = listOf('Actividad', [
+      line('Activos en 30 días', m.active_30d),
+      line('Constancia', pct(stick), 'Activos 7 días ÷ activos 30 días', stick == null ? '' : stick >= STICK_MIN ? 'good' : 'warn'),
+      line('Sesiones por activo', perActive, 'Últimos 7 días'),
+      line('Minutos por sesión', dec(m.avg_minutes_30d), 'Promedio 30 días'),
+      line('Sesiones completas', pct(m.completed_pct_30d), 'Últimos 30 días'),
+    ]);
+    $('listSafety').innerHTML = listOf('Seguridad', [
+      line('Sesiones con dolor', pct(m.pain_pct_30d), 'Moderado o fuerte', m.pain_pct_30d > PAIN_MAX ? 'warn' : ''),
+      line('Sesiones completas', pct(m.completed_pct_30d)),
+    ]);
+    $('listFeel').innerHTML = listOf('Sensación al terminar', [
+      line('«Fue mucho»', pct(tooMuch), `De ${fTotal} respuestas`, tooMuch > TOO_MUCH_MAX ? 'warn' : ''),
+      line('«Justo»', pct(fShare('right'))),
+      line('«Me quedé con ganas»', pct(fShare('wanted_more'))),
+    ]);
+    $('listRetention').innerHTML = listOf('Retención', [
+      line('Vuelven la semana 2', pct(m.retention_w2), `De ${m.retention_cohort_w2} con al menos 2 semanas`, m.retention_w2 == null ? '' : m.retention_w2 >= W2_MIN ? 'good' : 'warn'),
+      line('Vuelven la semana 4', pct(m.retention_w4), `De ${m.retention_cohort_w4} con al menos 4 semanas`, m.retention_w4 == null ? '' : m.retention_w4 >= W4_MIN ? 'good' : 'warn'),
+    ]);
+    $('listBiz').innerHTML = listOf('IA y dinero', [
+      line('Semanas con IA (7 días)', m.ai_7d),
+      line('Semanas con IA (30 días)', m.ai_30d),
+      line('Costo IA 30 días', usd(m.ai_cost_usd_30d), clp(aiClp)),
+      line('Pagando', m.paying, `Conversión ${pct(conversion)}`),
+      line('Ingreso mensual estimado', clp(m.mrr_clp), usd(m.mrr_usd)),
+      line('Margen sobre la IA', clp(margin), 'Ingreso menos costo IA del mes', margin >= 0 ? 'good' : 'warn'),
+    ]);
+    const p = m.plans || {};
+    const def = setting('default_weekly_limit', 1);
+    $('listPlans').innerHTML = listOf('Usuarios por plan', [
+      ...[0, 1, 2, 3, 4, 5].map((n) => line(n === 0 ? 'Gratis' : `${n} por semana`, p[n] || 0, n === 0 ? 'Solo reglas' : `${n * 4} al mes${n === def ? ' · por defecto' : ''}`)),
+      line('Sin límite', p.sin_limite || 0),
+    ]);
+    renderChart(weeks);
+  }
+
+  function renderChart(weeks) {
+    const W = 760, H = 220, pad = 28, max = Math.max(1, ...weeks.flatMap((w) => [w.active, w.new, w.ai]));
+    const slot = (W - pad * 2) / Math.max(1, weeks.length);
+    const bw = Math.min(16, slot / 4);
+    const y = (v) => H - pad - (v / max) * (H - pad * 2);
+    const bars = weeks.map((w, i) => {
+      const x = pad + i * slot + slot / 2;
+      const bar = (v, dx, color) => `<rect x="${x + dx - bw / 2}" y="${y(v)}" width="${bw}" height="${H - pad - y(v)}" rx="3" fill="${color}"><title>${v}</title></rect>`;
+      return bar(w.active, -bw - 2, 'var(--red)') + bar(w.new, 0, 'var(--lime)') + bar(w.ai, bw + 2, 'var(--muted)') +
+        `<text x="${x}" y="${H - 8}" fill="var(--muted)" font-size="12" text-anchor="middle">${esc(w.week)}</text>`;
+    }).join('');
+    $('chart').innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Activos, nuevos y semanas con IA por semana">
+      <line x1="${pad}" x2="${W - pad}" y1="${H - pad}" y2="${H - pad}" stroke="var(--line)"/>
+      <text x="${pad}" y="14" fill="var(--muted)" font-size="12">máx. ${max}</text>${bars}</svg>`;
+  }
+
+  // ---------- Usuarios ----------
+  function planOptions(u) {
+    const def = setting('default_weekly_limit', 1);
+    const current = !u.has_plan ? 'default' : u.unlimited ? 'unlimited' : String(u.weekly_limit);
+    const opt = (v, label) => `<option value="${v}" ${v === current ? 'selected' : ''}>${label}</option>`;
+    const price = (n) => { const p = priceOf(n); return p.price_clp ? ` · ${clp(p.price_clp)}` : ''; };
+    return opt('default', `Por defecto (${def === 0 ? 'gratis' : def + '/sem'})`) +
+      opt('0', 'Gratis · 0') +
+      [1, 2, 3, 4, 5].map((n) => opt(String(n), `${n} por semana · ${n * 4} al mes${price(n)}`)).join('') +
+      opt('unlimited', 'Sin límite');
+  }
+  function pill(u) {
+    if (u.unlimited) return '<span class="pill vip">Sin límite</span>';
+    const lim = limitOf(u);
+    return lim === 0 ? '<span class="pill">Gratis</span>' : `<span class="pill pay">${lim}/sem</span>`;
+  }
+  function lastSeen(u) {
+    if (!u.last_session) return 'Nunca entrenó';
+    const d = Math.floor(daysSince(u.last_session));
+    return d <= 0 ? 'Entrenó hoy' : d === 1 ? 'Entrenó ayer' : `Entrenó hace ${d} días`;
+  }
+  // ---------- Cuentas por aprobar ----------
+  function renderPending() {
+    const on = config?.settings?.approval_required === true;
+    show($('pendingBox'), pending !== null && (on || pending.length > 0));
+    if (pending === null) return;
+    $('pendingNote').textContent = on
+      ? 'Mientras no las apruebes, estas personas ven una pantalla de espera y no pueden usar la app.'
+      : 'La aprobación está apagada: estas cuentas ya pueden entrar. Aparecen aquí solo como registro.';
+    $('pending').innerHTML = pending.map((u) => `<div class="row" style="justify-content:space-between; gap:12px; padding:8px 0; border-top:1px solid var(--line, #2a2b33)">
+        <span><b>${esc(u.email)}</b><br><span class="small muted">Se registró el ${new Date(u.created_at).toLocaleString('es-CL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span></span>
+        <button data-approve="${esc(u.user_id)}">Aprobar</button>
+      </div>`).join('') || '<p class="small muted">Nadie espera aprobación.</p>';
+    $('pending').querySelectorAll('[data-approve]').forEach((b) => b.onclick = async () => {
+      b.disabled = true;
+      const { error } = await sb.rpc('admin_approve', { target: b.dataset.approve, ok: true });
+      if (error) { toast('No se pudo aprobar'); console.error(error); b.disabled = false; return; }
+      toast('Cuenta aprobada');
+      load();
+    });
+  }
+
+  function renderUsers() {
+    $('filters').innerHTML = Object.entries(GROUPS).map(([id, g]) =>
+      `<button data-filter="${id}" aria-pressed="${id === filter}">${g.label} · ${inGroup(id).length}</button>`).join('');
+    $('filters').querySelectorAll('[data-filter]').forEach((b) => b.onclick = () => { filter = b.dataset.filter; renderUsers(); });
+    const q = $('search').value.trim().toLowerCase();
+    const list = inGroup(filter).filter((u) => !q || u.email.toLowerCase().includes(q));
+    $('count').textContent = `${list.length} de ${users.length}`;
+    $('users').innerHTML = list.map((u) => {
+      const lim = limitOf(u);
+      return `<div class="user" data-id="${u.user_id}">
+        <div><strong>${esc(u.email)}</strong> ${u.is_admin ? '<span class="pill vip">admin</span>' : ''}<small>Registro ${date(u.created_at)}</small></div>
+        <div>${lastSeen(u)}<small>${u.sessions_30d} sesiones en 30 días</small></div>
+        <div>IA ${u.used_week} / ${lim === Infinity ? '∞' : lim}<small>${u.used_month} en 30 días</small></div>
+        <div class="plan">${pill(u)} <select aria-label="Plan de ${esc(u.email)}">${planOptions(u)}</select></div>
+      </div>`;
+    }).join('') || '<p class="muted" style="padding:14px 0; margin:0">Nadie en este grupo.</p>';
+    $('users').querySelectorAll('select').forEach((sel) => sel.onchange = async () => {
+      const v = sel.value;
+      sel.disabled = true;
+      const { error } = await sb.rpc('admin_set_limit', {
+        target: sel.closest('.user').dataset.id,
+        new_limit: /^\d$/.test(v) ? Number(v) : null,
+        no_limit: v === 'unlimited',
+        use_default: v === 'default',
+      });
+      if (error) { toast('No se pudo guardar'); console.error(error); renderUsers(); return; }
+      toast('Plan guardado');
+      load();
+    });
+  }
+  $('search').oninput = renderUsers;
+
+  // ---------- Resultados del método ----------
+  const REASONS = { no_conoce: 'No lo conoce', muy_dificil: 'Muy difícil', inseguro: 'No se siente seguro', sin_lugar: 'El lugar no lo permite' };
+  function renderInsights() {
+    if (insights === null) {
+      $('insightsNote').textContent = 'Esta medición aún no está activada en la base.';
+      $('insightRows').innerHTML = '';
+      $('funnel').innerHTML = '';
+      return;
+    }
+    const list = insights.exercises || [];
+    $('insightsNote').textContent = `Últimos ${insights.days} días: ${insights.sessions} sesiones de ${insights.people} ${insights.people === 1 ? 'persona' : 'personas'} con respaldo. Con dolor = moderado o fuerte.${insights.people < 10 ? ' Con tan pocas personas, tómalo como pista y no como conclusión.' : ''}`;
+    $('insightRows').innerHTML = list.map((e) => {
+      const top = Object.keys(REASONS).map((k) => [k, e[k] || 0]).sort((a, b) => b[1] - a[1])[0];
+      const share = e.sesiones ? Math.round(100 * e.con_dolor / e.sesiones) : 0;
+      return `<tr>
+        <td>${esc(exerciseNames[e.id] || e.id)}</td>
+        <td class="num">${e.sesiones}</td>
+        <td class="num ${e.con_dolor ? 'warn' : ''}">${e.con_dolor}${e.con_dolor ? ` · ${share} %` : ''}</td>
+        <td class="num">${e.con_molestia}</td>
+        <td class="num ${e.no_puedo ? 'warn' : ''}">${e.no_puedo}</td>
+        <td>${top && top[1] ? `${REASONS[top[0]]} (${top[1]})` : '—'}</td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="6" class="muted">Ningún ejercicio con dolor, molestia ni «No puedo hacerlo» en este período.</td></tr>';
+
+    const f = insights.funnel || {};
+    const steps = [
+      ['Crearon su cuenta con correo', f.accounts],
+      ['Completaron su perfil', f.with_profile],
+      ['Armaron su semana', f.with_week],
+      ['Hicieron su primera sesión', f.first_session],
+      ['Volvieron en una segunda semana', f.second_week],
+    ];
+    const base = Number(f.accounts) || 0;
+    $('funnel').innerHTML = '<h3>Del registro a la constancia</h3>' + steps.map(([label, n], i) => {
+      const prev = i ? Number(steps[i - 1][1]) || 0 : null;
+      const lost = prev != null && prev > 0 ? prev - (Number(n) || 0) : 0;
+      return line(label, `${n ?? 0}${base ? ` · ${Math.round(100 * (Number(n) || 0) / base)} %` : ''}`, lost > 0 ? `Se quedan aquí ${lost}` : '', lost > 0 && prev && lost / prev >= 0.5 ? 'warn' : '');
+    }).join('') + line('Sin cuenta (anónimos)', f.anonymous ?? 0, 'Usan la app sin correo; no se sabe más de ellos');
+  }
+
+  // ---------- Abandono dentro del registro ----------
+  // En el orden en que la persona los recorre. Cada paso cuenta teléfonos, no cuentas.
+  const ONBOARDING_STEPS = [
+    ['intro', 'Vieron la portada'],
+    ['account_form', 'Tocaron «Empezar»'],
+    ['code_requested', 'Pidieron el código por correo'],
+    ['account_created', 'Confirmaron el código (cuenta creada)'],
+    ['step_welcome', 'Paso 1 · Bienvenida y alertas'],
+    ['step_about', 'Paso 2 · Sobre ti y nivel'],
+    ['step_equipment', 'Paso 3 · Kettlebell'],
+    ['step_conditions', 'Paso 4 · Lesiones'],
+    ['step_week', 'Paso 5 · Tu semana'],
+    ['done', 'Terminaron el registro'],
+  ];
+  function renderOnboarding() {
+    if (onboarding === null) {
+      $('onboardingNote').textContent = 'Esta medición aún no está activada en la base.';
+      $('onboarding').innerHTML = '';
+      return;
+    }
+    const st = onboarding.steps || {};
+    const base = Number(onboarding.devices) || 0;
+    const since = onboarding.since ? new Date(onboarding.since).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: '2-digit' }) : null;
+    $('onboardingNote').textContent = base
+      ? `Últimos ${onboarding.days} días: ${base} ${base === 1 ? 'teléfono nuevo' : 'teléfonos nuevos'}${onboarding.existing ? `, más ${onboarding.existing} que entraron con «Ya tengo cuenta»` : ''}. Se mide desde el ${since}; es anónimo.${base < 10 ? ' Con tan pocos, tómalo como pista.' : ''}`
+      : `Aún no hay registros nuevos medidos${since ? ` (se mide desde el ${since})` : ''}. Solo cuenta a quienes abren la app por primera vez.`;
+    $('onboarding').innerHTML = !base ? '' : '<h3>Paso a paso</h3>' + ONBOARDING_STEPS.map(([id, label], i) => {
+      const n = Number(st[id]) || 0;
+      const prev = i ? Number(st[ONBOARDING_STEPS[i - 1][0]]) || 0 : null;
+      const lost = prev != null ? Math.max(0, prev - n) : 0;
+      return line(label, `${n} · ${Math.round(100 * n / base)} %`, lost > 0 ? `Se quedan antes de este paso: ${lost}` : '', lost > 0 && prev && lost / prev >= 0.3 ? 'warn' : '');
+    }).join('');
+  }
+
+  // ---------- Reportes ----------
+  const REPORT_GROUPS = {
+    abiertos: { label: 'Por revisar', test: (r) => !r.resolved },
+    errores: { label: 'Errores', test: (r) => r.kind === 'error' },
+    comentarios: { label: 'Comentarios', test: (r) => r.kind === 'feedback' },
+    todos: { label: 'Todos', test: () => true },
+  };
+  function renderReports() {
+    // Aviso en «Hoy»: errores y comentarios que nadie ha revisado.
+    const open = (reports || []).filter((r) => !r.resolved);
+    const errors = open.filter((r) => r.kind === 'error').length;
+    const notes = open.length - errors;
+    const parts = [errors && `${errors} ${errors === 1 ? 'error' : 'errores'}`, notes && `${notes} ${notes === 1 ? 'comentario' : 'comentarios'}`].filter(Boolean);
+    $('reportAlert').innerHTML = parts.length
+      ? `<div class="alert"><i></i><span>${parts.join(' y ')} sin revisar</span><button class="ghost" id="goReports">Ver reportes</button></div>`
+      : '';
+    if (parts.length) $('goReports').onclick = () => { reportFilter = 'abiertos'; renderReports(); openTab('reportes'); };
+    if (reports === null) {
+      $('reportFilters').innerHTML = '';
+      $('reports').innerHTML = '<p class="muted" style="padding:14px 0; margin:0">Los reportes aún no están activados en la base.</p>';
+      return;
+    }
+    $('reportFilters').innerHTML = Object.entries(REPORT_GROUPS).map(([id, g]) =>
+      `<button data-rfilter="${id}" aria-pressed="${id === reportFilter}">${g.label} · ${reports.filter(g.test).length}</button>`).join('');
+    $('reportFilters').querySelectorAll('[data-rfilter]').forEach((b) => b.onclick = () => { reportFilter = b.dataset.rfilter; renderReports(); });
+    const when = (d) => new Date(d).toLocaleString('es-CL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    const list = reports.filter(REPORT_GROUPS[reportFilter].test);
+    $('reports').innerHTML = list.map((r) => {
+      const c = r.context || {};
+      const meta = [r.email || 'sin correo', when(r.created_at), c.screen, c.version && 'v' + c.version, c.platform].filter(Boolean).map(esc).join(' · ');
+      return `<div class="user" data-report="${r.id}" style="grid-template-columns: minmax(0, 1fr) auto; align-items: start">
+        <div><span class="pill ${r.kind === 'error' ? 'vip' : 'pay'}">${r.kind === 'error' ? 'Error' : 'Comentario'}</span>
+          <strong style="display:block; margin-top:6px; white-space:pre-wrap">${esc(r.message)}</strong>
+          <small>${meta}</small>
+          ${c.stack ? `<details style="margin-top:6px"><summary class="small muted">Detalle técnico</summary><pre class="small muted" style="white-space:pre-wrap; overflow-wrap:anywhere; margin:6px 0 0">${esc(c.stack)}</pre></details>` : ''}</div>
+        <button class="ghost" data-resolve="${r.resolved ? '0' : '1'}" style="padding:4px 12px; font-size:13px">${r.resolved ? 'Reabrir' : 'Revisado'}</button>
+      </div>`;
+    }).join('') || '<p class="muted" style="padding:14px 0; margin:0">Nada en este grupo.</p>';
+    $('reports').querySelectorAll('[data-resolve]').forEach((b) => b.onclick = async () => {
+      b.disabled = true;
+      const id = Number(b.closest('[data-report]').dataset.report);
+      const { error } = await sb.rpc('admin_resolve_report', { report_id: id, is_resolved: b.dataset.resolve === '1' });
+      if (error) { toast('No se pudo guardar'); console.error(error); b.disabled = false; return; }
+      const row = reports.find((r) => r.id === id);
+      if (row) row.resolved = b.dataset.resolve === '1';
+      renderReports();
+    });
+  }
+
+  // ---------- Descargar en Excel ----------
+  // Un .xlsx mínimo, igual que el de la app: un zip de archivos XML, sin librerías pesadas.
+  // Todo texto va como texto: algo que empiece con «=» no se convierte en una fórmula.
+  function buildXlsx(sheets) {
+    const x = (v) => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
+    const col = (i) => (i < 26 ? '' : col(Math.floor(i / 26) - 1)) + String.fromCharCode(65 + (i % 26));
+    const cell = (v, ref, bold) => {
+      const st = bold ? ' s="1"' : '';
+      if (v == null || v === '') return '';
+      if (typeof v === 'number') return Number.isFinite(v) ? `<c r="${ref}"${st}><v>${v}</v></c>` : '';
+      return `<c r="${ref}" t="inlineStr"${st}><is><t xml:space="preserve">${x(v)}</t></is></c>`;
+    };
+    const sheetXml = (rows) => {
+      const widths = (rows[0] || []).map((_, c) => Math.min(60, Math.max(8, ...rows.map((r) => String(r[c] ?? '').length + 2))));
+      const cols = widths.length ? `<cols>${widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>` : '';
+      const data = rows.map((r, ri) => `<row r="${ri + 1}">${r.map((v, ci) => cell(v, col(ci) + (ri + 1), ri === 0)).join('')}</row>`).join('');
+      return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+        '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>' +
+        `${cols}<sheetData>${data}</sheetData></worksheet>`;
+    };
+    const ns = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+    const head = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+    const u8 = fflate.strToU8;
+    const files = {
+      '[Content_Types].xml': u8(head + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+        '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>' +
+        '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+        '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
+        sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('') + '</Types>'),
+      '_rels/.rels': u8(head + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${ns}/officeDocument" Target="xl/workbook.xml"/></Relationships>`),
+      'xl/workbook.xml': u8(head + `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="${ns}"><sheets>` +
+        sheets.map((sh, i) => `<sheet name="${x(sh.name.replace(/[\\/?*:\[\]]/g, ' ').slice(0, 31))}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('') + '</sheets></workbook>'),
+      'xl/_rels/workbook.xml.rels': u8(head + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+        sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="${ns}/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('') +
+        `<Relationship Id="rId${sheets.length + 1}" Type="${ns}/styles" Target="styles.xml"/></Relationships>`),
+      'xl/styles.xml': u8(head + '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+        '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>' +
+        '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>' +
+        '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>' +
+        '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+        '<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs></styleSheet>'),
+    };
+    sheets.forEach((sh, i) => { files[`xl/worksheets/sheet${i + 1}.xml`] = u8(sheetXml(sh.rows)); });
+    return fflate.zipSync(files);
+  }
+
+  // Las hojas del archivo, con lo que el panel tiene cargado en este momento.
+  function excelSheets() {
+    const m = lastMetrics || {};
+    const stamp = (d) => d ? new Date(d).toLocaleString('sv-SE', { timeZone: 'America/Santiago' }).slice(0, 16) : '';
+    const day = (d) => stamp(d).slice(0, 10);
+    const f = m.feelings_30d || {};
+    const planName = (u) => u.unlimited ? 'Sin límite' : (limitOf(u) === 0 ? 'Gratis' : `${limitOf(u)} por semana`) + (u.has_plan ? '' : ' (por defecto)');
+    const resumen = [
+      ['Indicador', 'Valor'],
+      ['Generado el (hora de Chile)', stamp(new Date())],
+      ['Usuarios con cuenta', m.users_total], ['Sin cuenta (anónimos)', m.users_anonymous], ['Anónimos con actividad', anonymous ? anonymous.with_activity : ''],
+      ['Nuevos en 7 días', m.new_7d], ['Nuevos en 30 días', m.new_30d],
+      ['Activos en 7 días', m.active_7d], ['Activos en 30 días', m.active_30d],
+      ['Sesiones en 7 días', m.sessions_7d], ['Minutos por sesión (30 días)', m.avg_minutes_30d],
+      ['Sesiones completas, % (30 días)', m.completed_pct_30d], ['Sesiones con dolor, % (30 días)', m.pain_pct_30d],
+      ['Vuelven la semana 2, %', m.retention_w2], ['De cuántos (semana 2)', m.retention_cohort_w2],
+      ['Vuelven la semana 4, %', m.retention_w4], ['De cuántos (semana 4)', m.retention_cohort_w4],
+      ['«Fue mucho» (30 días)', f.too_much || 0], ['«Justo» (30 días)', f.right || 0], ['«Me quedé con ganas» (30 días)', f.wanted_more || 0],
+      ['Semanas con IA en 7 días', m.ai_7d], ['Semanas con IA en 30 días', m.ai_30d],
+      ['Costo IA 30 días (USD)', m.ai_cost_usd_30d], ['Pagando', m.paying],
+      ['Ingreso mensual estimado (CLP)', Number(m.mrr_clp)], ['Ingreso mensual estimado (USD)', Number(m.mrr_usd)],
+    ];
+    const usuarios = [
+      ['Correo', 'Registro', 'Último entrenamiento', 'Sesiones 30 días', 'Sesiones en total', 'IA esta semana', 'IA 30 días', 'Plan', 'Administrador'],
+      ...users.map((u) => [u.email, day(u.created_at), day(u.last_session), u.sessions_30d, u.sessions_total, u.used_week, u.used_month, planName(u), u.is_admin ? 'Sí' : '']),
+    ];
+    const semanas = [['Semana', 'Activos (entrenaron)', 'Nuevos', 'Semanas con IA'], ...(m.weekly || []).map((w) => [String(w.week), w.active, w.new, w.ai])];
+    const p = m.plans || {};
+    const cost = setting('ai_cost_usd', 0.15);
+    const planes = [
+      ['Plan', 'Semanas con IA al mes', 'Usuarios', 'Precio CLP', 'Precio USD', 'Costo IA al mes (USD)'],
+      ...[0, 1, 2, 3, 4, 5].map((n) => [n === 0 ? 'Gratis' : `${n} por semana`, n * 4, p[n] || 0, priceOf(n).price_clp ?? '', priceOf(n).price_usd != null ? Number(priceOf(n).price_usd) : '', Math.round(n * 4 * cost * 100) / 100]),
+      ['Sin límite', '', p.sin_limite || 0, '', '', ''],
+    ];
+    const reportes = [
+      ['Fecha (hora de Chile)', 'Tipo', 'Mensaje', 'Correo', 'Pantalla', 'Versión', 'Equipo', 'Revisado'],
+      ...(reports || []).map((r) => { const c = r.context || {}; return [stamp(r.created_at), r.kind === 'error' ? 'Error' : 'Comentario', r.message, r.email || '', c.screen || '', c.version || '', c.platform || '', r.resolved ? 'Sí' : '']; }),
+    ];
+    const ins = insights || {};
+    const ejercicios = [
+      ['Ejercicio', 'Sesiones', 'Personas', 'Con dolor', 'Con molestia', '«No puedo»', 'No lo conoce', 'Muy difícil', 'No se siente seguro', 'El lugar no lo permite'],
+      ...(ins.exercises || []).map((e) => [exerciseNames[e.id] || e.id, e.sesiones, e.personas, e.con_dolor, e.con_molestia, e.no_puedo, e.no_conoce, e.muy_dificil, e.inseguro, e.sin_lugar]),
+    ];
+    const fu = ins.funnel || {};
+    const embudo = [
+      ['Etapa', 'Personas'],
+      ['Crearon su cuenta con correo', fu.accounts ?? ''], ['Completaron su perfil', fu.with_profile ?? ''], ['Armaron su semana', fu.with_week ?? ''],
+      ['Hicieron su primera sesión', fu.first_session ?? ''], ['Volvieron en una segunda semana', fu.second_week ?? ''], ['Sin cuenta (anónimos)', fu.anonymous ?? ''],
+    ];
+    // Abandono dentro del registro: teléfonos nuevos que llegaron a cada paso (anónimo).
+    if (onboarding) {
+      embudo.push([], ['Dentro del registro (últimos ' + onboarding.days + ' días)', 'Teléfonos']);
+      ONBOARDING_STEPS.forEach(([id, label]) => embudo.push([label, Number((onboarding.steps || {})[id]) || 0]));
+      embudo.push(['Entraron con «Ya tengo cuenta»', onboarding.existing ?? 0]);
+    }
+    return [{ name: 'Resumen', rows: resumen }, { name: 'Usuarios', rows: usuarios }, { name: 'Semanas', rows: semanas }, { name: 'Planes', rows: planes }, { name: 'Ejercicios', rows: ejercicios }, { name: 'Embudo', rows: embudo }, { name: 'Reportes', rows: reportes }];
+  }
+  $('excel').onclick = () => {
+    if (!lastMetrics) { toast('Todavía no hay datos cargados'); return; }
+    const bytes = buildXlsx(excelSheets());
+    const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `kettai-panel-${new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Santiago' })}.xlsx`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    toast('Excel descargado');
+  };
+
+  // ---------- Precios y ajustes ----------
+  function renderPrices() {
+    const cost = setting('ai_cost_usd', 0.15);
+    $('prices').innerHTML = [0, 1, 2, 3, 4, 5].map((n) => {
+      const p = priceOf(n);
+      return `<tr data-tier="${n}">
+        <td>${n === 0 ? 'Gratis' : `${n} por semana`}</td>
+        <td>${n === 0 ? 'Solo reglas' : `${n * 4} al mes`}</td>
+        <td><input type="number" min="0" step="100" data-clp value="${p.price_clp ?? ''}" ${n === 0 ? 'disabled' : ''} style="width:140px"></td>
+        <td><input type="number" min="0" step="0.5" data-usd value="${p.price_usd ?? ''}" ${n === 0 ? 'disabled' : ''} style="width:120px"></td>
+        <td class="num">${n === 0 ? '—' : usd(n * 4 * cost)}</td>
+      </tr>`;
+    }).join('');
+    const def = setting('default_weekly_limit', 1);
+    $('defaultLimit').innerHTML = [0, 1, 2, 3, 4, 5].map((n) => `<option value="${n}" ${n === def ? 'selected' : ''}>${n === 0 ? '0 · gratis' : n + ' por semana'}</option>`).join('');
+    $('aiCost').value = cost;
+    $('usdClp').value = setting('usd_to_clp', 950);
+    // Ajustes de seguridad de la IA: aparecen cuando la base ya los tiene (migración 0005).
+    const s = config?.settings ?? {};
+    show($('dailyCapBox'), 'ai_daily_cap' in s);
+    show($('needsEmailBox'), 'ai_requires_email' in s);
+    show($('approvalBox'), 'approval_required' in s);
+    $('approval').value = String(s.approval_required === true);
+    $('dailyCap').value = s.ai_daily_cap ?? '';
+    $('needsEmail').value = String(s.ai_requires_email === true);
+  }
+  $('savePrices').onclick = async () => {
+    const rows = [...$('prices').querySelectorAll('tr')].filter((tr) => tr.dataset.tier !== '0');
+    for (const tr of rows) {
+      const clpV = tr.querySelector('[data-clp]').value, usdV = tr.querySelector('[data-usd]').value;
+      const { error } = await sb.rpc('admin_set_price', { tier: Number(tr.dataset.tier), clp: clpV === '' ? null : Number(clpV), usd: usdV === '' ? null : Number(usdV) });
+      if (error) { toast('No se pudo guardar'); console.error(error); return; }
+    }
+    toast('Precios guardados');
+    load();
+  };
+  $('saveSettings').onclick = async () => {
+    const pairs = [['default_weekly_limit', Number($('defaultLimit').value)], ['ai_cost_usd', Number($('aiCost').value)], ['usd_to_clp', Number($('usdClp').value)]];
+    const s = config?.settings ?? {};
+    if ('ai_daily_cap' in s && $('dailyCap').value !== '') pairs.push(['ai_daily_cap', Number($('dailyCap').value)]);
+    if ('ai_requires_email' in s) pairs.push(['ai_requires_email', $('needsEmail').value === 'true']);
+    if ('approval_required' in s) pairs.push(['approval_required', $('approval').value === 'true']);
+    for (const [setting_, value] of pairs) {
+      const { error } = await sb.rpc('admin_set_setting', { setting: setting_, new_value: value });
+      if (error) { toast('No se pudo guardar'); console.error(error); return; }
+    }
+    toast('Ajustes guardados');
+    load();
+  };
+
+  start();
+</script>
+</body>
+</html>

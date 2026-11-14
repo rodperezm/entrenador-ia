@@ -1,6 +1,7 @@
 import type { EquipmentId, MuscleGroupId, MuscleId, RestrictionFlagId } from '@/domain/catalog';
 import { type BlockType, type Exercise, ExerciseSchema } from '@/domain/schema';
 import { GYMVISUAL_VIDEO_IDS } from './mediaSources';
+import { YOUTUBE_VIDEO_IDS } from './youtubeVideos';
 
 // Forma compacta para escribir el seed a mano. `buildExercise` la expande
 // al modelo completo `Exercise` y la valida con zod.
@@ -18,6 +19,8 @@ export type ExerciseInput = {
   flags?: RestrictionFlagId[];
   required?: EquipmentId[];
   optional?: EquipmentId[];
+  kettlebells?: 2;
+  db?: { count: 1 | 2; weights: [number, number, number] };
   primary: [MuscleId, number][];
   secondary?: [MuscleId, number][];
   rx: { sets: number; reps?: [number, number]; sec?: number; rest: number; tempo?: string };
@@ -55,6 +58,7 @@ export function buildExercise(d: ExerciseInput): Exercise {
     blockTypes: d.blocks,
     muscleGroups: d.groups,
     movementPattern: d.pattern,
+    kettlebellCount: d.kettlebells ?? 1,
     mechanics: d.mechanics,
     laterality: d.laterality ?? 'bilateral',
     complexityLevel: d.level,
@@ -86,6 +90,7 @@ export function buildExercise(d: ExerciseInput): Exercise {
       provider: GYMVISUAL_VIDEO_IDS[d.id]
         ? { name: 'gymvisual', id: GYMVISUAL_VIDEO_IDS[d.id], style: 'basic_grey' }
         : null,
+      youtubeId: YOUTUBE_VIDEO_IDS[d.id] ?? null,
     },
     instructions: {
       steps: d.steps.map((s, i) => ({ order: i + 1, text: t(s), frame: i })),
@@ -101,6 +106,12 @@ export function buildExercise(d: ExerciseInput): Exercise {
           lumbarSafety: d.kb.lumbar.map(t),
           suggestedWeightKg: { beginner: d.kb.weights[0], intermediate: d.kb.weights[1], advanced: d.kb.weights[2] },
           prerequisites: d.kb.prereq ?? [],
+        }
+      : null,
+    dumbbellGuide: d.db
+      ? {
+          count: d.db.count,
+          suggestedWeightKg: { beginner: d.db.weights[0], intermediate: d.db.weights[1], advanced: d.db.weights[2] },
         }
       : null,
     safetyNotes: Object.entries(d.safety ?? {}).map(([flag, note]) => ({ flag, note: t(note as string) })),

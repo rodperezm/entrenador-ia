@@ -235,7 +235,7 @@ export const EXTRA_KB_BATCH1: ExerciseInput[] = [
     level: 3,
     impact: 'high',
     flags: ['jumping', 'high_impact', 'ballistic'],
-    required: ['chair'],
+    required: ['bench'], // nunca a una silla: puede moverse o volcarse al aterrizar
     primary: [
       ['quadriceps', 0.8],
       ['gluteus_maximus', 0.8],
@@ -346,7 +346,8 @@ export const EXTRA_KB_BATCH1: ExerciseInput[] = [
     level: 3,
     laterality: 'unilateral',
     flags: ['deep_knee_flexion_loaded'],
-    required: ['kettlebell', 'chair'],
+    // Con silla no: con peso y en una pierna, la silla puede correrse hacia atrás.
+    required: ['kettlebell', 'bench'],
     primary: [
       ['quadriceps', 1],
       ['gluteus_maximus', 0.8],
@@ -359,7 +360,7 @@ export const EXTRA_KB_BATCH1: ExerciseInput[] = [
     rx: { sets: 3, reps: [6, 10], rest: 90, tempo: '3010' },
     previous: ['kb_split_squat'],
     steps: [
-      'De espaldas a un banco o silla firme, apoya el empeine de un pie atrás.',
+      'De espaldas a una banca firme o un escalón, apoya el empeine de un pie atrás.',
       'Pesa en goblet o colgando del lado de la pierna de atrás.',
       'Baja en 3 segundos hasta que el muslo de adelante quede casi paralelo.',
       'Sube empujando con el talón de adelante. Termina el lado y cambia.',

@@ -1,6 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
 import Body, { type ExtendedBodyPart, type Slug } from 'react-native-body-highlighter';
-import { Circle, Ellipse, G, Path, Rect } from 'react-native-svg';
 import type { MuscleId } from '@/domain/catalog';
 import type { MuscleActivation } from '@/domain/schema';
 import { useProfile } from '@/state/profile';
@@ -36,9 +35,57 @@ const MUSCLE_TO_SLUG: Record<MuscleId, Slug | null> = {
   erector_spinae: 'lower-back',
 };
 
-// De menos a más intenso (índice 1, 2 y 3 de la librería).
-const HEAT = ['#7A3B39', '#C2473D', '#FF4D3D'];
-const level = (v: number) => (v >= 0.75 ? 3 : v >= 0.45 ? 2 : 1);
+// Dos colores, para que se lea de un vistazo: lo principal en el rojo de la app y lo secundario
+// en un tono suave del mismo color. Lo que no trabaja queda en el gris del cuerpo.
+const PRIMARY = colors.accent;
+const SECONDARY = colors.bodySecondary;
+
+// Todas las zonas de la figura. La librería trae cada una con su propio gris: se pintan todas con
+// el tono del cuerpo para que la silueta se distinga del fondo y la cabeza no llame la atención.
+const ALL_SLUGS: Slug[] = [
+  'abs',
+  'adductors',
+  'ankles',
+  'biceps',
+  'calves',
+  'chest',
+  'deltoids',
+  'feet',
+  'forearm',
+  'gluteal',
+  'hamstring',
+  'hands',
+  'head',
+  'knees',
+  'lower-back',
+  'neck',
+  'obliques',
+  'quadriceps',
+  'tibialis',
+  'trapezius',
+  'triceps',
+  'upper-back',
+];
+
+// Zonas que se ven sobre todo de espalda; los deltoides y el trapecio se ven por ambos lados.
+const BACK: Slug[] = ['hamstring', 'gluteal', 'upper-back', 'lower-back', 'triceps', 'calves'];
+const BOTH: Slug[] = ['deltoids', 'trapezius'];
+
+// El lado donde más se ve lo que trabaja el ejercicio: para mostrar una sola figura, más grande.
+export function bestSide(primary: MuscleActivation[], secondary: MuscleActivation[] = []): View2D {
+  let front = 0;
+  let back = 0;
+  const count = (list: MuscleActivation[], weight: number) =>
+    list.forEach((m) => {
+      const slug = MUSCLE_TO_SLUG[m.muscle];
+      if (!slug || BOTH.includes(slug)) return;
+      if (BACK.includes(slug)) back += weight * m.intensity;
+      else front += weight * m.intensity;
+    });
+  count(primary, 1);
+  count(secondary, 0.4);
+  return back > front ? 'back' : 'front';
+}
 
 type Props = {
   primary: MuscleActivation[];
@@ -46,6 +93,8 @@ type Props = {
   views?: View2D[];
   height?: number;
   showLabels?: boolean;
+  /** Por defecto, el cuerpo según el perfil. */
+  gender?: 'male' | 'female';
 };
 
 export function BodyMap({
@@ -54,62 +103,60 @@ export function BodyMap({
   views = ['front', 'back'],
   height = 260,
   showLabels = false,
+  gender: forcedGender,
 }: Props) {
   const { profile } = useProfile();
-  const gender = profile?.sex === 'female' ? 'female' : 'male';
+  const gender = forcedGender ?? (profile?.sex === 'female' ? 'female' : 'male');
 
-  // Intensidad por zona: los secundarios cuentan menos; se queda la mayor.
-  const bySlug = new Map<Slug, number>();
-  const add = (m: MuscleActivation, factor: number) => {
-    const slug = MUSCLE_TO_SLUG[m.muscle];
-    if (slug) bySlug.set(slug, Math.max(bySlug.get(slug) ?? 0, m.intensity * factor));
-  };
-  secondary.forEach((m) => add(m, 0.6));
-  primary.forEach((m) => add(m, 1));
-  const data: ExtendedBodyPart[] = [...bySlug].map(([slug, v]) => ({ slug, intensity: level(v) }));
+  // Color por zona: si una zona junta un músculo principal y uno secundario, manda el principal.
+  const bySlug = new Map<Slug, string>();
+  const paint = (list: MuscleActivation[], color: string) =>
+    list.forEach((m) => {
+      const slug = MUSCLE_TO_SLUG[m.muscle];
+      if (slug) bySlug.set(slug, color);
+    });
+  paint(secondary, SECONDARY);
+  paint(primary, PRIMARY);
+  const data: ExtendedBodyPart[] = [
+    ...ALL_SLUGS.map((slug) => ({ slug, color: bySlug.get(slug) ?? colors.bodyMuscle })),
+    { slug: 'hair' as Slug, color: colors.bodyBase },
+  ];
+  const hasSecondary = [...bySlug.values()].includes(SECONDARY);
 
   return (
-    <View style={styles.row}>
-      {views.map((side) => (
-        <View key={side} style={styles.col}>
-          <Body
-            data={data}
-            side={side}
-            gender={gender}
-            scale={height / 400}
-            colors={HEAT}
-            border="none"
-            defaultFill={colors.bodyMuscle}
-          />
-          {showLabels && <Text style={styles.label}>{side === 'front' ? 'Frente' : 'Espalda'}</Text>}
+    <View style={styles.wrap}>
+      <View style={styles.row}>
+        {views.map((side) => (
+          <View key={side} style={styles.col}>
+            <Body
+              data={data}
+              side={side}
+              gender={gender}
+              scale={height / 400}
+              border="none"
+              defaultFill={colors.bodyMuscle}
+            />
+            {showLabels && <Text style={styles.label}>{side === 'front' ? 'Frente' : 'Espalda'}</Text>}
+          </View>
+        ))}
+      </View>
+      {showLabels && bySlug.size > 0 && (
+        <View style={styles.legend}>
+          <View style={[styles.swatch, { backgroundColor: PRIMARY }]} />
+          <Text style={styles.label}>Principal</Text>
+          {hasSecondary && <View style={[styles.swatch, { backgroundColor: SECONDARY, marginLeft: 12 }]} />}
+          {hasSecondary && <Text style={styles.label}>Secundario</Text>}
         </View>
-      ))}
+      )}
     </View>
   );
 }
 
-// Silueta simple usada en la guía de medición (para marcar dónde medir).
-export function Silhouette() {
-  const c = colors.bodyBase;
-  return (
-    <G>
-      <Circle cx={100} cy={33} r={21} fill={c} />
-      <Rect x={91} y={50} width={18} height={16} fill={c} />
-      <Path d="M 60 70 Q 100 58 140 70 L 152 92 L 132 200 L 68 200 L 48 92 Z" fill={c} />
-      <Rect x={38} y={80} width={22} height={128} rx={11} fill={c} />
-      <Rect x={140} y={80} width={22} height={128} rx={11} fill={c} />
-      <Circle cx={49} cy={214} r={9} fill={c} />
-      <Circle cx={151} cy={214} r={9} fill={c} />
-      <Rect x={67} y={192} width={31} height={212} rx={14} fill={c} />
-      <Rect x={102} y={192} width={31} height={212} rx={14} fill={c} />
-      <Ellipse cx={82} cy={410} rx={14} ry={6} fill={c} />
-      <Ellipse cx={118} cy={410} rx={14} ry={6} fill={c} />
-    </G>
-  );
-}
-
 const styles = StyleSheet.create({
+  wrap: { alignItems: 'center', gap: 10 },
   row: { flexDirection: 'row', justifyContent: 'center', gap: 16 },
   col: { alignItems: 'center' },
   label: { color: colors.textMuted, fontSize: 12, marginTop: 6 },
+  legend: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  swatch: { width: 10, height: 10, borderRadius: 5, marginTop: 6 },
 });

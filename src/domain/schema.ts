@@ -55,6 +55,8 @@ export const MediaSchema = z.object({
     .object({ name: z.literal('gymvisual'), id: z.string(), style: z.enum(['basic_grey', 'full_color']) })
     .nullable()
     .default(null),
+  // Video de YouTube que se muestra en la ficha del ejercicio.
+  youtubeId: z.string().nullable().default(null),
 });
 
 export const KettlebellGuide = z.object({
@@ -77,6 +79,7 @@ export const ExerciseSchema = z.object({
   blockTypes: z.array(BlockType).min(1),
   muscleGroups: z.array(MuscleGroupId),
   movementPattern: MovementPattern,
+  kettlebellCount: z.number().int().min(1).max(2).default(1), // 2 = una en cada mano, del mismo peso
   mechanics: z.enum(['compound', 'isolation', 'mobility', 'stretch', 'cardio']),
   laterality: z.enum(['bilateral', 'unilateral', 'alternating']),
   complexityLevel: z.number().int().min(1).max(5),
@@ -119,6 +122,14 @@ export const ExerciseSchema = z.object({
   }),
 
   kettlebellGuide: KettlebellGuide.nullable(),
+  // Mancuernas: cuántas usa (una en cada mano o una sola) y peso sugerido de cada una por nivel.
+  dumbbellGuide: z
+    .object({
+      count: z.number().int().min(1).max(2),
+      suggestedWeightKg: z.object({ beginner: z.number(), intermediate: z.number(), advanced: z.number() }),
+    })
+    .nullable()
+    .default(null),
   safetyNotes: z.array(z.object({ flag: RestrictionFlagId, note: LocalizedText })),
   cooldownStretchIds: z.array(ExerciseId),
   tags: z.array(z.string()),
@@ -151,8 +162,15 @@ export const UserProfile = z.object({
   level: z.enum(['beginner', 'intermediate', 'advanced']),
   equipment: z.array(EquipmentId),
   // Lo que hay fijo en el parque donde entrena (barra, banca). Lo portátil lo lleva consigo.
-  parkEquipment: z.array(EquipmentId).default([]),
+  // Antes la banca del parque se guardaba como silla: se lee como banca.
+  parkEquipment: z
+    .array(EquipmentId)
+    .default([])
+    .transform((ids) => [...new Set(ids.map((e) => (e === 'chair' ? 'bench' : e)))] as typeof ids),
   kettlebellWeightsKg: z.array(z.number().positive()),
+  kettlebellPairsKg: z.array(z.number().positive()).default([]), // pesos de los que tiene dos
+  dumbbellWeightsKg: z.array(z.number().positive()).default([]),
+  dumbbellPairsKg: z.array(z.number().positive()).default([]), // pesos de mancuerna de los que tiene dos
   conditions: z.array(UserCondition),
   excludedExerciseIds: z.array(ExerciseId),
 });
@@ -160,9 +178,24 @@ export type UserProfile = z.infer<typeof UserProfile>;
 
 // Perfil guardado en el teléfono mientras no hay cuenta en Supabase.
 // Al crear la cuenta se sube y recibe su `id`.
+// Señales de alerta que la persona marcó al crear su perfil (ver HEALTH_ALERTS en catalog).
+// Con alguna marcada se le recomienda consultar antes de empezar y no se ofrecen circuitos HIIT ni AMRAP.
+export const HealthAlertId = z.enum(['chest', 'dizzy', 'heart', 'surgery', 'doctor']);
+export type HealthAlertId = z.infer<typeof HealthAlertId>;
+
 export const LocalProfile = UserProfile.omit({ id: true }).extend({
+  healthAlerts: z.array(HealthAlertId).optional(), // sin responder = undefined; respondió «ninguna» = []
+  // Experiencia con kettlebell, aparte de la condición física (`level`). Sin responder, vale el nivel
+  // (ver domain/experience).
+  kettlebellExperience: z.enum(['none', 'basic', 'skilled']).optional(),
   disclaimerAcceptedAt: z.string(),
+  // Versión de los Términos y condiciones que aceptó (content/terms) y cuándo. Sin valor: perfil
+  // anterior a los Términos; la app le pide aceptarlos.
+  termsVersion: z.string().optional(),
+  termsAcceptedAt: z.string().optional(),
   updatedAt: z.string(),
+  // Último cambio que afecta a la rutina (ver domain/profileStamp). Sin él vale `updatedAt`.
+  trainingUpdatedAt: z.string().optional(),
 });
 export type LocalProfile = z.infer<typeof LocalProfile>;
 
@@ -182,6 +215,9 @@ export const DayConfig = z.object({
   availableMinutes: z.number().int().min(10).max(120).default(45), // tiempo que tiene ese día
   // Día de lesión con fuerza suave: pocos ejercicios, sin balísticos ni saltos.
   gentleStrength: z.boolean().default(false),
+  // La persona pidió ajustar Fuerza a sus minutos. Sin esto, Fuerza va completa aunque tome
+  // más tiempo y se le avisa; la elección queda guardada y la recibe también la IA.
+  fitToTime: z.boolean().optional(),
   blocks: z.object({
     warmup: z.object({
       enabled: z.boolean(),
@@ -230,12 +266,17 @@ export const DayPlan = z.object({
   blocks: z.array(PlannedBlock),
   // La persona ya respondió el aviso de tiempo de esta rutina: no se vuelve a insistir.
   timeNoticeDismissed: z.boolean().optional(),
+  // Cómo cerrar la sesión según la IA. Las reglas de la app deciden qué se ofrece.
+  finisher: z.object({ format: z.enum(['normal', 'hiit', 'amrap']), reason: z.string().nullable() }).optional(),
 });
 export type DayPlan = z.infer<typeof DayPlan>;
 
 // Salida estructurada que debe devolver el LLM (validada antes de guardar).
 export const GeneratedWeekPlan = z.object({ days: z.array(DayPlan), summary: z.string() });
 export type GeneratedWeekPlan = z.infer<typeof GeneratedWeekPlan>;
+
+export const PlannedByWeek = z.record(z.string(), z.number().int().min(0).max(7));
+export type PlannedByWeek = z.infer<typeof PlannedByWeek>;
 
 // Plan guardado: incluye con qué se generó y la configuración usada,
 // para saber si quedó desactualizado al cambiar la semana o el perfil.
@@ -245,10 +286,18 @@ export const StoredWeekPlan = GeneratedWeekPlan.extend({
   configHash: z.string(),
   // Huella de la configuración de cada día al armar su rutina (permite rehacer un solo día).
   dayHashes: z.partialRecord(DayOfWeek, z.string()).optional(),
+  // Bloque en que se armó: dentro del mismo bloque, los ejercicios de Fuerza se mantienen.
+  cycleBlock: z.string().optional(),
+  // Días de Fuerza planificados en cada semana (lunes AAAA-MM-DD → cantidad). Va aquí para que el
+  // respaldo lo lleve a otro teléfono: sin esto, el ciclo se contaría distinto en cada uno.
+  plannedByWeek: PlannedByWeek.optional(),
 });
 export type StoredWeekPlan = z.infer<typeof StoredWeekPlan>;
 
 // ---------- Historial ----------
+
+export const PainSide = z.enum(['left', 'right', 'both']);
+export type PainSide = z.infer<typeof PainSide>;
 
 export const SetLog = z.object({
   exerciseId: ExerciseId,
@@ -257,10 +306,14 @@ export const SetLog = z.object({
   repsDone: z.number().int().nonnegative().nullable(),
   durationSec: z.number().int().nonnegative().nullable(),
   weightKg: z.number().nonnegative().nullable(),
+  plannedWeightKg: z.number().nonnegative().nullable().optional(), // si es mayor que weightKg, la persona lo bajó
   rpe: z.number().min(1).max(10).nullable(), // esfuerzo percibido (10 = no podía más)
   painFlag: z.boolean(), // hubo dolor moderado o fuerte (se mantiene por compatibilidad)
   // 0 nada · 1 leve · 2 moderado · 3 fuerte. Registros antiguos no lo tienen.
   painLevel: z.number().int().min(0).max(3).nullable().default(null),
+  painSide: PainSide.nullable().optional(), // en ejercicios a un lado: dónde dolió
+  techniqueOk: z.boolean().optional(), // bloque A: la persona confirmó que mantuvo la técnica
+  format: z.enum(['hiit', 'amrap']).optional(), // bloque C en circuito: no cuenta para subir cargas
 });
 export type SetLog = z.infer<typeof SetLog>;
 
@@ -268,6 +321,28 @@ export type PainLevel = 0 | 1 | 2 | 3;
 // Registros antiguos solo tenían "Dolor" sí/no: cuenta como moderado.
 export const painOf = (l: Pick<SetLog, 'painFlag' | 'painLevel'>): PainLevel =>
   (l.painLevel ?? (l.painFlag ? 2 : 0)) as PainLevel;
+
+// Zonas para «¿Cómo llegas hoy?» cuando la persona llega con dolor.
+export const BodyZone = z.enum(['shoulder', 'elbow_wrist', 'neck', 'low_back', 'hip', 'knee', 'ankle_foot']);
+export type BodyZone = z.infer<typeof BodyZone>;
+
+// Lo que la persona dice de cómo llega y cómo le fue. Manda sobre el plan del día y
+// sobre la progresión siguiente, y se le envía a la IA.
+export const CheckIn = z.object({
+  arrival: z.enum(['energized', 'normal', 'tired', 'pain']),
+  painZone: BodyZone.optional(),
+  painLevel: z.number().int().min(1).max(3).optional(),
+  afterWarmup: z.enum(['activated', 'tired', 'very_tired']).optional(),
+});
+export type CheckIn = z.infer<typeof CheckIn>;
+export const Feeling = z.enum(['wanted_more', 'right', 'too_much']);
+export type Feeling = z.infer<typeof Feeling>;
+export const PainFollowUp = z.enum(['better', 'same', 'worse']);
+export type PainFollowUp = z.infer<typeof PainFollowUp>;
+// «No puedo hacerlo»: no conoce el ejercicio, le resulta muy difícil, no se siente seguro o el
+// lugar no se lo permite.
+export const CantDoReason = z.enum(['dont_know', 'not_safe', 'no_place', 'too_hard']);
+export type CantDoReason = z.infer<typeof CantDoReason>;
 
 export const WorkoutSession = z.object({
   id: z.string(),
@@ -277,5 +352,23 @@ export const WorkoutSession = z.object({
   finishedAt: z.string(),
   completed: z.boolean(), // false si se terminó antes de tiempo
   sets: z.array(SetLog),
+  // Resultado del desafío AMRAP, para compararlo cuando se repita.
+  amrap: z
+    .object({
+      exerciseIds: z.array(ExerciseId),
+      minutes: z.number().int().positive(),
+      rounds: z.number().int().nonnegative(),
+      extraReps: z.number().int().nonnegative(),
+    })
+    .optional(),
+  checkIn: CheckIn.optional(),
+  feeling: Feeling.optional(), // «¿Cómo estuvo hoy?» al terminar
+  painFollowUp: PainFollowUp.optional(), // al día siguiente, si hubo dolor moderado o fuerte
+  // Ejercicios que la persona no pudo hacer: se cambiaron por uno más simple y no vuelven por un ciclo.
+  cantDo: z
+    .array(z.object({ exerciseId: ExerciseId, reason: CantDoReason, replacedBy: ExerciseId.nullable() }))
+    .optional(),
+  // Ejercicios que hizo con la modificación más fácil: se mantienen, pero la próxima vez no sube la carga.
+  modified: z.array(ExerciseId).optional(),
 });
 export type WorkoutSession = z.infer<typeof WorkoutSession>;

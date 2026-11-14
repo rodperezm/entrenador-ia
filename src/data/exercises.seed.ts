@@ -1,6 +1,10 @@
 import type { RestrictionFlagId } from '@/domain/catalog';
 import { buildExercise, type ExerciseInput } from './buildExercise';
+import { EXTRA_BAR } from './exercises.extra.bar';
+import { EXTRA_BATCH2 } from './exercises.extra.batch2';
+import { EXTRA_BATCH3 } from './exercises.extra.batch3';
 import { EXTRA_COOLDOWN } from './exercises.extra.cooldown';
+import { EXTRA_DOUBLE } from './exercises.extra.double';
 import { EXTRA_KB_BATCH1 } from './exercises.extra.kb-batch1';
 import { EXTRA_STRENGTH } from './exercises.extra.strength';
 import { EXTRA_WARMUP_PREHAB } from './exercises.extra.warmup-prehab';
@@ -608,6 +612,7 @@ const defs: ExerciseInput[] = [
       ['calves', 0.3],
     ],
     rx: { sets: 3, reps: [8, 12], rest: 60 },
+    previous: ['kb_split_squat'], // la zancada estática, sin el paso, es más simple
     steps: [
       'Pesa en goblet o en rack.',
       'Da un paso largo hacia atrás y baja la rodilla trasera hacia el suelo.',
@@ -704,7 +709,7 @@ const defs: ExerciseInput[] = [
     chain: ['push', 1],
     next: ['push_up'],
     steps: [
-      'Manos en el borde de una silla estable, cuerpo en línea recta.',
+      'Manos en el borde de una silla firme apoyada contra la pared, cuerpo en línea recta.',
       'Baja el pecho hacia la silla con codos a 45°.',
       'Empuja hasta extender los brazos.',
     ],
@@ -863,6 +868,7 @@ const defs: ExerciseInput[] = [
       ['rectus_abdominis', 0.3],
     ],
     rx: { sets: 3, reps: [5, 10], rest: 75 },
+    previous: ['kb_half_kneeling_press'], // con una rodilla en el suelo es más estable
     steps: [
       'Pesa en rack, codo bajo la muñeca.',
       'Empuja hacia arriba girando levemente la palma al frente.',
@@ -956,8 +962,9 @@ const defs: ExerciseInput[] = [
       ['deltoid_anterior', 0.4],
     ],
     rx: { sets: 3, reps: [8, 15], rest: 60 },
+    previous: ['push_up_incline'],
     steps: [
-      'Manos en el borde de una silla estable, dedos al frente.',
+      'Manos en el borde de una silla firme apoyada contra la pared, dedos al frente.',
       'Baja doblando los codos hasta unos 90°.',
       'Empuja hasta extender los brazos.',
     ],
@@ -1267,7 +1274,17 @@ const ADDED_FLAGS: Record<string, RestrictionFlagId[]> = {
 const withFlags = (d: ExerciseInput): ExerciseInput =>
   ADDED_FLAGS[d.id] ? { ...d, flags: [...(d.flags ?? []), ...ADDED_FLAGS[d.id]] } : d;
 
-export const EXERCISES = [...defs, ...EXTRA_WARMUP_PREHAB, ...EXTRA_STRENGTH, ...EXTRA_KB_BATCH1, ...EXTRA_COOLDOWN]
+export const EXERCISES = [
+  ...defs,
+  ...EXTRA_WARMUP_PREHAB,
+  ...EXTRA_STRENGTH,
+  ...EXTRA_KB_BATCH1,
+  ...EXTRA_BATCH2,
+  ...EXTRA_BATCH3,
+  ...EXTRA_DOUBLE,
+  ...EXTRA_COOLDOWN,
+  ...EXTRA_BAR,
+]
   .map(withFlags)
   .map(buildExercise);
 export const EXERCISES_BY_ID = new Map(EXERCISES.map((e) => [e.id, e]));

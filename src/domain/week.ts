@@ -1,4 +1,5 @@
-import type { DayConfig, DayOfWeek, WeekConfig } from './schema';
+import type { DayConfig, DayOfWeek, LocalProfile, WeekConfig } from './schema';
+import { MAX_STRENGTH_DAYS, weekFocus } from './strength';
 
 export const DAYS: { id: DayOfWeek; short: string; long: string }[] = [
   { id: 'mon', short: 'Lun', long: 'Lunes' },
@@ -21,9 +22,35 @@ export function dayDate(day: DayOfWeek, today = new Date()): Date {
 export const isToday = (day: DayOfWeek, today = new Date()) =>
   dayDate(day, today).toDateString() === today.toDateString();
 
+// La rutina se armó otra semana: falta ajustarla con lo que quedó registrado.
+export const isFromPastWeek = (generatedAt: string, today = new Date()) =>
+  dayDate('mon', new Date(generatedAt)).getTime() !== dayDate('mon', today).getTime();
+
 // dd-mm-aaaa
 export const fmtDayDate = (d: Date) =>
   `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+
+const MONTHS = [
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
+];
+
+// «lunes 2 de noviembre», el lunes de la semana que viene.
+export function nextMondayLabel(today = new Date()) {
+  const monday = dayDate('mon', today);
+  const next = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 7);
+  return `lunes ${next.getDate()} de ${MONTHS[next.getMonth()]}`;
+}
 
 // Semana inicial: lunes, miércoles y viernes de cuerpo completo.
 const TRAINING_DAYS: DayOfWeek[] = ['mon', 'wed', 'fri'];
@@ -51,7 +78,29 @@ export const defaultWeekConfig = (): WeekConfig => ({ days: DAYS.map((d) => defa
 // Cada día se arma marcando sus partes; sin ninguna es día de descanso.
 export type DayPart = 'warmup' | 'prehab' | 'main' | 'cooldown';
 export const DAY_PARTS: DayPart[] = ['warmup', 'prehab', 'main', 'cooldown'];
+export const DAY_TYPE_PARTS: DayPart[] = ['main', 'prehab', 'cooldown']; // lo que se elige: el calentamiento acompaña
 export type DayChoice = DayPart[]; // [] = descanso
+
+const MIN_DAY_MINUTES = 10;
+const MIN_STRENGTH_MINUTES = 20;
+export const minDayMinutes = (parts: DayChoice) => (parts.includes('main') ? MIN_STRENGTH_MINUTES : MIN_DAY_MINUTES);
+
+// Fuerza siempre lleva calentamiento y elongación; Lesión siempre lleva calentamiento;
+// Elongación puede ir sola y el calentamiento nunca va solo.
+export const normalizeDayParts = (parts: DayChoice): DayChoice => {
+  const main = parts.includes('main');
+  const prehab = parts.includes('prehab');
+  return DAY_PARTS.filter((p) => {
+    if (p === 'warmup') return main || prehab;
+    return p === 'cooldown' ? main || parts.includes('cooldown') : parts.includes(p);
+  });
+};
+
+export const dayIncludedNote = (parts: DayChoice) => {
+  if (parts.includes('main')) return 'Calentamiento y Elongación siempre van con Fuerza.';
+  if (parts.includes('prehab')) return 'Incluye un calentamiento suave. Elongación es opcional.';
+  return parts.length ? 'Sin calentamiento: estira lento y sin forzar.' : null;
+};
 
 export const dayPartLabel = (p: DayPart, hasConditions: boolean) =>
   ({
@@ -68,17 +117,21 @@ export const dayChoiceLabel = (parts: DayChoice, hasConditions: boolean) =>
 export const sameChoice = (a: DayChoice, b: DayChoice) => a.length === b.length && a.every((p) => b.includes(p));
 
 // Marca o desmarca una parte; quitar la última deja el día en descanso.
-export const toggleDayPart = (parts: DayChoice, p: DayPart): DayChoice =>
-  parts.includes(p) ? parts.filter((x) => x !== p) : DAY_PARTS.filter((x) => x === p || parts.includes(x));
+export const toggleDayPart = (parts: DayChoice, p: DayPart): DayChoice => {
+  const chosen: DayChoice = parts.filter((x) => x !== 'warmup');
+  return normalizeDayParts(chosen.includes(p) ? chosen.filter((x) => x !== p) : [...chosen, p]);
+};
 
 // Activa las partes elegidas conservando lo personal del día (lugar, grupos, cantidades).
-export function applyDayChoice(cfg: DayConfig, parts: DayChoice): DayConfig {
+export function applyDayChoice(cfg: DayConfig, choice: DayChoice): DayConfig {
+  const parts = normalizeDayParts(choice);
   if (!parts.length) return { ...cfg, active: false, gentleStrength: false };
   const b = cfg.blocks;
   const has = (p: DayPart) => parts.includes(p);
   return {
     ...cfg,
     active: true,
+    availableMinutes: Math.max(cfg.availableMinutes, minDayMinutes(parts)),
     gentleStrength: cfg.gentleStrength && canBeGentle(parts),
     blocks: {
       warmup: { ...b.warmup, enabled: has('warmup') },
@@ -118,6 +171,15 @@ export function dayChoiceOf(cfg: DayConfig): DayChoice {
   return DAY_PARTS.filter((p) => cfg.blocks[p].enabled);
 }
 
+// Días guardados antes de la regla de partes. El que tenía solo calentamiento pasa a Elongación.
+export function normalizeDay(cfg: DayConfig): DayConfig {
+  const parts = dayChoiceOf(cfg);
+  const fixed = normalizeDayParts(parts);
+  const next: DayChoice = fixed.length || !parts.length ? fixed : ['cooldown'];
+  const valid = sameChoice(parts, next) && cfg.availableMinutes >= minDayMinutes(next);
+  return valid ? cfg : applyDayChoice(cfg, next);
+}
+
 // Días de entrenamiento repartidos en la semana según cuántos quiere entrenar.
 const SPREAD: Record<number, DayOfWeek[]> = {
   1: ['wed'],
@@ -129,10 +191,77 @@ const SPREAD: Record<number, DayOfWeek[]> = {
   7: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
 };
 
-const STRENGTH_DAY: DayChoice = ['warmup', 'main', 'cooldown'];
 // La fuerza es la prioridad: los días de lesión también llevan fuerza, pero suave.
 const INJURY_DAY: DayChoice = ['warmup', 'prehab', 'main', 'cooldown'];
 export const GENTLE_MAX = 2; // ejercicios de fuerza en un día de fuerza suave
+
+// Siempre queda al menos un día sin Fuerza (ni siquiera suave): es cuando el cuerpo asimila el trabajo.
+// Ese día se puede calentar, cuidar una lesión o elongar.
+export const REST_FROM_STRENGTH_NOTE =
+  'Deja al menos un día sin Fuerza: es cuando el cuerpo asimila el trabajo. Ese día puedes hacer movilidad, cuidar una lesión o elongar.';
+// Cuántos días de Fuerza puede tener la semana: de 2 a 6, y el principiante hasta 3 (su cuerpo
+// aún aprende los movimientos y necesita más descanso entre sesiones).
+export const MIN_STRENGTH_DAYS = 2;
+export const BEGINNER_STRENGTH_DAYS = 3;
+export const maxStrengthDays = (level: LocalProfile['level'] | null | undefined) =>
+  level === 'beginner' ? BEGINNER_STRENGTH_DAYS : MAX_STRENGTH_DAYS;
+export const strengthLimitNote = (level: LocalProfile['level'] | null | undefined) =>
+  level === 'beginner'
+    ? 'Como principiante, tu máximo son 3 días de Fuerza: el cuerpo aprende los movimientos y necesita descanso entre sesiones. Los otros días puedes hacer movilidad, cuidar una lesión o elongar.'
+    : REST_FROM_STRENGTH_NOTE;
+// ¿Los otros días ya ocupan todos los días de Fuerza permitidos? (`day` es el que se está editando.)
+export const strengthDaysFull = (
+  choices: Partial<Record<DayOfWeek, DayChoice>>,
+  day: DayOfWeek,
+  level?: LocalProfile['level'] | null,
+) =>
+  Object.entries(choices).filter(([d, parts]) => d !== day && parts?.includes('main')).length >= maxStrengthDays(level);
+
+// Minutos por tipo de día: Fuerza necesita al menos 30 para calentar, hacer 4 ejercicios y elongar.
+export const STRENGTH_MINUTES = { min: 30, max: 90, initial: 45 };
+export const EXTRA_MINUTES = { min: 10, max: 40, initial: 20 };
+export const minutesRange = (parts: DayChoice) => (parts.includes('main') ? STRENGTH_MINUTES : EXTRA_MINUTES);
+
+// Tipos de día que se eligen: Fuerza, o un día de apoyo. La Lesión (o la Movilidad, sin lesión)
+// nunca va el mismo día que la Fuerza: son días distintos.
+export const STRENGTH_DAY: DayChoice = ['warmup', 'main', 'cooldown'];
+export const CARE_DAY: DayChoice = ['warmup', 'prehab', 'cooldown']; // lesión o movilidad, con calentamiento y elongación
+export const STRETCH_DAY: DayChoice = ['cooldown'];
+export type DayKind = 'strength' | 'care' | 'stretch' | 'rest';
+export const dayKindOf = (parts: DayChoice): DayKind =>
+  parts.includes('main') ? 'strength' : parts.includes('prehab') ? 'care' : parts.length ? 'stretch' : 'rest';
+export const DAY_KIND_PARTS: Record<DayKind, DayChoice> = {
+  strength: STRENGTH_DAY,
+  care: CARE_DAY,
+  stretch: STRETCH_DAY,
+  rest: [],
+};
+
+// Marca o desmarca una parte sin juntar Fuerza con Lesión: al agregar una, sale la otra.
+export const toggleDayType = (parts: DayChoice, p: DayPart): DayChoice => {
+  const adding = !parts.includes(p);
+  const base = adding && p === 'main' ? parts.filter((x) => x !== 'prehab') : parts;
+  const clean = adding && p === 'prehab' ? base.filter((x) => x !== 'main') : base;
+  return toggleDayPart(clean, p);
+};
+
+// Días de Fuerza repartidos desde el día en que la persona parte, dejando los descansos entre medio.
+const FROM_START: Record<number, number[]> = {
+  2: [0, 3],
+  3: [0, 2, 4],
+  4: [0, 1, 3, 4],
+  5: [0, 1, 2, 4, 5],
+  6: [0, 1, 2, 3, 4, 5],
+};
+export function strengthDaysFrom(count: number, start: DayOfWeek): DayOfWeek[] {
+  const n = Math.min(MAX_STRENGTH_DAYS, Math.max(MIN_STRENGTH_DAYS, count));
+  const first = DAYS.findIndex((d) => d.id === start);
+  return FROM_START[n].map((offset) => DAYS[(first + offset) % 7].id);
+}
+export const weekWithStrength = (days: DayOfWeek[]) =>
+  Object.fromEntries(DAYS.map((d) => [d.id, days.includes(d.id) ? STRENGTH_DAY : []])) as Record<DayOfWeek, DayChoice>;
+export const weekChoicesOf = (week: WeekConfig) =>
+  Object.fromEntries(week.days.map((d) => [d.day, dayChoiceOf(d)])) as Record<DayOfWeek, DayChoice>;
 
 // Propuesta de semana: con una lesión y 4+ días, alterna fuerza con días de
 // lesión (que llevan fuerza suave); con pocos días, todas las partes con fuerza completa.
@@ -144,7 +273,9 @@ export function proposeWeek(
   const choices = Object.fromEntries(DAYS.map((d) => [d.id, [] as DayChoice])) as Record<DayOfWeek, DayChoice>;
   const gentle: DayOfWeek[] = [];
   training.forEach((day, i) => {
-    if (!hasConditions) choices[day] = STRENGTH_DAY;
+    // El séptimo día nunca lleva Fuerza: lesión y elongación, o solo elongación.
+    if (i >= MAX_STRENGTH_DAYS) choices[day] = hasConditions ? ['prehab', 'cooldown'] : ['cooldown'];
+    else if (!hasConditions) choices[day] = STRENGTH_DAY;
     else if (training.length < 4) choices[day] = DAY_PARTS;
     else if (i % 2 === 0) choices[day] = STRENGTH_DAY;
     else {
@@ -167,10 +298,18 @@ const hashOf = (value: unknown) => {
 };
 
 export const configHash = (week: WeekConfig, profileUpdatedAt: string) => hashOf({ week, profileUpdatedAt });
-export const dayConfigHash = (cfg: DayConfig, profileUpdatedAt: string) => hashOf({ cfg, profileUpdatedAt });
+// La zona del día (tren inferior, superior...) depende de cuántos días de Fuerza tiene la semana:
+// si eso cambia, la rutina del día ya no corresponde. En cuerpo completo la huella es la de siempre.
+export const dayConfigHash = (cfg: DayConfig, profileUpdatedAt: string, week?: WeekConfig) => {
+  const zone = week ? weekFocus(week.days)[cfg.day] : undefined;
+  return zone && zone.focus !== 'full' ? hashOf({ cfg, profileUpdatedAt, zone }) : hashOf({ cfg, profileUpdatedAt });
+};
 
 export const dayHashes = (week: WeekConfig, profileUpdatedAt: string) =>
-  Object.fromEntries(week.days.map((d) => [d.day, dayConfigHash(d, profileUpdatedAt)])) as Record<DayOfWeek, string>;
+  Object.fromEntries(week.days.map((d) => [d.day, dayConfigHash(d, profileUpdatedAt, week)])) as Record<
+    DayOfWeek,
+    string
+  >;
 
 // Días cuya rutina ya no corresponde a su configuración (o que aún no tienen rutina).
 // Los planes antiguos sin huella por día se comparan con la huella de toda la semana.
@@ -186,7 +325,9 @@ export function staleDays(
   return new Set(
     active
       .filter(
-        (d) => !plan.days.some((p) => p.day === d.day) || plan.dayHashes![d.day] !== dayConfigHash(d, profileUpdatedAt),
+        (d) =>
+          !plan.days.some((p) => p.day === d.day) ||
+          plan.dayHashes![d.day] !== dayConfigHash(d, profileUpdatedAt, week),
       )
       .map((d) => d.day),
   );

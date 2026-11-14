@@ -1,13 +1,13 @@
 import { BebasNeue_400Regular, useFonts } from '@expo-google-fonts/bebas-neue';
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DateField } from '@/components/DateField';
 import { Button, CheckRow, OptionCard, Stepper } from '@/components/ui';
 import { EXERCISES } from '@/data/exercises.seed';
 import {
+  HEALTH_ALERTS,
   EQUIPMENT,
   type EquipmentId,
   MEDICAL_CONDITIONS,
@@ -17,20 +17,27 @@ import {
   RESTRICTION_FLAGS,
   type RestrictionFlagId,
 } from '@/domain/catalog';
+import type { KettlebellExperience } from '@/domain/experience';
 import { filterExercisesForUser } from '@/domain/filter';
 import { CLOUD_BACKUP_READY } from '@/lib/cloudSync';
 import { BLOCK_LABELS } from '@/domain/labels';
-import type { BlockType, DayOfWeek, LocalProfile, Sex } from '@/domain/schema';
+import type { BlockType, DayOfWeek, HealthAlertId, LocalProfile, Sex } from '@/domain/schema';
 import {
-  DAY_PARTS,
-  type DayPart,
-  type DayChoice,
-  dayChoiceLabel,
-  dayPartLabel,
-  DAYS,
-  proposeWeek,
   canBeGentle,
-  toggleDayPart,
+  DAY_KIND_PARTS,
+  type DayChoice,
+  type DayKind,
+  dayKindOf,
+  type DayPart,
+  dayChoiceLabel,
+  DAYS,
+  EXTRA_MINUTES,
+  maxStrengthDays,
+  MIN_STRENGTH_DAYS,
+  STRENGTH_DAY,
+  STRENGTH_MINUTES,
+  strengthDaysFrom,
+  strengthLimitNote,
 } from '@/domain/week';
 import { colors, radius, spacing } from '@/theme';
 
@@ -38,14 +45,20 @@ export type Level = LocalProfile['level'];
 export type Draft = {
   displayName: string;
   disclaimerAccepted: boolean;
-  level: Level | null;
+  level: Level | null; // condición física
+  kbExperience: KettlebellExperience | null; // manejo de la kettlebell; null = no la ha declarado
   equipment: EquipmentId[];
   parkEquipment: EquipmentId[]; // lo que hay fijo en su parque
   kettlebellWeightsKg: number[];
+  kettlebellPairsKg: number[];
+  dumbbellWeightsKg: number[];
+  dumbbellPairsKg: number[];
   conditions: LocalProfile['conditions'];
   sex: Sex | null;
   birthText: string; // como lo escribe el usuario: DD-MM-AAAA
   heightText: string; // en cm
+  healthAlerts: HealthAlertId[] | null; // null = aún no responde
+  healthAck: boolean; // marcó alguna alerta y confirmó que consultó o entiende el riesgo
   weekChoices: Record<DayOfWeek, DayChoice>;
   gentleDays: DayOfWeek[]; // días de lesión con fuerza suave
   weekMinutes: Record<DayOfWeek, number>; // tiempo disponible por día
@@ -53,18 +66,19 @@ export type Draft = {
   isNew: boolean; // primera vez: el perfil parte con lo mínimo y la semana propuesta
 };
 type StepProps = { draft: Draft; update: (patch: Partial<Draft>) => void };
+// Pasos que «Mi perfil» puede abrir sueltos para cambiar una sola cosa.
+export type EditStep = 'welcome' | 'about' | 'level' | 'equipment' | 'conditions' | 'week';
 
 export const BASE_EQUIPMENT: EquipmentId[] = ['mat', 'kettlebell'];
 const OPTIONAL_EQUIPMENT = (Object.keys(EQUIPMENT) as EquipmentId[]).filter((e) => !BASE_EQUIPMENT.includes(e));
 const KB_WEIGHTS = [4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 28, 32];
-
-export const PART_MAX: Record<DayPart, number> = { warmup: 8, prehab: 6, main: 10, cooldown: 8 };
+const DB_WEIGHTS = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 15, 20];
 
 const toggle = <T,>(list: T[], item: T) => (list.includes(item) ? list.filter((x) => x !== item) : [...list, item]);
 
 // ---------- Portada (antes del paso 1, solo la primera vez) ----------
 
-export function IntroScreen({ onStart }: { onStart: () => void }) {
+export function IntroScreen({ onStart, onExisting }: { onStart: () => void; onExisting?: () => void }) {
   const insets = useSafeAreaInsets();
   const [fontsLoaded] = useFonts({ BebasNeue_400Regular });
   const display = fontsLoaded ? { fontFamily: 'BebasNeue_400Regular' } : styles.displayFallback;
@@ -72,17 +86,25 @@ export function IntroScreen({ onStart }: { onStart: () => void }) {
   return (
     <View style={[styles.intro, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
       <ScrollView contentContainerStyle={styles.introContent}>
-        <Image source={require('../../../assets/icon.png')} style={styles.introLogo} accessibilityLabel="Logo de KETTAI" />
+        <Image
+          source={require('../../../assets/icon.png')}
+          style={styles.introLogo}
+          accessibilityLabel="Logo de KETTAI"
+        />
         <Text style={[styles.introBrand, display]}>KETTAI</Text>
         <Text style={[styles.introHeadline, display]}>Entrena fuerte.{'\n'}Cuida lo que duele.</Text>
         <Text style={styles.introBody}>
-          La fuerza es la madre de todas las batallas. Solo necesitas una kettlebell, tu cuerpo y un plan que respeta tus
-          lesiones.
+          La fuerza es la clave para moverte con libertad toda la vida: solo necesitas una kettlebell, tu cuerpo y un
+          plan que respete tus lesiones.
         </Text>
       </ScrollView>
       <Button label="Empezar" onPress={onStart} />
       {CLOUD_BACKUP_READY && (
-        <Button label="Ya tengo cuenta" variant="ghost" onPress={() => router.push('/account')} />
+        <Button
+          label="Ya tengo cuenta"
+          variant="ghost"
+          onPress={onExisting ?? (() => router.push({ pathname: '/account', params: { mode: 'existing' } }))}
+        />
       )}
     </View>
   );
@@ -109,11 +131,55 @@ export function WelcomeStep({ draft, update }: StepProps) {
           de un médico, kinesiólogo o profesional de la salud. Si sientes dolor durante un ejercicio, detente.
         </Text>
       </View>
+      <View style={styles.legalLinks}>
+        <Text style={styles.link} accessibilityRole="link" onPress={() => router.push('/terms')}>
+          Leer los Términos y condiciones
+        </Text>
+        <Text style={styles.link} accessibilityRole="link" onPress={() => router.push('/privacy')}>
+          Leer cómo cuidamos tus datos
+        </Text>
+      </View>
       <CheckRow
-        label="Entiendo y acepto que entreno bajo mi propia responsabilidad."
+        label="Leí y acepto los Términos y condiciones, y entiendo que entreno bajo mi propia responsabilidad."
         checked={draft.disclaimerAccepted}
         onPress={() => update({ disclaimerAccepted: !draft.disclaimerAccepted })}
       />
+
+      <Text style={styles.label}>¿Te pasa algo de esto?</Text>
+      <Text style={styles.hint}>Marca lo que aplique. Sirve para saber si conviene consultar antes de empezar.</Text>
+      {(Object.keys(HEALTH_ALERTS) as HealthAlertId[]).map((id) => {
+        const on = !!draft.healthAlerts?.includes(id);
+        return (
+          <CheckRow
+            key={id}
+            label={HEALTH_ALERTS[id]}
+            checked={on}
+            onPress={() => {
+              const current = draft.healthAlerts ?? [];
+              update({ healthAlerts: on ? current.filter((x) => x !== id) : [...current, id], healthAck: false });
+            }}
+          />
+        );
+      })}
+      <CheckRow
+        label="Ninguna de las anteriores"
+        checked={draft.healthAlerts !== null && draft.healthAlerts.length === 0}
+        onPress={() => update({ healthAlerts: [], healthAck: false })}
+      />
+      {!!draft.healthAlerts?.length && (
+        <View style={styles.disclaimer}>
+          <Text style={styles.disclaimerTitle}>Consulta a tu médico antes de empezar</Text>
+          <Text style={styles.body}>
+            Con lo que marcaste, lo responsable es que un médico te diga si puedes entrenar fuerza y con qué cuidados.
+            Si ya lo conversaste, puedes continuar: la app no te ofrecerá circuitos de alta intensidad (HIIT ni AMRAP).
+          </Text>
+          <CheckRow
+            label="Ya lo conversé con mi médico, o entiendo el riesgo y quiero continuar."
+            checked={draft.healthAck}
+            onPress={() => update({ healthAck: !draft.healthAck })}
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -158,49 +224,73 @@ export function AboutStep({ draft, update }: StepProps) {
       </View>
       <Text style={styles.hint}>Define las figuras que explican los movimientos y tus índices corporales.</Text>
 
-      <Text style={styles.label}>Fecha de nacimiento (opcional)</Text>
-      <DateField
-        value={parseBirth(draft.birthText)}
-        onChange={(iso) => update({ birthText: formatBirth(iso) })}
-        placeholder="Elegir fecha"
-        initialDate={new Date(1985, 0, 1)}
-        minimumDate={new Date(new Date().getFullYear() - 100, 0, 1)}
-        maximumDate={new Date(new Date().getFullYear() - 12, 11, 31)}
-        invalid={!birthOk}
-      />
-      {!birthOk && <Text style={styles.error}>Elige una fecha válida (entre 12 y 100 años).</Text>}
+      {/* Primera vez: lo opcional queda para Mi perfil y el nivel va aquí para ahorrar un paso. */}
+      {draft.isNew ? (
+        <>
+          <View style={{ marginTop: spacing.md }}>
+            <LevelStep draft={draft} update={update} />
+          </View>
+        </>
+      ) : (
+        <>
+          <Text style={styles.label}>Fecha de nacimiento (opcional)</Text>
+          <DateField
+            value={parseBirth(draft.birthText)}
+            onChange={(iso) => update({ birthText: formatBirth(iso) })}
+            placeholder="Elegir fecha"
+            initialDate={new Date(1985, 0, 1)}
+            minimumDate={new Date(new Date().getFullYear() - 100, 0, 1)}
+            maximumDate={new Date(new Date().getFullYear() - 12, 11, 31)}
+            invalid={!birthOk}
+          />
+          {!birthOk && <Text style={styles.error}>Elige una fecha válida (entre 12 y 100 años).</Text>}
 
-      <Text style={styles.label}>Altura en cm (opcional)</Text>
-      <TextInput
-        value={draft.heightText}
-        onChangeText={(heightText) => update({ heightText })}
-        placeholder="175"
-        placeholderTextColor={colors.textMuted}
-        style={[styles.input, !heightOk && styles.inputError]}
-        keyboardType="decimal-pad"
-        maxLength={5}
-      />
-      {!heightOk && <Text style={styles.error}>Entre 100 y 250 cm.</Text>}
-      <Text style={styles.hint}>Sirven para calcular tus índices en Cuerpo. Puedes agregarlos en Mi perfil.</Text>
+          <Text style={styles.label}>Altura en cm (opcional)</Text>
+          <TextInput
+            value={draft.heightText}
+            onChangeText={(heightText) => update({ heightText })}
+            placeholder="175"
+            placeholderTextColor={colors.textMuted}
+            style={[styles.input, !heightOk && styles.inputError]}
+            keyboardType="decimal-pad"
+            maxLength={5}
+          />
+          {!heightOk && <Text style={styles.error}>Entre 100 y 250 cm.</Text>}
+          <Text style={styles.hint}>Sirven para calcular tus índices en Cuerpo.</Text>
+        </>
+      )}
     </View>
   );
 }
 
 // ---------- 3. Nivel ----------
 
-const LEVELS: { id: Level; title: string; description: string }[] = [
-  { id: 'beginner', title: 'Principiante', description: 'Entreno poco o nunca he usado kettlebell.' },
+export const LEVELS: { id: Level; title: string; description: string }[] = [
+  { id: 'beginner', title: 'Principiante', description: 'Entreno poco, o hace tiempo que no entreno.' },
   {
     id: 'intermediate',
     title: 'Intermedio',
-    description: 'Entreno regularmente y conozco el swing y la sentadilla goblet.',
+    description: 'Hago ejercicio dos o más veces por semana hace varios meses.',
   },
-  { id: 'advanced', title: 'Avanzado', description: 'Domino la técnica de kettlebell y entreno hace más de un año.' },
+  { id: 'advanced', title: 'Avanzado', description: 'Llevo más de un año entrenando fuerza de forma constante.' },
+];
+
+// Aparte de la condición: un atleta que nunca usó kettlebell aprende la pesa desde el principio.
+export const KB_EXPERIENCE: { id: KettlebellExperience; title: string; description: string }[] = [
+  { id: 'none', title: 'Nunca la he usado', description: 'O muy poco. Partimos por la técnica básica.' },
+  {
+    id: 'basic',
+    title: 'Conozco lo básico',
+    description: 'Hago swing a dos manos y sentadilla goblet con buena técnica.',
+  },
+  { id: 'skilled', title: 'La domino', description: 'Hago swing a una mano, clean y press con seguridad.' },
 ];
 
 export function LevelStep({ draft, update }: StepProps) {
   return (
     <View style={styles.gap}>
+      <Text style={styles.label}>Tu condición física</Text>
+      <Text style={styles.hint}>Define cuánto trabajo haces: series, días y exigencia.</Text>
       {LEVELS.map((l) => (
         <OptionCard
           key={l.id}
@@ -210,6 +300,19 @@ export function LevelStep({ draft, update }: StepProps) {
           onPress={() => update({ level: l.id })}
         />
       ))}
+      <Text style={[styles.label, { marginTop: spacing.md }]}>Tu experiencia con kettlebell</Text>
+      <Text style={styles.hint}>
+        Define dónde partes con la pesa. Puedes estar en muy buena forma y aun así ser nuevo con la kettlebell.
+      </Text>
+      {KB_EXPERIENCE.map((k) => (
+        <OptionCard
+          key={k.id}
+          title={k.title}
+          description={k.description}
+          selected={draft.kbExperience === k.id}
+          onPress={() => update({ kbExperience: k.id })}
+        />
+      ))}
     </View>
   );
 }
@@ -217,56 +320,143 @@ export function LevelStep({ draft, update }: StepProps) {
 // ---------- 4. Equipamiento ----------
 
 export function EquipmentStep({ draft, update }: StepProps) {
+  const [showMore, setShowMore] = useState(!draft.isNew);
   return (
     <View style={styles.gap}>
       {/* La kettlebell es el corazón de la app: va primero. */}
       <Text style={styles.label}>¿Qué kettlebell tienes? (kg)</Text>
       <Text style={styles.hint}>Con una basta. Marca todas las que tengas: la rutina solo usará esos pesos.</Text>
+      <OwnedWeights
+        options={KB_WEIGHTS}
+        weights={draft.kettlebellWeightsKg}
+        pairs={draft.kettlebellPairsKg}
+        pairHint="Con dos del mismo peso sumamos ejercicios como el paseo del granjero."
+        onChange={(kettlebellWeightsKg, kettlebellPairsKg) => update({ kettlebellWeightsKg, kettlebellPairsKg })}
+      />
+
+      {!showMore && (
+        <Pressable accessibilityRole="button" onPress={() => setShowMore(true)} style={styles.moreLink}>
+          <Text style={styles.link}>Tengo más equipamiento (opcional)</Text>
+        </Pressable>
+      )}
+      {showMore && (
+        <>
+          <Text style={[styles.label, { marginTop: spacing.md }]}>Lo básico</Text>
+          {BASE_EQUIPMENT.filter((id) => id !== 'kettlebell').map((id) => (
+            <OptionCard key={id} title={EQUIPMENT[id]} selected locked />
+          ))}
+          <Text style={styles.label}>Opcional: ¿qué más tienes?</Text>
+          {OPTIONAL_EQUIPMENT.map((id) => (
+            <Fragment key={id}>
+              <OptionCard
+                title={EQUIPMENT[id]}
+                selected={draft.equipment.includes(id)}
+                onPress={() => update({ equipment: toggle(draft.equipment, id) })}
+              />
+              {id === 'bench' && (
+                <Text style={styles.hint}>
+                  La silla sirve para sentarte o apoyar las manos. Para subirte, saltar o apoyar la espalda con peso
+                  hace falta algo que no se mueva: una banca firme o un escalón.
+                </Text>
+              )}
+              {id === 'dumbbells' && draft.equipment.includes('dumbbells') && (
+                <View style={styles.nested}>
+                  <Text style={styles.label}>¿De qué peso son tus mancuernas? (kg)</Text>
+                  <Text style={styles.hint}>Si son livianas para tu nivel, en su lugar usamos la kettlebell.</Text>
+                  <OwnedWeights
+                    options={DB_WEIGHTS}
+                    weights={draft.dumbbellWeightsKg}
+                    pairs={draft.dumbbellPairsKg}
+                    pairHint="La mayoría de los ejercicios con mancuernas usan una en cada mano."
+                    onChange={(dumbbellWeightsKg, dumbbellPairsKg) => update({ dumbbellWeightsKg, dumbbellPairsKg })}
+                  />
+                </View>
+              )}
+            </Fragment>
+          ))}
+
+          <Text style={[styles.label, { marginTop: spacing.md }]}>Si entrenas en un parque, ¿qué hay ahí?</Text>
+          <Text style={styles.hint}>
+            Al parque llevas tu colchoneta, kettlebell, mancuernas, banda y barra de activación. La silla, la banca y la
+            barra de dominadas de tu casa no: marca si tu parque tiene algo parecido.
+          </Text>
+          {PARK_EQUIPMENT_IDS.map((id) => (
+            <OptionCard
+              key={id}
+              title={PARK_EQUIPMENT[id]!}
+              selected={draft.parkEquipment.includes(id)}
+              onPress={() => update({ parkEquipment: toggle(draft.parkEquipment, id) })}
+            />
+          ))}
+        </>
+      )}
+    </View>
+  );
+}
+
+// Pesos que tiene y de cuáles tiene dos (kettlebells o mancuernas).
+function OwnedWeights({
+  options,
+  weights,
+  pairs,
+  pairHint,
+  onChange,
+}: {
+  options: number[];
+  weights: number[];
+  pairs: number[];
+  pairHint: string;
+  onChange: (weights: number[], pairs: number[]) => void;
+}) {
+  return (
+    <>
       <View style={styles.weights}>
-        {KB_WEIGHTS.map((kg) => {
-          const on = draft.kettlebellWeightsKg.includes(kg);
+        {options.map((kg) => {
+          const on = weights.includes(kg);
           return (
-            <Pressable
+            <Pressable accessibilityRole="button" aria-selected={!!(on)}
               key={kg}
               onPress={() =>
-                update({ kettlebellWeightsKg: toggle(draft.kettlebellWeightsKg, kg).sort((a, b) => a - b) })
+                onChange(
+                  toggle(weights, kg).sort((a, b) => a - b),
+                  pairs.filter((w) => w !== kg),
+                )
               }
               style={[styles.weight, on && styles.weightOn]}
             >
-              <Text style={[styles.weightText, on && { color: '#fff' }]}>{kg}</Text>
+              <Text style={[styles.weightText, on && { color: colors.onAccent }]}>{kg}</Text>
             </Pressable>
           );
         })}
       </View>
 
-      <Text style={[styles.label, { marginTop: spacing.md }]}>Lo básico</Text>
-      {BASE_EQUIPMENT.filter((id) => id !== 'kettlebell').map((id) => (
-        <OptionCard key={id} title={EQUIPMENT[id]} selected locked />
-      ))}
-      <Text style={styles.label}>Opcional: ¿qué más tienes?</Text>
-      {OPTIONAL_EQUIPMENT.map((id) => (
-        <OptionCard
-          key={id}
-          title={EQUIPMENT[id]}
-          selected={draft.equipment.includes(id)}
-          onPress={() => update({ equipment: toggle(draft.equipment, id) })}
-        />
-      ))}
-
-      <Text style={[styles.label, { marginTop: spacing.md }]}>Si entrenas en un parque, ¿qué hay ahí?</Text>
-      <Text style={styles.hint}>
-        Al parque llevas tu colchoneta, kettlebell, mancuernas y banda. La silla y la barra de tu casa no: marca si tu
-        parque tiene algo parecido.
-      </Text>
-      {PARK_EQUIPMENT_IDS.map((id) => (
-        <OptionCard
-          key={id}
-          title={PARK_EQUIPMENT[id]!}
-          selected={draft.parkEquipment.includes(id)}
-          onPress={() => update({ parkEquipment: toggle(draft.parkEquipment, id) })}
-        />
-      ))}
-    </View>
+      {weights.length > 0 && (
+        <>
+          <Text style={[styles.label, { marginTop: spacing.md }]}>¿De cuál tienes dos? (opcional)</Text>
+          <Text style={styles.hint}>{pairHint}</Text>
+          <View style={styles.weights}>
+            {weights.map((kg) => {
+              const on = pairs.includes(kg);
+              return (
+                <Pressable accessibilityRole="button" aria-selected={!!(on)}
+                  key={kg}
+                  onPress={() =>
+                    onChange(
+                      weights,
+                      toggle(pairs, kg).sort((a, b) => a - b),
+                    )
+                  }
+                  style={[styles.weight, on && styles.weightOn]}
+                  accessibilityLabel={`Tengo dos de ${kg} kilos`}
+                >
+                  <Text style={[styles.weightText, on && { color: colors.onAccent }]}>2 × {kg}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </>
+      )}
+    </>
   );
 }
 
@@ -274,6 +464,7 @@ export function EquipmentStep({ draft, update }: StepProps) {
 
 export function ConditionsStep({ draft, update }: StepProps) {
   const [expanded, setExpanded] = useState<string | null>(null);
+  const protectsKnees = draft.conditions.some((c) => c.activeFlags.includes('deep_knee_flexion_loaded'));
 
   const setCondition = (conditionId: string, activeFlags: RestrictionFlagId[] | null) => {
     const others = draft.conditions.filter((c) => c.conditionId !== conditionId);
@@ -306,7 +497,7 @@ export function ConditionsStep({ draft, update }: StepProps) {
                     onPress={() => setCondition(c.id, toggle(current.activeFlags, f))}
                   />
                 ))}
-                <Pressable onPress={() => setExpanded(expanded === c.id ? null : c.id)}>
+                <Pressable accessibilityRole="button" onPress={() => setExpanded(expanded === c.id ? null : c.id)}>
                   <Text style={styles.link}>
                     {expanded === c.id ? 'Ver solo las sugeridas' : 'Ver todas las restricciones'}
                   </Text>
@@ -317,174 +508,234 @@ export function ConditionsStep({ draft, update }: StepProps) {
         );
       })}
       {draft.conditions.length === 0 && <Text style={styles.hint}>Si no tienes ninguna, sigue adelante.</Text>}
+      {protectsKnees && (
+        <>
+          <Text style={styles.hint}>
+            Como evitamos sentadillas profundas, una silla firme nos permite incluir sentadilla a la silla, y una banca
+            o escalón, la subida al cajón, para mantener fuertes tus piernas.
+          </Text>
+          <OptionCard
+            title="Tengo una silla firme"
+            selected={draft.equipment.includes('chair')}
+            onPress={() => update({ equipment: toggle(draft.equipment, 'chair') })}
+          />
+          <OptionCard
+            title="Tengo una banca firme o un escalón"
+            selected={draft.equipment.includes('bench')}
+            onPress={() => update({ equipment: toggle(draft.equipment, 'bench') })}
+          />
+        </>
+      )}
     </View>
   );
 }
 
 // ---------- 6. Tu semana ----------
 
+const clampTo = (value: number, range: { min: number; max: number }) => Math.min(range.max, Math.max(range.min, value));
+
+// La persona dice cuántos días de Fuerza quiere, cuánto tiempo tiene y qué día parte; la app
+// reparte los días con sus descansos. Después puede sumar días de lesión (o movilidad) y de
+// elongación en los días libres. La Lesión nunca va el mismo día que la Fuerza.
 export function WeekStep({ draft, update }: StepProps) {
   const hasConditions = draft.conditions.length > 0;
-  const [mode, setMode] = useState<'manual' | 'auto'>(draft.isNew ? 'auto' : 'manual');
-  const training = DAYS.filter((d) => draft.weekChoices[d.id].length > 0).length;
-  const [daysPerWeek, setDaysPerWeek] = useState(Math.max(1, training || 3));
+  const maxDays = maxStrengthDays(draft.level);
+  const mondayStart = new Date().getDay() === 1;
+  const kindOf = (day: DayOfWeek) => dayKindOf(draft.weekChoices[day]);
+  const strengthDays = DAYS.filter((d) => kindOf(d.id) === 'strength').map((d) => d.id);
+  const extraDays = DAYS.filter((d) => ['care', 'stretch'].includes(kindOf(d.id))).map((d) => d.id);
+  const count = strengthDays.length;
+  const today = DAYS[(new Date().getDay() + 6) % 7].id;
+  const [startDay, setStartDay] = useState<DayOfWeek>(strengthDays[0] ?? today);
+  const [note, setNote] = useState<string | null>(null);
 
-  const propose = (n: number) => {
-    setDaysPerWeek(n);
-    const { choices, gentle } = proposeWeek(n, hasConditions);
-    update({ weekChoices: choices, gentleDays: gentle });
+  const strengthMinutes = clampTo(
+    strengthDays.length ? draft.weekMinutes[strengthDays[0]] : STRENGTH_MINUTES.initial,
+    STRENGTH_MINUTES,
+  );
+  const extraMinutes = clampTo(
+    extraDays.length ? draft.weekMinutes[extraDays[0]] : EXTRA_MINUTES.initial,
+    EXTRA_MINUTES,
+  );
+
+  // Guarda la semana con los minutos de cada tipo de día. Un día de fuerza suave deja de serlo
+  // si ya no junta Lesión con Fuerza.
+  const save = (choices: Draft['weekChoices'], minutes = { strength: strengthMinutes, extra: extraMinutes }) =>
+    update({
+      weekChoices: choices,
+      weekMinutes: Object.fromEntries(
+        DAYS.map((d) => {
+          const kind = dayKindOf(choices[d.id]);
+          const value =
+            kind === 'strength' ? minutes.strength : kind === 'rest' ? draft.weekMinutes[d.id] : minutes.extra;
+          return [d.id, value];
+        }),
+      ) as Draft['weekMinutes'],
+      gentleDays: draft.gentleDays.filter((g) => canBeGentle(choices[g])),
+    });
+
+  // Reparte los días de Fuerza desde el día de inicio; lo sumado en los días que siguen libres se conserva.
+  const propose = (n: number, start: DayOfWeek) => {
+    setNote(null);
+    setStartDay(start);
+    const days = strengthDaysFrom(Math.min(n, maxDays), start);
+    save(
+      Object.fromEntries(
+        DAYS.map((d) => [
+          d.id,
+          days.includes(d.id) ? STRENGTH_DAY : kindOf(d.id) === 'strength' ? [] : draft.weekChoices[d.id],
+        ]),
+      ) as Draft['weekChoices'],
+    );
   };
-  const setDay = (day: DayOfWeek, parts: DayChoice) =>
-    update({
-      weekChoices: { ...draft.weekChoices, [day]: parts },
-      gentleDays: canBeGentle(parts) ? draft.gentleDays : draft.gentleDays.filter((g) => g !== day),
-    });
-  const toggleGentle = (day: DayOfWeek) =>
-    update({
-      gentleDays: draft.gentleDays.includes(day)
-        ? draft.gentleDays.filter((g) => g !== day)
-        : [...draft.gentleDays, day],
-    });
+
+  // Mover un día de Fuerza a mano: se quita uno y se pone otro, entre 2 y el máximo.
+  const toggleStrength = (day: DayOfWeek) => {
+    const on = kindOf(day) === 'strength';
+    if (on && count <= MIN_STRENGTH_DAYS)
+      return setNote('El mínimo son 2 días de Fuerza: con menos no alcanza para progresar.');
+    if (!on && count >= maxDays) return setNote(strengthLimitNote(draft.level));
+    setNote(null);
+    save({ ...draft.weekChoices, [day]: on ? [] : STRENGTH_DAY });
+  };
+
+  const setExtra = (day: DayOfWeek, kind: DayKind) => save({ ...draft.weekChoices, [day]: DAY_KIND_PARTS[kind] });
+
+  const freeDays = DAYS.filter((d) => kindOf(d.id) !== 'strength');
+  const careLabel = hasConditions ? 'Lesión' : 'Movilidad';
+  // `day`: botón de día de la semana; los 7 reparten el ancho para caber en una fila.
+  const chip = (label: string, on: boolean, onPress: () => void, key?: string, day = false) => (
+    <Pressable accessibilityRole="button" aria-selected={!!(on)}
+      key={key ?? label}
+      onPress={onPress}
+      style={[styles.weight, day && styles.dayChip, on && styles.weightOn]}
+    >
+      <Text style={[styles.weightText, day && styles.dayChipText, on && { color: colors.onAccent }]}>{label}</Text>
+    </Pressable>
+  );
 
   return (
     <View style={styles.gap}>
       {draft.isNew && (
         <View style={styles.aiBox}>
-          <Text style={styles.aiTitle}>✨ La IA creará tu semana</Text>
+          <Text style={styles.aiTitle}>{mondayStart ? '✨ La IA creará tu semana' : 'Tu plan parte el lunes'}</Text>
           <Text style={styles.body}>
-            Aquí eliges qué hacer cada día. Luego la IA arma tus rutinas según tu perfil, lesiones, equipamiento y
-            tiempo. Puede tardar hasta un minuto.
+            {mondayStart
+              ? 'Con estos datos, la IA arma tus rutinas según tu perfil, lesiones, equipamiento y tiempo.'
+              : 'El ciclo de entrenamiento siempre empieza un lunes, con un buen plan. Hasta entonces te dejamos días de técnica para que conozcas la app y los ejercicios; el lunes, la IA crea tu semana.'}
           </Text>
         </View>
       )}
-      <View style={styles.segment}>
-        {(
-          [
-            ['manual', 'Elijo yo'],
-            ['auto', 'Propónmelo tú'],
-          ] as const
-        ).map(([id, label]) => (
-          <Pressable
-            key={id}
-            onPress={() => {
-              setMode(id);
-              if (id === 'auto') propose(daysPerWeek);
-            }}
-            style={[styles.segBtn, mode === id && styles.segOn]}
-          >
-            <Text style={[styles.segText, mode === id && { color: '#fff' }]} numberOfLines={1}>
-              {label}
-            </Text>
-          </Pressable>
-        ))}
+
+      <View style={styles.autoBox}>
+        <Text style={styles.label}>¿Cuántos días de Fuerza a la semana?</Text>
+        <View style={styles.weights}>
+          {Array.from({ length: maxDays - MIN_STRENGTH_DAYS + 1 }, (_, i) => i + MIN_STRENGTH_DAYS).map((n) =>
+            chip(String(n), count === n, () => propose(n, startDay)),
+          )}
+        </View>
+        <Text style={styles.hint}>
+          {draft.level === 'beginner'
+            ? 'Como principiante, tu máximo son 3 días: el cuerpo aprende los movimientos y necesita descanso. '
+            : ''}
+          {count >= 4
+            ? 'Con 4 días o más, la Fuerza se divide en tren inferior y tren superior, para que cada zona descanse.'
+            : 'Con 2 o 3 días, cada sesión trabaja el cuerpo completo.'}
+        </Text>
+
+        <View style={[styles.stepRow, { marginTop: spacing.md }]}>
+          <Text style={styles.stepLabel}>Minutos por día de Fuerza</Text>
+          <Stepper
+            value={strengthMinutes}
+            min={STRENGTH_MINUTES.min}
+            max={STRENGTH_MINUTES.max}
+            step={5}
+            suffix="'"
+            onChange={(m) => save(draft.weekChoices, { strength: m, extra: extraMinutes })}
+          />
+        </View>
+        <Text style={styles.hint}>Incluye calentar y elongar: siempre van con la Fuerza.</Text>
       </View>
 
-      {mode === 'auto' && (
-        <View style={styles.autoBox}>
-          <Text style={styles.label}>¿Cuántos días quieres entrenar?</Text>
-          <View style={styles.weights}>
-            {[2, 3, 4, 5, 6].map((n) => (
-              <Pressable
-                key={n}
-                onPress={() => propose(n)}
-                style={[styles.weight, daysPerWeek === n && styles.weightOn]}
-              >
-                <Text style={[styles.weightText, daysPerWeek === n && { color: '#fff' }]}>{n}</Text>
-              </Pressable>
-            ))}
-          </View>
-          <Text style={styles.hint}>
-            {hasConditions
-              ? 'Con 4 días o más alternamos días de fuerza con días para tu lesión. Puedes cambiar cualquier día abajo.'
-              : 'Repartimos los días de fuerza con descanso entre medio. Puedes cambiar cualquier día abajo.'}
-          </Text>
+      <View style={styles.autoBox}>
+        <Text style={styles.label}>¿Qué día partes?</Text>
+        <View style={styles.dayChips}>
+          {DAYS.map((d) =>
+            chip(d.short, startDay === d.id, () => propose(Math.max(count, MIN_STRENGTH_DAYS), d.id), d.id, true),
+          )}
         </View>
-      )}
+        <Text style={styles.hint}>Desde ese día repartimos tu Fuerza, con los descansos entre medio.</Text>
 
-      {DAYS.map((d) => {
-        const parts = draft.weekChoices[d.id];
-        const rest = parts.length === 0;
-        return (
+        <Text style={[styles.label, { marginTop: spacing.md }]}>Tus días de Fuerza</Text>
+        <View style={styles.dayChips}>
+          {DAYS.map((d) => chip(d.short, kindOf(d.id) === 'strength', () => toggleStrength(d.id), d.id, true))}
+        </View>
+        <Text style={styles.hint}>¿Algún día no te acomoda? Tócalo para quitarlo y toca otro para ponerlo.</Text>
+        {note && <Text style={styles.restNote}>{note}</Text>}
+      </View>
+
+      <View style={styles.autoBox}>
+        <Text style={styles.label}>
+          {hasConditions
+            ? '¿Quieres sumar días para tu lesión o para elongar?'
+            : '¿Quieres sumar días de movilidad o elongación?'}
+        </Text>
+        <Text style={styles.hint}>
+          Es opcional y va en los días sin Fuerza.{' '}
+          {hasConditions
+            ? 'Un día de Lesión lleva calentamiento, tus ejercicios de cuidado y elongación. En los días de Fuerza, el calentamiento ya activa esa zona.'
+            : 'Un día de Movilidad lleva calentamiento, movilidad y elongación.'}
+        </Text>
+        {freeDays.map((d) => (
           <View key={d.id} style={styles.dayRow}>
             <Text style={styles.dayName} numberOfLines={1}>
               {d.long}
             </Text>
             <View style={styles.dayTypes}>
-              {DAY_PARTS.map((p) => {
-                const on = parts.includes(p);
+              {(
+                [
+                  ['rest', 'Descanso'],
+                  ['care', careLabel],
+                  ['stretch', 'Elongación'],
+                ] as const
+              ).map(([kind, label]) => {
+                const on = kindOf(d.id) === kind;
                 return (
-                  <Pressable
-                    key={p}
-                    onPress={() => setDay(d.id, toggleDayPart(parts, p))}
-                    style={[styles.typeChip, on && styles.typeChipOn]}
+                  <Pressable accessibilityRole="button" aria-selected={!!(on)}
+                    key={kind}
+                    onPress={() => setExtra(d.id, kind)}
+                    style={[styles.typeChip, on && (kind === 'rest' ? styles.typeChipRest : styles.typeChipOn)]}
                   >
-                    <Text style={[styles.typeChipText, on && { color: '#fff' }]} numberOfLines={1}>
-                      {dayPartLabel(p, hasConditions)}
+                    <Text
+                      style={[styles.typeChipText, on && { color: kind === 'rest' ? colors.text : colors.onAccent }]}
+                      numberOfLines={1}
+                    >
+                      {label}
                     </Text>
                   </Pressable>
                 );
               })}
-              <Pressable onPress={() => setDay(d.id, [])} style={[styles.typeChip, rest && styles.typeChipRest]}>
-                <Text style={[styles.typeChipText, rest && { color: colors.text }]} numberOfLines={1}>
-                  Descanso
-                </Text>
-              </Pressable>
             </View>
-            {hasConditions && canBeGentle(parts) && (
-              <Pressable onPress={() => toggleGentle(d.id)} style={styles.stepRow} hitSlop={6}>
-                <Text style={styles.stepLabel} numberOfLines={1}>
-                  Fuerza suave (día de lesión)
-                </Text>
-                <Ionicons
-                  name={draft.gentleDays.includes(d.id) ? 'checkbox' : 'square-outline'}
-                  size={22}
-                  color={draft.gentleDays.includes(d.id) ? colors.accent : colors.textMuted}
-                />
-              </Pressable>
-            )}
-            {!rest && (
-              <View style={styles.stepRow}>
-                <Text style={styles.stepLabel} numberOfLines={1}>
-                  Tiempo disponible
-                </Text>
-                <Stepper
-                  value={draft.weekMinutes[d.id]}
-                  min={10}
-                  max={120}
-                  step={5}
-                  suffix="'"
-                  onChange={(m) => update({ weekMinutes: { ...draft.weekMinutes, [d.id]: m } })}
-                />
-              </View>
-            )}
           </View>
-        );
-      })}
-
-      {mode === 'manual' && (
-        <View style={styles.dayRow}>
-          <Text style={styles.dayName}>Ejercicios por parte</Text>
-          {DAY_PARTS.map((p) => (
-            <View key={p} style={styles.stepRow}>
-              <Text style={styles.stepLabel} numberOfLines={1}>
-                {dayPartLabel(p, hasConditions)}
-              </Text>
-              <Stepper
-                value={draft.partCounts[p]}
-                min={1}
-                max={PART_MAX[p]}
-                onChange={(n) => update({ partCounts: { ...draft.partCounts, [p]: n } })}
-              />
-            </View>
-          ))}
-          <Text style={styles.hint}>Es una base: la rutina la ajusta a los minutos de cada día.</Text>
-        </View>
-      )}
+        ))}
+        {extraDays.length > 0 && (
+          <View style={styles.stepRow}>
+            <Text style={styles.stepLabel}>Minutos por día de apoyo</Text>
+            <Stepper
+              value={extraMinutes}
+              min={EXTRA_MINUTES.min}
+              max={EXTRA_MINUTES.max}
+              step={5}
+              suffix="'"
+              onChange={(m) => save(draft.weekChoices, { strength: strengthMinutes, extra: m })}
+            />
+          </View>
+        )}
+      </View>
 
       <Text style={styles.hint}>
-        Marca una o varias partes por día.
-        {hasConditions ? ' «Lesión» son los ejercicios para cuidar tu condición.' : ''} Después puedes afinar cada día
-        (grupos musculares, casa o parque) en «Mi semana».
+        Cuántos ejercicios lleva cada parte lo calcula la app con tus minutos y tu nivel, y te explica por qué. Después
+        puedes afinar cada día (tiempo, casa o parque) en «Semana».
       </Text>
     </View>
   );
@@ -495,7 +746,16 @@ export function WeekStep({ draft, update }: StepProps) {
 const SUMMARY_BLOCKS: BlockType[] = ['warmup', 'prehab', 'main_strength', 'cooldown'];
 
 export function SummaryStep({ draft }: StepProps) {
-  const profile = { equipment: draft.equipment, conditions: draft.conditions, excludedExerciseIds: [] };
+  const profile = {
+    equipment: draft.equipment,
+    conditions: draft.conditions,
+    excludedExerciseIds: [],
+    level: draft.level ?? 'beginner',
+    kettlebellWeightsKg: draft.kettlebellWeightsKg,
+    kettlebellPairsKg: draft.kettlebellPairsKg,
+    dumbbellWeightsKg: draft.dumbbellWeightsKg,
+    dumbbellPairsKg: draft.dumbbellPairsKg,
+  };
   const avoided = [...new Set(draft.conditions.flatMap((c) => c.activeFlags))];
 
   return (
@@ -515,16 +775,36 @@ export function SummaryStep({ draft }: StepProps) {
       <SummaryRow
         label="Tu semana"
         value={DAYS.map(
-          (d) => `${d.short}: ${dayChoiceLabel(draft.weekChoices[d.id], draft.conditions.length > 0).toLowerCase()}${draft.gentleDays.includes(d.id) ? ' (fuerza suave)' : ''}`,
+          (d) =>
+            `${d.short}: ${dayChoiceLabel(draft.weekChoices[d.id], draft.conditions.length > 0).toLowerCase()}${draft.gentleDays.includes(d.id) ? ' (fuerza suave)' : ''}`,
         ).join('\n')}
       />
-      <SummaryRow label="Nivel" value={LEVELS.find((l) => l.id === draft.level)?.title ?? '—'} />
+      <SummaryRow label="Condición física" value={LEVELS.find((l) => l.id === draft.level)?.title ?? '—'} />
+      <SummaryRow
+        label="Experiencia con kettlebell"
+        value={KB_EXPERIENCE.find((k) => k.id === draft.kbExperience)?.title ?? 'Sin responder'}
+      />
       <SummaryRow label="Equipamiento" value={draft.equipment.map((e) => EQUIPMENT[e]).join(', ')} />
       <SummaryRow
         label="En el parque"
         value={draft.parkEquipment.map((e) => PARK_EQUIPMENT[e]).join(', ') || 'Solo lo que llevas'}
       />
-      <SummaryRow label="Kettlebells" value={draft.kettlebellWeightsKg.map((k) => `${k} kg`).join(', ')} />
+      <SummaryRow
+        label="Kettlebells"
+        value={draft.kettlebellWeightsKg
+          .map((k) => (draft.kettlebellPairsKg.includes(k) ? `2 × ${k} kg` : `${k} kg`))
+          .join(', ')}
+      />
+      {draft.equipment.includes('dumbbells') && (
+        <SummaryRow
+          label="Mancuernas"
+          value={
+            draft.dumbbellWeightsKg
+              .map((k) => (draft.dumbbellPairsKg.includes(k) ? `2 × ${k} kg` : `${k} kg`))
+              .join(', ') || 'Sin peso indicado: no las usamos en Fuerza'
+          }
+        />
+      )}
       <SummaryRow
         label="Condiciones"
         value={
@@ -606,6 +886,13 @@ const styles = StyleSheet.create({
   gap: { gap: spacing.md },
   label: { color: colors.text, fontSize: 15, fontWeight: '700' },
   hint: { color: colors.textMuted, fontSize: 13, lineHeight: 18 },
+  nested: {
+    gap: spacing.sm,
+    marginLeft: spacing.md,
+    paddingLeft: spacing.md,
+    borderLeftWidth: 2,
+    borderLeftColor: colors.accentSoft,
+  },
   body: { color: colors.text, fontSize: 15, lineHeight: 21 },
   input: {
     backgroundColor: colors.surface,
@@ -632,6 +919,9 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   weightOn: { backgroundColor: colors.accent, borderColor: colors.accent },
+  dayChips: { flexDirection: 'row', gap: 4 },
+  dayChip: { flex: 1, width: undefined, minWidth: 0, paddingVertical: 10 },
+  dayChipText: { fontSize: 13 },
   weightText: { color: colors.text, fontWeight: '700', fontSize: 15 },
   flags: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.sm },
   flagsTitle: {
@@ -641,7 +931,10 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.6,
   },
-  link: { color: colors.accent, fontWeight: '600', marginTop: spacing.sm },
+  link: { color: colors.link, fontWeight: '600', marginTop: spacing.sm },
+  legalLinks: { gap: spacing.xs },
+  restNote: { color: colors.warning, fontSize: 13, lineHeight: 18 },
+  moreLink: { paddingVertical: spacing.sm },
   summaryRow: { backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, gap: 2 },
   summaryLabel: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
   available: { backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, gap: spacing.sm },
