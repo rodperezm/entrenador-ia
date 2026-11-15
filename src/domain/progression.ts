@@ -72,6 +72,16 @@ export function wasTooHard(exerciseId: string, history: WorkoutSession[]) {
   );
 }
 
+// La última vez le costó más de lo que permite subir (esfuerzo promedio sobre 8, o sobre 9 si dijo
+// «Me quedé con ganas»). Devuelve ese esfuerzo, o null si se puede subir. Lo usa la guardia de la IA.
+export function effortBlocksRaise(exerciseId: string, history: WorkoutSession[]): number | null {
+  const last = lastSessionOf(exerciseId, history);
+  const rpes = (last?.logs ?? []).map((l) => l.rpe).filter((v): v is number => v != null);
+  if (!last || !rpes.length) return null;
+  const avg = rpes.reduce((a, b) => a + b, 0) / rpes.length;
+  return avg > (last.session.feeling === 'wanted_more' ? WANTED_MORE_RPE : EASY_RPE) ? avg : null;
+}
+
 // Molestia leve repetida: tres sesiones seguidas con molestia en el mismo ejercicio ya no es
 // casualidad. Se trata como dolor moderado (baja la carga) antes de que duela de verdad.
 const MILD_STREAK = 3;

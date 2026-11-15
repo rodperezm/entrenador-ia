@@ -52,6 +52,29 @@ Plan de ambientes: la dirección de GitHub pasará a ser pruebas, con su propia 
 
 ## Historial
 
+### 1.8.2 · 15 de noviembre de 2026
+
+Dos cuidados más sobre la semana que arma la IA, y pruebas fijas de la IA más completas.
+
+**Qué cambia para la persona**
+
+- Si la última vez un ejercicio costó mucho (esfuerzo alto), la semana nueva mantiene el peso aunque la IA proponga subirlo, y lo explica: «Mantenemos el peso: la última vez el esfuerzo fue 9 de 10.».
+- Si en la última semana llegaste a entrenar con dolor, o una molestia amaneció peor al día siguiente, no se ofrecen cierres HIIT ni AMRAP. Antes solo contaba el dolor marcado en una serie.
+
+**Qué cambia por dentro**
+
+- App: `src/domain/progression.ts` (`effortBlocksRaise`), `src/domain/aiGuard.ts` (el control de carga lo usa) y `src/domain/finisher.ts` (`recentPain` mira también el chequeo al llegar y el seguimiento del dolor). Pruebas nuevas en `tests/aiCases.test.ts` y `tests/finisherPain.test.ts` (130 en total).
+- Casos fijos de la IA: de 6 a 11 (`src/aiCases/cases.ts`); el revisor separa la respuesta de la IA de la semana final que recibe la persona (`src/aiCases/review.ts`); la pantalla `/ai-cases` (solo en desarrollo) acepta `?veces=N`.
+- `tools/dev-pruebas.cjs` y la entrada «dev-pruebas» de `.claude/launch.json`: servidor de desarrollo conectado a pruebas.
+- Desde el 14-11 (ya activo antes de esta versión): la función de la IA guarda el modelo y los tokens de cada semana, y las consultas fallidas no cuentan para el cupo (migración `0012_ai_usage.sql`).
+- Sin cambios nuevos en la base de datos ni en la función de la IA.
+
+**Notas para quien siga el trabajo**
+
+- Corrida en vivo en pruebas el 14-11: 11 casos × 3 = 33 de 33 sin faltas graves, tanto en la respuesta de la IA como en la semana final; notas de 8,5 a 10; las 33 con `claude-sonnet-5-5`; costo 4,34 USD.
+- Los dos arreglos salieron de los casos nuevos «Esfuerzo 9 repetido» y «Dolor lumbar que se repite»: la IA lo hacía bien, pero la app no lo garantizaba si la IA se equivocaba.
+- Vuelta atrás: publicar desde `v1.8.1`. No deja nada a medias en los teléfonos.
+
 ### 1.8.1 · 14 de noviembre de 2026
 
 Arreglo del correo al crear la cuenta, y guía de instalación única para invitar a probar la app.

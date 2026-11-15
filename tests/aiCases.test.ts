@@ -128,3 +128,55 @@ for (const file of recorded) {
     });
   }
 }
+
+test('los casos nuevos detectan lo suyo en la respuesta de la IA', () => {
+  const run = (id: string, change: (p: RawPlan) => void) => {
+    const c = AI_CASES.find((x) => x.id === id)!;
+    const { request, history } = caseRequest(c, NOW);
+    const p = rulesAnswer(c);
+    change(p);
+    return graves(reviewAiPlan(c, request, p, history)).join(' | ');
+  };
+  const mainOf = (p: RawPlan, i = 0) => p.days![i].blocks.find((b) => b.type === 'main_strength')!.slots;
+
+  assert.match(
+    run('rpe-9-repetido', (p) => void Object.assign(mainOf(p)[0], { exerciseId: 'kb_goblet_squat', weightKg: 20 })),
+    /subió la sentadilla goblet a 20 kg/,
+  );
+  assert.match(
+    run('principiante-pesa-pesada', (p) => void Object.assign(mainOf(p)[0], { exerciseId: 'kb_swing_2h', weightKg: 24 })),
+    /balístico/,
+  );
+  assert.match(run('lumbar-recurrente', (p) => void (p.days![2].finisher = { format: 'hiit', reason: 'x' })), /dolor lumbar/);
+  const overhead = EXERCISES.find((e) => e.restrictionFlags.includes('overhead') && e.blockTypes.includes('main_strength'))!;
+  assert.match(
+    run('varias-lesiones', (p) => void Object.assign(mainOf(p)[0], { exerciseId: overhead.id, weightKg: null })),
+    /no respeta alguna de sus lesiones/,
+  );
+});
+
+test('la semana final se revisa aparte: lo que la app corrige no cuenta como falla final', () => {
+  const c = AI_CASES.find((x) => x.id === 'principiante')!;
+  const { request, history } = caseRequest(c, NOW);
+  const p = rulesAnswer(c);
+  // Un balístico que no se le ofreció: la app descarta la respuesta y la persona recibe la semana de las reglas.
+  p.days![0].blocks.find((b) => b.type === 'main_strength')!.slots[0].exerciseId = 'kb_swing_2h';
+  const review = reviewAiPlan(c, request, p, history);
+  assert.ok(graves(review).length > 0, 'la respuesta cruda tiene faltas graves');
+  assert.equal(review.usable, false);
+  assert.deepEqual(review.finalFindings, [], 'la semana final no tiene faltas graves');
+  assert.ok(review.corrected >= 1);
+});
+
+test('la app no deja subir el peso después de un esfuerzo 9 repetido', () => {
+  const c = AI_CASES.find((x) => x.id === 'rpe-9-repetido')!;
+  const { request, history } = caseRequest(c, NOW);
+  const p = rulesAnswer(c);
+  Object.assign(p.days![0].blocks.find((b) => b.type === 'main_strength')!.slots[0], {
+    exerciseId: 'kb_goblet_squat',
+    weightKg: 20,
+  });
+  const review = reviewAiPlan(c, request, p, history);
+  assert.match(graves(review).join(' | '), /subió la sentadilla goblet a 20 kg/, 'la IA cometió la falta');
+  assert.doesNotMatch(review.finalFindings.map((f) => f.text).join(' | '), /subió/, 'la app la corrigió');
+});
