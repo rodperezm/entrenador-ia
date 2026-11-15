@@ -24,6 +24,14 @@
       "port": 4321
     },
     {
+      "name": "dev-pruebas",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/dev-pruebas.cjs"
+      ],
+      "port": 8081
+    },
+    {
       "name": "sin-nube",
       "runtimeExecutable": "cmd",
       "runtimeArgs": [

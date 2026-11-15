@@ -1,3 +1,4 @@
+import { EXERCISES_BY_ID } from '@/data/exercises.seed';
 import { MEDICAL_CONDITIONS } from '@/domain/catalog';
 import type { DayOfWeek, LocalProfile, WeekConfig, WorkoutSession } from '@/domain/schema';
 import {
@@ -22,7 +23,19 @@ export type AiCase = {
   history: (now: number) => WorkoutSession[];
   // Ejercicios que no pueden aparecer en ninguna parte de la semana.
   forbidden?: string[];
+  // Lo propio del caso que no puede pasar. Devuelve las faltas graves que encuentra; se aplica a la
+  // respuesta de la IA y también a la semana final que recibe la persona.
+  check?: (days: CaseDay[]) => string[];
 };
+
+// Lo mínimo de una semana que necesitan las revisiones propias de cada caso.
+export type CaseDay = {
+  day: string;
+  finisher?: { format: string } | null;
+  blocks: { type: string; slots: { exerciseId: string; weightKg: number | null }[] }[];
+};
+const slotsOf = (days: CaseDay[]) => days.flatMap((d) => d.blocks.flatMap((b) => b.slots.map((s) => ({ d, b, s }))));
+const nameOf = (id: string) => EXERCISES_BY_ID.get(id)?.name.es ?? id;
 
 const DAY = 864e5;
 
@@ -172,5 +185,85 @@ export const AI_CASES: AiCase[] = [
     profile: person({ kettlebellExperience: 'basic', equipment: ['kettlebell', 'mat', 'chair', 'pullup_bar'] }),
     week: weekOf({ mon: strength(), wed: strength(45, { park: true }), sat: strength() }),
     history: (now) => trainedWeeks(now, 3, 3, 'kb_deadlift'),
+  },
+  // Casos agregados el 14-11-2026, con lo que cada uno debe y no debe hacer.
+  {
+    id: 'principiante-pesa-pesada',
+    name: 'Principiante con una sola kettlebell pesada',
+    why: 'Solo tiene una de 24 kg y nunca la usó: ningún balístico, y con kettlebell solo lo que admita ese peso; el resto, peso corporal.',
+    profile: person({ level: 'beginner', kettlebellExperience: 'none', kettlebellWeightsKg: [24] }),
+    week: weekOf({ mon: strength(40), wed: strength(40), fri: strength(40) }),
+    history: (now) => trainedWeeks(now, 1, 3, 'glute_bridge'),
+    check: (days) =>
+      slotsOf(days)
+        .filter(({ s }) => EXERCISES_BY_ID.get(s.exerciseId)?.restrictionFlags.includes('ballistic'))
+        .map(({ d, s }) => `${d.day}: «${nameOf(s.exerciseId)}» es balístico y la persona es principiante con 24 kg`),
+  },
+  {
+    id: 'lumbar-recurrente',
+    name: 'Dolor lumbar que se repite',
+    why: 'Llegó con dolor lumbar tres semanas seguidas: nada que cargue la espalda (flexión o rotación con carga, bisagra cargada, balísticos), el lunes es fuerza suave y ningún cierre HIIT o AMRAP.',
+    profile: person({ kettlebellExperience: 'basic', conditions: [condition('low_back_pain')] }),
+    week: weekOf({ mon: strength(40, { gentle: true }), wed: { parts: CARE_DAY, minutes: 25 }, fri: strength(40) }),
+    history: (now) =>
+      trainedWeeks(now, 3, 2, 'glute_bridge').map((s, i) =>
+        i % 2 === 0
+          ? { ...s, checkIn: { arrival: 'pain', painZone: 'low_back', painLevel: 2 }, painFollowUp: 'same' }
+          : s,
+      ),
+    check: (days) => {
+      const back = ['spinal_flexion_loaded', 'spinal_rotation_loaded', 'hip_hinge_loaded', 'ballistic'];
+      const loads = slotsOf(days)
+        .filter(({ s }) => EXERCISES_BY_ID.get(s.exerciseId)?.restrictionFlags.some((f) => back.includes(f)))
+        .map(({ d, s }) => `${d.day}: «${nameOf(s.exerciseId)}» carga la zona lumbar`);
+      const finishers = days
+        .filter((d) => d.finisher && d.finisher.format !== 'normal')
+        .map((d) => `${d.day}: cierre ${d.finisher!.format.toUpperCase()} con dolor lumbar reciente`);
+      return [...loads, ...finishers];
+    },
+  },
+  {
+    id: 'cinco-dias-fuerza',
+    name: 'Cinco días seguidos de fuerza',
+    why: 'De lunes a viernes con fuerza: la semana se divide por zonas y cada día usa solo ejercicios de su zona, para que cada una descanse.',
+    profile: person({ kettlebellExperience: 'skilled', kettlebellWeightsKg: [12, 16, 20] }),
+    week: weekOf({ mon: strength(), tue: strength(), wed: strength(), thu: strength(), fri: strength() }),
+    history: (now) => trainedWeeks(now, 2, 5, 'kb_deadlift'),
+  },
+  {
+    id: 'varias-lesiones',
+    name: 'Varias lesiones a la vez',
+    why: 'Rodilla, hombro y muñeca al mismo tiempo: se respetan las restricciones de las tres en toda la semana.',
+    profile: person({
+      kettlebellExperience: 'basic',
+      conditions: [condition('patellofemoral_pain'), condition('shoulder_impingement'), condition('wrist_pain')],
+    }),
+    week: weekOf({ mon: strength(), wed: { parts: CARE_DAY, minutes: 30 }, fri: strength() }),
+    history: (now) => trainedWeeks(now, 1, 3, 'glute_bridge'),
+    check: (days) => {
+      const avoid = ['patellofemoral_pain', 'shoulder_impingement', 'wrist_pain'].flatMap(
+        (id) => MEDICAL_CONDITIONS.find((m) => m.id === id)!.suggestedFlags,
+      );
+      return slotsOf(days)
+        .filter(({ s }) => EXERCISES_BY_ID.get(s.exerciseId)?.restrictionFlags.some((f) => avoid.includes(f)))
+        .map(({ d, s }) => `${d.day}: «${nameOf(s.exerciseId)}» no respeta alguna de sus lesiones`);
+    },
+  },
+  {
+    id: 'rpe-9-repetido',
+    name: 'Esfuerzo 9 repetido',
+    why: 'La sentadilla goblet con 16 kg le costó 9 de 10 tres veces seguidas: no puede subir de peso esta semana.',
+    profile: person({ kettlebellExperience: 'skilled', kettlebellWeightsKg: [12, 16, 20] }),
+    week: weekOf({ mon: strength(), wed: strength(), fri: strength() }),
+    history: (now) => [
+      ...trainedWeeks(now, 1, 3, 'kb_deadlift'),
+      session(now, 2, 'kb_goblet_squat', { reps: 8, weightKg: 16, rpe: 9 }),
+      session(now, 5, 'kb_goblet_squat', { reps: 8, weightKg: 16, rpe: 9 }),
+      session(now, 9, 'kb_goblet_squat', { reps: 8, weightKg: 16, rpe: 9 }),
+    ],
+    check: (days) =>
+      slotsOf(days)
+        .filter(({ s }) => s.exerciseId === 'kb_goblet_squat' && (s.weightKg ?? 0) > 16)
+        .map(({ d, s }) => `${d.day}: subió la sentadilla goblet a ${s.weightKg} kg con esfuerzo 9 repetido`),
   },
 ];

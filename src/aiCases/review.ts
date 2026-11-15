@@ -1,6 +1,7 @@
 import { EXERCISES, EXERCISES_BY_ID } from '@/data/exercises.seed';
 import { guardAiPlan } from '@/domain/aiGuard';
-import { isGentle, weekLocks } from '@/domain/generator';
+import { filterExercisesForUser, isUnsafeWeight } from '@/domain/filter';
+import { generateWeekByRules, isGentle, weekLocks } from '@/domain/generator';
 import type { BlockType, GeneratedWeekPlan, WorkoutSession } from '@/domain/schema';
 import { A_STAGES, offZone, slotRole, unlockedA, weekFocus } from '@/domain/strength';
 import { dayMinutes, MAIN_MAX_SETS } from '@/domain/timeBudget';
@@ -40,6 +41,8 @@ export type Review = {
   findings: Finding[];
   usable: boolean; // la app pudo usar la respuesta (no cayó a las reglas)
   fixedByApp: number; // ejercicios de Fuerza que la app tuvo que cambiar o quitar
+  finalFindings: Finding[]; // faltas graves que quedan en la semana que recibe la persona
+  corrected: number; // faltas graves de la IA que la app corrigió
 };
 
 const PART_BLOCK = { warmup: 'warmup', prehab: 'prehab', main: 'main_strength', cooldown: 'cooldown' } as const;
@@ -55,10 +58,22 @@ export function caseRequest(c: AiCase, now = Date.now()) {
   return { request: buildAiRequest(c.week, c.profile, EXERCISES, history, null, null), history };
 }
 
-export function reviewAiPlan(c: AiCase, request: AiRequest, raw: RawPlan, history: WorkoutSession[] = []): Review {
+// Lo que el revisor mira en una semana. Con `raw` revisa la respuesta de la IA contra lo que se le
+// ofreció; con `final`, la semana que recibe la persona (después de los ajustes de la app), contra
+// lo que su perfil permite, porque la app puede agregar ejercicios que a la IA no se le ofrecieron.
+function planFindings(c: AiCase, request: AiRequest, raw: RawPlan, mode: 'raw' | 'final'): Finding[] {
   const findings: Finding[] = [];
   const add = (level: Finding['level'], day: string | null, text: string) => findings.push({ level, day, text });
   const candidates = new Map(request.candidates.map((x) => [x.id, x]));
+  const allowedCache = new Map<string, Set<string>>();
+  const allowedFor = (type: BlockType, equipment: string[]) => {
+    const key = `${type}|${equipment.join(',')}`;
+    if (!allowedCache.has(key)) {
+      const profile = { ...c.profile, equipment: equipment as typeof c.profile.equipment };
+      allowedCache.set(key, new Set(filterExercisesForUser(EXERCISES, profile, type).map((e) => e.id)));
+    }
+    return allowedCache.get(key)!;
+  };
   const name = (id: string) => EXERCISES_BY_ID.get(id)?.name.es ?? id;
   const zones = weekFocus(c.week.days);
   const allowedA = new Set(unlockedA(request.cycle.stage));
@@ -81,6 +96,26 @@ export function reviewAiPlan(c: AiCase, request: AiRequest, raw: RawPlan, histor
         add('aviso', label, `«${type}»: se pidieron ${want.exerciseCount} ejercicios y entregó ${slots.length}`);
       }
       for (const s of slots) {
+        if (mode === 'final') {
+          const e = EXERCISES_BY_ID.get(s.exerciseId);
+          if (!e) {
+            add('grave', label, `«${s.exerciseId}» no existe en el catálogo`);
+            continue;
+          }
+          // La app pone la activación de la lesión al inicio del calentamiento: vale un ejercicio de Lesión.
+          const fits =
+            allowedFor(type, asked.availableEquipment).has(e.id) ||
+            (type === 'warmup' && allowedFor('prehab', asked.availableEquipment).has(e.id));
+          if (!fits) add('grave', label, `«${e.name.es}» no respeta sus lesiones, su equipamiento o su peso`);
+          if (c.forbidden?.includes(e.id)) add('grave', label, `usó «${e.name.es}», prohibido en este caso`);
+          if (ballistics.has(e.id) && !allowedA.has(e.id)) {
+            add('grave', label, `«${e.name.es}» es un balístico que la persona aún no se ha ganado`);
+          }
+          if (s.weightKg != null && isUnsafeWeight(e, c.profile, s.weightKg)) {
+            add('grave', label, `«${e.name.es}» con ${s.weightKg} kg, un peso que no le corresponde`);
+          }
+          continue;
+        }
         const cand = candidates.get(s.exerciseId);
         if (!cand) {
           add('grave', label, `usó «${name(s.exerciseId)}», que no se le ofreció (lesión, dolor o equipamiento)`);
@@ -147,7 +182,8 @@ export function reviewAiPlan(c: AiCase, request: AiRequest, raw: RawPlan, histor
     }
 
     // Cierre: HIIT o AMRAP nunca para principiantes ni en día suave.
-    const format = day.finisher?.format ?? 'normal';
+    // En la semana final el cierre no se revisa aquí: lo decide la app al mostrar el día (finisherOffer).
+    const format = mode === 'final' ? 'normal' : (day.finisher?.format ?? 'normal');
     if (format !== 'normal' && (request.profile.level === 'beginner' || asked.gentleStrength || !main.length)) {
       add('grave', label, `propuso cierre ${format.toUpperCase()} a quien no corresponde`);
     }
@@ -158,15 +194,29 @@ export function reviewAiPlan(c: AiCase, request: AiRequest, raw: RawPlan, histor
   for (const d of raw.days ?? []) {
     if (!request.week.some((w) => w.day === d.day)) add('grave', null, `agregó un día que no se pidió (${d.day})`);
   }
-  if (!raw.summary?.trim()) add('aviso', null, 'no explicó la semana');
-  for (const [re, what] of BAD_WORDS) if (raw.summary && re.test(raw.summary)) add('aviso', null, `resumen: ${what}`);
+  if (mode === 'raw') {
+    if (!raw.summary?.trim()) add('aviso', null, 'no explicó la semana');
+    for (const [re, what] of BAD_WORDS) if (raw.summary && re.test(raw.summary)) add('aviso', null, `resumen: ${what}`);
+  }
+  // Lo propio de cada caso (ver `check` en cases.ts).
+  const days = (raw.days ?? []).map((d) => (mode === 'final' ? { ...d, finisher: null } : d));
+  for (const text of c.check?.(days) ?? []) add('grave', null, text);
+  return findings;
+}
+
+export function reviewAiPlan(c: AiCase, request: AiRequest, raw: RawPlan, history: WorkoutSession[] = []): Review {
+  const findings = planFindings(c, request, raw, 'raw');
+  const add = (level: Finding['level'], day: string | null, text: string) => findings.push({ level, day, text });
+  const { lockedByDay, rotate } = weekLocks(null, request.cycle.blockStart, EXERCISES, c.week.days);
+  const finalGraves = (plan: GeneratedWeekPlan) =>
+    planFindings(c, request, plan as unknown as RawPlan, 'final').filter((f) => f.level === 'grave');
 
   // Lo mismo que hace la app al recibirla: ¿la pudo usar?, ¿cuánto tuvo que corregir en Fuerza?
   let usable = true;
   let fixedByApp = 0;
+  let finalFindings: Finding[] = [];
   try {
     const checked = checkAiPlan({ plan: structuredClone(raw) as never }, request, c.week);
-    const { lockedByDay, rotate } = weekLocks(null, request.cycle.blockStart, EXERCISES, c.week.days);
     const final: GeneratedWeekPlan = guardAiPlan(checked, {
       days: c.week.days,
       profile: c.profile,
@@ -199,13 +249,18 @@ export function reviewAiPlan(c: AiCase, request: AiRequest, raw: RawPlan, histor
       if (use > 1.2) add('aviso', DAY_LONG[asked.day], `el día se pasa: ${text}`);
     }
     if (fixedByApp) add('aviso', null, `la app tuvo que cambiar o quitar ${fixedByApp} ejercicio(s) de Fuerza`);
+    finalFindings = finalGraves(final);
   } catch {
     usable = false;
     add('grave', null, 'la app descartó la respuesta completa y tuvo que armar la semana con las reglas');
+    // Lo que recibe la persona en ese caso: la semana de las reglas.
+    finalFindings = finalGraves(generateWeekByRules(c.week, c.profile, EXERCISES, history, 7, lockedByDay, rotate));
   }
 
   const graves = findings.filter((f) => f.level === 'grave').length;
   const avisos = findings.length - graves;
   const score = Math.max(0, Math.round((10 - graves * 2 - avisos * 0.5) * 10) / 10);
-  return { caseId: c.id, score, findings, usable, fixedByApp };
+  // Faltas graves de la IA que ya no están en la semana final: las corrigió la app.
+  const corrected = Math.max(0, graves - finalFindings.length);
+  return { caseId: c.id, score, findings, usable, fixedByApp, finalFindings, corrected };
 }

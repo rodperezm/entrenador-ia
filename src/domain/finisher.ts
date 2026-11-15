@@ -79,8 +79,16 @@ export const markLabel = ({ rounds, extraReps }: AmrapMark) =>
 
 export const markScore = (m: AmrapMark) => m.rounds * 1000 + m.extraReps;
 
-const recentPain = (history: WorkoutSession[], now: number) =>
-  history.some((s) => now - Date.parse(s.finishedAt) < RECENT_PAIN_MS && s.sets.some((l) => painOf(l) >= 2));
+// Dolor reciente: moderado o fuerte en alguna serie, al llegar a entrenar (aunque no haya dolido en
+// ningún ejercicio) o una molestia que al día siguiente amaneció peor.
+export const recentPain = (history: WorkoutSession[], now: number) =>
+  history.some(
+    (s) =>
+      now - Date.parse(s.finishedAt) < RECENT_PAIN_MS &&
+      (s.sets.some((l) => painOf(l) >= 2) ||
+        (s.checkIn?.arrival === 'pain' && (s.checkIn.painLevel ?? 2) >= 2) ||
+        s.painFollowUp === 'worse'),
+  );
 
 // Una kettlebell más liviana si la tiene: en circuito la técnica se cuida con menos peso.
 function lighterWeight(e: Exercise, profile: LocalProfile, planned: number | null) {

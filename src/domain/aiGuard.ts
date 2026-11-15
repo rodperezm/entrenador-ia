@@ -11,7 +11,7 @@ import {
   pickWeight,
   prescribe,
 } from './generator';
-import { BIG_JUMP, feltTooMuch, progressSlot, wasTooHard } from './progression';
+import { BIG_JUMP, effortBlocksRaise, feltTooMuch, progressSlot, wasTooHard } from './progression';
 import { dayIntensity, MIN_REST_SEC, offZone, POWER_REPS_MAX, slotRole, sortByRole, weekFocus } from './strength';
 import { fitPart, withMinCount } from './timeBudget';
 import { dayNeeds, prepares, stretchesMuscle } from './coverage';
@@ -98,6 +98,15 @@ function limitLoad(proposed: ExerciseSlot, input: GuardInput): ExerciseSlot {
   const noRaise = week === 4 || (week === 3 && techniqueFirst(profile));
   const last = lastWeightOf(e.id, history);
   if (last == null || slot.weightKg == null || slot.weightKg <= last) return slot;
+  // Con un esfuerzo alto la última vez (por ejemplo 9 de 10), el peso no sube, como en las reglas.
+  const effort = effortBlocksRaise(e.id, history);
+  if (effort != null) {
+    return {
+      ...slot,
+      weightKg: last,
+      rationale: `Mantenemos el peso: la última vez el esfuerzo fue ${Math.round(effort * 10) / 10} de 10.`,
+    };
+  }
   if (!noRaise) {
     if (week !== 3 || slot.weightKg <= last * BIG_JUMP) return slot;
     return { ...slot, weightKg: last, rationale: 'Semana de máxima intensidad: misma pesa; el salto a la siguiente es grande.' };
