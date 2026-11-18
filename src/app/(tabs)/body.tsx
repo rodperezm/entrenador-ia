@@ -20,6 +20,7 @@ import {
   weightNear,
   weightSeries,
 } from '@/domain/body';
+import { BodyProgress } from '@/features/body/BodyProgress';
 import { ROUTINE_TONES } from '@/features/routines/tones';
 import { useBody } from '@/state/body';
 import { useProfile } from '@/state/profile';
@@ -178,6 +179,8 @@ export default function BodyScreen() {
           note="% de grasa con caliper · pide tu peso"
         />
       </View>
+
+      <BodyProgress records={records} folds={folds} profile={profile} />
 
       {/* Índices */}
       <Text style={styles.section}>Tus índices</Text>
