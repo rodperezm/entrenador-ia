@@ -77,6 +77,12 @@ Solo análisis, nada decidido. Posible función del plan pagado.
   - Instrucciones de grabación: teléfono apoyado, de lado, a 2 o 3 m, cuerpo completo y buena luz.
 - **Sugerencia:** partir con el camino 1 en 3 a 5 ejercicios (swing, sentadilla goblet, peso muerto, press y remo), probado con videos reales del usuario y amigos; si funciona, sumar el camino 2.
 
+## 5c. Idea: recorrido inicial y guía de movimientos básicos (15-11-2026)
+Solo idea, nada decidido ni programado.
+- **Recorrido inicial (onboarding de uso):** después de crear el perfil, unas pocas pantallas que muestren cómo se usa la app: Hoy, la semana, cómo registrar una serie, marcar molestias, «No puedo hacerlo» y la semana con IA. Hoy el registro arma el perfil, pero no enseña a usar la app.
+- **Guía de movimientos básicos con kettlebell:** agarre, postura, bisagra de cadera, peso muerto, sentadilla goblet, swing, press y remo; errores comunes y cuándo parar. Puede ser documento (página o PDF) o video.
+- Relacionado: la pantalla de guía actual (`/guide`), los videos por ejercicio, el video promocional de 15-11-2026 (`docs/video/`) y la idea 5a (revisar la técnica con video).
+
 ## 5b. Idea por decidir: vender nosotros, sin tiendas (análisis del 03-11-2026)
 Solo análisis, nada decidido ni programado. Las cifras son aproximadas; confirmarlas con cada proveedor antes de decidir.
 
