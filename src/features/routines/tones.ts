@@ -12,6 +12,10 @@ export const ROUTINE_TONES: Record<RoutineTone, { bg: string; text: string; sub:
   green: { bg: '#12382A', text: '#D3F3E1', sub: '#8FD9B0', vivid: colors.good },
   amber: { bg: '#3D2C0C', text: '#FBE6BC', sub: '#E9C377', vivid: colors.warning },
   violet: { bg: '#2B2440', text: '#E2DBF7', sub: '#BDB5E6', vivid: '#AFA9EC' },
+  teal: { bg: '#0F3638', text: '#CDEFEF', sub: '#8CD0D0', vivid: '#5FC4C4' },
+  lime: { bg: '#2C3410', text: '#EAF3C8', sub: '#C5D68A', vivid: '#B8D44A' },
+  rose: { bg: '#3A1A27', text: '#F6D9E4', sub: '#E2A6BC', vivid: '#E57FA4' },
+  orange: { bg: '#40200F', text: '#F9DEC8', sub: '#EDB083', vivid: '#F08A4B' },
 };
 
 export const ROUTINE_ICONS: Record<string, ComponentProps<typeof Ionicons>['name']> = {
@@ -20,4 +24,8 @@ export const ROUTINE_ICONS: Record<string, ComponentProps<typeof Ionicons>['name
   lower: 'arrow-down-circle-outline',
   sitting: 'desktop-outline',
   knees: 'walk-outline',
+  posture: 'accessibility-outline',
+  padel: 'tennisball-outline',
+  elbow: 'barbell-outline',
+  football: 'football-outline',
 };

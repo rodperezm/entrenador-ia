@@ -54,8 +54,8 @@ export default function RoutineScreen() {
 
       <Button label="Empezar" onPress={() => setRunning(true)} />
       <Text style={styles.note}>
-        Te guiamos ejercicio por ejercicio, con cuenta regresiva y sonido. Estira hasta sentir tensión, nunca dolor, y
-        respira con calma.
+        {routine.intro ??
+          'Te guiamos ejercicio por ejercicio, con cuenta regresiva y sonido. Estira hasta sentir tensión, nunca dolor, y respira con calma.'}
       </Text>
 
       {steps.map((s, i) => (

@@ -388,6 +388,33 @@ export const EXTRA_WARMUP_PREHAB: ExerciseInput[] = [
     ],
   },
   {
+    id: 'wall_angel',
+    name: 'Ángeles en la pared',
+    description: 'Movilidad de hombros y control de la espalda alta para mejorar la postura.',
+    blocks: ['prehab', 'warmup'],
+    groups: ['back', 'shoulders'],
+    pattern: 'mobility',
+    mechanics: 'mobility',
+    level: 1,
+    flags: ['overhead'],
+    primary: [
+      ['trapezius', 0.7],
+      ['rhomboids', 0.6],
+    ],
+    secondary: [
+      ['deltoid_posterior', 0.4],
+      ['deltoid_lateral', 0.3],
+    ],
+    rx: { sets: 2, reps: [8, 10], rest: 30 },
+    steps: [
+      'De pie, espalda, cabeza y brazos pegados a la pared, codos doblados como una W.',
+      'Sube los brazos deslizándolos por la pared sin despegarlos.',
+      'Bájalos lento por el mismo camino.',
+    ],
+    cues: ['Sube solo hasta donde puedas sin despegar los brazos ni arquear la zona lumbar.'],
+    safety: { overhead: 'Si duele el hombro, haz solo la mitad de abajo del recorrido.' },
+  },
+  {
     id: 'side_lying_hip_abduction',
     name: 'Abducción de cadera de lado',
     description: 'Glúteo medio para estabilizar cadera y rodilla.',
