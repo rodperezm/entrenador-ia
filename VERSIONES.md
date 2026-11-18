@@ -52,6 +52,32 @@ Plan de ambientes: la dirección de GitHub pasará a ser pruebas, con su propia 
 
 ## Historial
 
+### 1.9.0 · 18 de noviembre de 2026
+
+Cuatro rutinas rápidas nuevas, descanso entre series donde faltaba y una guía de medición más clara.
+
+**Qué cambia para la persona**
+
+- En Ejercicios hay cuatro rutinas rápidas nuevas: «Mejora tu postura», «Después de jugar pádel», «Prevenir el codo de tenista» y «Activación para el fútbol».
+- En calentamiento, prehab y elongación ahora hay un respiro entre series: 30 s en los ejercicios exigentes, 20 s en los livianos y 10 s en movilidad y estiramientos. Antes se pasaba de una serie a la otra sin descanso. También aplica a las semanas ya armadas.
+- Medidas con cinta: el orden es tórax, abdomen, cintura y cadera en la guía, el formulario, la tarjeta «Con cinta» y el Excel. El dibujo lleva los números de arriba hacia abajo en ese orden.
+- La cintura se mide un poco más abajo del ombligo, donde va el cinturón. Antes la guía decía «la parte más estrecha del torso».
+- Caliper: el pliegue del muslo sigue siendo vertical, y ahora explica que el pliegue de piel queda de arriba hacia abajo y el caliper entra de lado.
+
+**Qué cambia por dentro**
+
+- App: `src/domain/quickRoutines.ts`, `src/features/routines/tones.ts`, `src/app/routine/[id].tsx` y ejercicios nuevos en `src/data/exercises.extra.cooldown.ts` y `src/data/exercises.extra.warmup-prehab.ts`.
+- App: `src/domain/setRest.ts` (piso de descanso por tipo de ejercicio), usado en `generator.ts`, `aiGuard.ts` y `src/app/workout/[day].tsx`. Pruebas en `tests/setRest.test.ts` (135 en total).
+- App: `src/features/body/MeasurementGuide.tsx`, `src/app/body/new.tsx`, `src/app/(tabs)/body.tsx` y `src/features/account/excelExport.ts`.
+- Sin cambios en la base de datos ni en la función de la IA.
+
+**Notas para quien siga el trabajo**
+
+- La cintura bajo el ombligo es decisión de Rodrigo (18-11), para que el dibujo vaya en orden. Las guías (ACSM, ISAK, OMS) la miden en lo más angosto, sobre el ombligo, y con esa medida se hicieron las tablas del ICC y el ICE. Como la app calcula ICC, ICE y «Abdomen − cintura» con este valor, las referencias quedan algo corridas. Los registros anteriores se tomaron con la definición antigua.
+- El Excel cambió el orden de las columnas: Abdomen va antes que Cintura.
+- El descanso entre series es un piso: nunca baja un descanso que ya sea mayor. La Fuerza mantiene sus mínimos por rol A/B/C.
+- Vuelta atrás: publicar desde `v1.8.2`. No deja nada a medias en los teléfonos.
+
 ### 1.8.2 · 15 de noviembre de 2026
 
 Dos cuidados más sobre la semana que arma la IA, y pruebas fijas de la IA más completas.
