@@ -44,8 +44,8 @@ const IMC_TEXT: Record<Light, string> = {
 };
 const TAPE_ROWS = [
   ['Tórax', 'chestCm'],
-  ['Cintura', 'waistCm'],
   ['Abdomen', 'abdomenCm'],
+  ['Cintura', 'waistCm'],
   ['Cadera', 'hipCm'],
 ] as const;
 
@@ -168,7 +168,7 @@ export default function BodyScreen() {
           tone="blue"
           icon="resize-outline"
           title="Con cinta"
-          note="Tórax, cintura, abdomen y cadera"
+          note="Tórax, abdomen, cintura y cadera"
         />
         <Entry
           type="folds"

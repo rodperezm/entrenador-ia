@@ -33,8 +33,8 @@ const inRange = (v: number | null, min: number, max: number) => v == null || (!N
 const TAPE_FIELDS = [
   { key: 'weightKg', label: 'Peso', unit: 'kg', min: 20, max: 400, placeholder: '78,4' },
   { key: 'chestCm', label: 'Tórax', unit: 'cm', min: 30, max: 250, placeholder: '102' },
-  { key: 'waistCm', label: 'Cintura', unit: 'cm', min: 30, max: 250, placeholder: '88,5' },
   { key: 'abdomenCm', label: 'Abdomen', unit: 'cm', min: 30, max: 250, placeholder: '94' },
+  { key: 'waistCm', label: 'Cintura', unit: 'cm', min: 30, max: 250, placeholder: '88,5' },
   { key: 'hipCm', label: 'Cadera', unit: 'cm', min: 30, max: 250, placeholder: '100' },
 ] as const;
 type TapeKey = (typeof TAPE_FIELDS)[number]['key'];

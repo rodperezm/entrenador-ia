@@ -27,27 +27,41 @@ const TAPE_TIPS: ReactNode[] = [
 ];
 
 // `at`: dónde va la cinta sobre la figura (lienzo de 200 × 400), para cada cuerpo.
-const TAPE_SITES = [
+// `side`: lado del número. Alterna de arriba hacia abajo para que cintura y abdomen,
+// que quedan muy cerca, no se encimen.
+const TAPE_SITES: {
+  n: number;
+  side: 'left' | 'right';
+  title: string;
+  text: string;
+  at: Record<Sex, { y: number; x1: number; x2: number }>;
+}[] = [
   {
     n: 1,
+    side: 'right',
     title: 'Tórax',
     text: 'A la altura de las tetillas, pasando bajo las axilas y por la parte más ancha de la espalda.',
     at: { male: { y: 106, x1: 64, x2: 136 }, female: { y: 109, x1: 68, x2: 132 } },
   },
+  // Orden pedido por Rodrigo: abdomen antes que cintura, aunque en el cuerpo la cintura
+  // (lo más angosto) queda un poco más arriba que el ombligo. Cada línea sigue en su lugar.
   {
     n: 2,
-    title: 'Cintura',
-    text: 'La parte más estrecha del torso, entre la última costilla y la cadera.',
-    at: { male: { y: 148, x1: 74, x2: 126 }, female: { y: 146, x1: 77, x2: 123 } },
-  },
-  {
-    n: 3,
+    side: 'right',
     title: 'Abdomen',
     text: 'A la altura del ombligo, tal como lo mide habitualmente el médico, con la cinta horizontal alrededor del torso.',
     at: { male: { y: 164, x1: 73, x2: 127 }, female: { y: 163, x1: 75, x2: 125 } },
   },
   {
+    n: 3,
+    side: 'left',
+    title: 'Cintura',
+    text: 'La parte más estrecha del torso, entre la última costilla y la cadera. Suele quedar un poco más arriba que el ombligo.',
+    at: { male: { y: 148, x1: 74, x2: 126 }, female: { y: 146, x1: 77, x2: 123 } },
+  },
+  {
     n: 4,
+    side: 'left',
     title: 'Cadera',
     text: 'La parte más ancha de los glúteos, con los pies juntos.',
     at: { male: { y: 188, x1: 68, x2: 132 }, female: { y: 190, x1: 66, x2: 134 } },
@@ -80,7 +94,7 @@ const FOLD_SITES: Record<Sex, { n: number; title: string; text: string; x: numbe
     {
       n: 3,
       title: 'Muslo',
-      text: 'Pliegue vertical en el centro del muslo, a mitad de camino entre la ingle y la parte superior de la rótula.',
+      text: 'Pliegue vertical en el centro del muslo, a mitad de camino entre la ingle y la parte superior de la rótula. El pliegue de piel queda de arriba hacia abajo y el caliper entra de lado.',
       x: 80,
       y: 218,
     },
@@ -103,7 +117,7 @@ const FOLD_SITES: Record<Sex, { n: number; title: string; text: string; x: numbe
     {
       n: 3,
       title: 'Muslo',
-      text: 'Pliegue vertical en el centro del muslo, a mitad de camino entre la ingle y la parte superior de la rótula.',
+      text: 'Pliegue vertical en el centro del muslo, a mitad de camino entre la ingle y la parte superior de la rótula. El pliegue de piel queda de arriba hacia abajo y el caliper entra de lado.',
       x: 81,
       y: 218,
     },
@@ -160,7 +174,7 @@ export function MeasurementGuide({
 
           <Section title="Dónde medir">
             <Figure caption="Vista frontal" gender={sex ?? 'male'}>
-              {TAPE_SITES.map(({ n, at }) => ({ n, ...at[sex ?? 'male'] })).map((s) => (
+              {TAPE_SITES.map(({ n, side, at }) => ({ n, side, ...at[sex ?? 'male'] })).map((s) => (
                 <G key={s.n}>
                   <Line
                     x1={s.x1}
@@ -171,8 +185,7 @@ export function MeasurementGuide({
                     strokeWidth={2.2}
                     strokeDasharray="5 4"
                   />
-                  {/* Alternan de lado: cintura y abdomen quedan muy cerca y se encimarían. */}
-                  <Badge x={s.n % 2 ? s.x2 + 16 : s.x1 - 16} y={s.y} n={s.n} />
+                  <Badge x={s.side === 'right' ? s.x2 + 16 : s.x1 - 16} y={s.y} n={s.n} />
                 </G>
               ))}
             </Figure>

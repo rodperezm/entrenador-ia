@@ -147,8 +147,8 @@ function setsSheet(sessions: WorkoutSession[]): Sheet {
 }
 
 function tapeSheet(records: TapeRecord[]): Sheet {
-  const rows: Cell[][] = [['Fecha', 'Peso (kg)', 'Tórax (cm)', 'Cintura (cm)', 'Abdomen (cm)', 'Cadera (cm)']];
-  for (const r of records) rows.push([r.date, r.weightKg, r.chestCm, r.waistCm, r.abdomenCm, r.hipCm]);
+  const rows: Cell[][] = [['Fecha', 'Peso (kg)', 'Tórax (cm)', 'Abdomen (cm)', 'Cintura (cm)', 'Cadera (cm)']];
+  for (const r of records) rows.push([r.date, r.weightKg, r.chestCm, r.abdomenCm, r.waistCm, r.hipCm]);
   return { name: 'Medidas', rows };
 }
 
