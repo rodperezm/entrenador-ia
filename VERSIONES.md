@@ -52,6 +52,32 @@ Plan de ambientes: la dirección de GitHub pasará a ser pruebas, con su propia 
 
 ## Historial
 
+### 1.10.0 · 18 de noviembre de 2026
+
+«Tu avance» en Cuerpo: cuatro maneras de ver cómo cambias, para bien o para mal.
+
+**Qué cambia para la persona**
+
+- En Cuerpo, después de «Registrar», aparece «Tu avance» con cuatro tarjetas:
+  - **Lo que la balanza no ve:** cuánto cambió el peso, la grasa y la masa magra entre la primera y la última medición con caliper, con una línea para cada una.
+  - **La cinta se cierra:** cada medida de la cinta, de la primera a la última, y el total en centímetros.
+  - **Camino al verde:** el semáforo de cintura-estatura, % de grasa, IMC y cintura-cadera, con dónde partiste, dónde estás y cuánto falta para el siguiente color. Lo que retrocede se marca en rojo.
+  - **Medallas:** logros que se encienden solos («−10 cm con la cinta», «4 semanas midiendo»…) y las dos próximas metas, en gris.
+- Las tarjetas aparecen solo cuando hay al menos dos registros para comparar.
+
+**Qué cambia por dentro**
+
+- App: `src/domain/bodyProgress.ts` (cálculos), `src/features/body/BodyProgress.tsx` (tarjetas) y `src/app/(tabs)/body.tsx`. Pruebas en `tests/bodyProgress.test.ts` (142 en total).
+- Sin cambios en la base de datos ni en la función de la IA.
+
+**Notas para quien siga el trabajo**
+
+- Se diseñó con los datos reales de Rodrigo, del 31-10 al 17-11, leídos de producción sin modificarlos. Las pruebas usan ese caso sin datos personales.
+- La composición compara la primera y la última medición con caliper, con el peso más cercano (hasta 14 días). El caliper tiene error de pinza: la tarjeta lo dice, y por eso las medallas de grasa parten en 1 kg.
+- Cintura-estatura y cintura-cadera se muestran con 3 decimales: con 2, 0,605 se leía «0,60» y escondía que se partió en rojo.
+- Desde la 1.9.0 la cintura se mide bajo el ombligo, así que los registros anteriores al 18-11 usan otra definición y la cintura puede dar un salto.
+- Vuelta atrás: publicar desde `v1.9.0`. No deja nada a medias en los teléfonos.
+
 ### 1.9.0 · 18 de noviembre de 2026
 
 Cuatro rutinas rápidas nuevas, descanso entre series donde faltaba y una guía de medición más clara.
