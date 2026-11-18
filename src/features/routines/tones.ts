@@ -12,6 +12,7 @@ export const ROUTINE_TONES: Record<RoutineTone, { bg: string; text: string; sub:
   green: { bg: '#12382A', text: '#D3F3E1', sub: '#8FD9B0', vivid: colors.good },
   amber: { bg: '#3D2C0C', text: '#FBE6BC', sub: '#E9C377', vivid: colors.warning },
   violet: { bg: '#2B2440', text: '#E2DBF7', sub: '#BDB5E6', vivid: '#AFA9EC' },
+  teal: { bg: '#0F3638', text: '#CDEFEF', sub: '#8CD0D0', vivid: '#5FC4C4' },
 };
 
 export const ROUTINE_ICONS: Record<string, ComponentProps<typeof Ionicons>['name']> = {
@@ -20,4 +21,5 @@ export const ROUTINE_ICONS: Record<string, ComponentProps<typeof Ionicons>['name
   lower: 'arrow-down-circle-outline',
   sitting: 'desktop-outline',
   knees: 'walk-outline',
+  posture: 'accessibility-outline',
 };

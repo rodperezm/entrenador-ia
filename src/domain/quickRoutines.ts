@@ -5,7 +5,7 @@ import type { Exercise } from './schema';
 // cargas. Cada lista está elegida a mano del catálogo y solo usa peso corporal (a lo más, una
 // colchoneta), para que sirvan en casa o en el parque.
 
-export type RoutineTone = 'accent' | 'blue' | 'green' | 'amber' | 'violet';
+export type RoutineTone = 'accent' | 'blue' | 'green' | 'amber' | 'violet' | 'teal';
 
 export type QuickRoutine = {
   id: string;
@@ -78,6 +78,14 @@ export const QUICK_ROUTINES: QuickRoutine[] = [
     exerciseIds: ['stretch_calf_wall', 'stretch_hamstring_supine', 'stretch_quad_standing', 'straight_leg_raise', 'glute_bridge'],
     caution:
       'Es movilidad suave, no un tratamiento. Muévete solo hasta donde no duela; si la rodilla duele, se hincha o se traba, detente y consulta a un profesional de la salud.',
+  },
+  {
+    id: 'posture',
+    title: 'Mejora tu postura',
+    zone: 'Pecho, hombros y espalda alta',
+    when: 'Para enderezar la espalda encorvada',
+    tone: 'teal',
+    exerciseIds: ['stretch_chest_wall', 'stretch_thoracic_towel', 'wall_angel', 'prone_ytw', 'chin_tuck'],
   },
 ];
 
