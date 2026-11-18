@@ -27,8 +27,11 @@ const TAPE_TIPS: ReactNode[] = [
 ];
 
 // `at`: dónde va la cinta sobre la figura (lienzo de 200 × 400), para cada cuerpo.
-// `side`: lado del número. Alterna de arriba hacia abajo para que cintura y abdomen,
+// `side`: lado del número. Alterna de arriba hacia abajo para que abdomen, cintura y cadera,
 // que quedan muy cerca, no se encimen.
+// Decisión de Rodrigo (18-11-2026): la cintura se mide bajo el ombligo, donde va el cinturón,
+// para que el orden de arriba hacia abajo sea tórax, abdomen, cintura y cadera. Las guías (ACSM,
+// ISAK, OMS) la miden en lo más angosto, sobre el ombligo; el ICC y el ICE usan esta medida.
 const TAPE_SITES: {
   n: number;
   side: 'left' | 'right';
@@ -43,28 +46,26 @@ const TAPE_SITES: {
     text: 'A la altura de las tetillas, pasando bajo las axilas y por la parte más ancha de la espalda.',
     at: { male: { y: 106, x1: 64, x2: 136 }, female: { y: 109, x1: 68, x2: 132 } },
   },
-  // Orden pedido por Rodrigo: abdomen antes que cintura, aunque en el cuerpo la cintura
-  // (lo más angosto) queda un poco más arriba que el ombligo. Cada línea sigue en su lugar.
   {
     n: 2,
-    side: 'right',
+    side: 'left',
     title: 'Abdomen',
     text: 'A la altura del ombligo, tal como lo mide habitualmente el médico, con la cinta horizontal alrededor del torso.',
-    at: { male: { y: 164, x1: 73, x2: 127 }, female: { y: 163, x1: 75, x2: 125 } },
+    at: { male: { y: 158, x1: 73, x2: 127 }, female: { y: 158, x1: 76, x2: 124 } },
   },
   {
     n: 3,
-    side: 'left',
+    side: 'right',
     title: 'Cintura',
-    text: 'La parte más estrecha del torso, entre la última costilla y la cadera. Suele quedar un poco más arriba que el ombligo.',
-    at: { male: { y: 148, x1: 74, x2: 126 }, female: { y: 146, x1: 77, x2: 123 } },
+    text: 'Un poco más abajo del ombligo, donde va el cinturón, justo sobre los huesos de la cadera.',
+    at: { male: { y: 174, x1: 71, x2: 129 }, female: { y: 174, x1: 72, x2: 128 } },
   },
   {
     n: 4,
     side: 'left',
     title: 'Cadera',
     text: 'La parte más ancha de los glúteos, con los pies juntos.',
-    at: { male: { y: 188, x1: 68, x2: 132 }, female: { y: 190, x1: 66, x2: 134 } },
+    at: { male: { y: 190, x1: 68, x2: 132 }, female: { y: 191, x1: 66, x2: 134 } },
   },
 ];
 

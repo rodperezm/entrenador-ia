@@ -166,7 +166,7 @@ export default function NewBodyRecord() {
               <Text style={styles.hint}>
                 {onlyWeight
                   ? 'Pésate en ayunas y con poca ropa, siempre a la misma hora: así los cambios se comparan bien.'
-                  : 'Todo es opcional: registra solo lo que mediste. Cintura: el punto más estrecho, entre costillas y cadera.'}
+                  : 'Todo es opcional: registra solo lo que mediste. Cintura: bajo el ombligo, donde va el cinturón.'}
               </Text>
               <View style={styles.preview}>
                 <Text style={styles.previewLabel}>IMC calculado</Text>
