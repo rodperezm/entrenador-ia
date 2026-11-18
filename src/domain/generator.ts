@@ -40,6 +40,7 @@ import {
   zoneOf,
 } from './strength';
 import { capMainTime, fitPart, maxCount, withMinCount } from './timeBudget';
+import { withSetRest } from './setRest';
 import { coverFirst, coverMuscles, dayNeeds, prepares } from './coverage';
 import { DAYS, dayDate, isFromPastWeek } from './week';
 
@@ -515,7 +516,7 @@ function generateDay(
       type: 'warmup',
       slots: fit(
         'warmup',
-        covered.map((e) => prescribe(e, profile, null)),
+        covered.map((e) => withSetRest(prescribe(e, profile, null), e, 'warmup')),
       ),
     });
   }
@@ -540,7 +541,11 @@ function generateDay(
     const prehabSlots = fit(
       'prehab',
       options.map((e) =>
-        prescribe(e, profile, fromConditions.has(e.id) ? 'Para cuidar tu lesión. No reemplaza un tratamiento.' : null),
+        withSetRest(
+          prescribe(e, profile, fromConditions.has(e.id) ? 'Para cuidar tu lesión. No reemplaza un tratamiento.' : null),
+          e,
+          'prehab',
+        ),
       ),
     );
     prehabChosen = options.filter((e) => prehabSlots.some((s) => s.exerciseId === e.id));
@@ -594,7 +599,7 @@ function generateDay(
       type: 'cooldown',
       slots: fitPart(
         'cooldown',
-        ordered.map((e) => prescribe(e, profile, null)),
+        ordered.map((e) => withSetRest(prescribe(e, profile, null), e, 'cooldown')),
         cooldownCfg,
         profile.level,
         cycle,

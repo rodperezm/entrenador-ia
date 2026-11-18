@@ -33,6 +33,7 @@ import {
   type WorkoutSession,
 } from '@/domain/schema';
 import { fmtClock } from '@/domain/session';
+import { setRestSec } from '@/domain/setRest';
 import { alternatingSplit, isPerSide, loadCount, sideLabel, weightLabel } from '@/domain/sides';
 import { DAY_LONG } from '@/domain/week';
 import { canResume, sessionFromDraft, sessionIdOf, type WorkoutDraft } from '@/domain/workoutDraft';
@@ -454,6 +455,8 @@ export default function WorkoutScreen() {
   // En calentamiento y elongación todo va de un toque, sin pregunta de esfuerzo.
   const kind = item.block === 'warmup' || item.block === 'cooldown' || !ex ? 'none' : effortKind(ex);
   const done = setsDone(item.key);
+  // Con el mínimo por tipo de ejercicio: así los planes ya guardados también dan respiro entre series.
+  const restSec = setRestSec(item.slot, ex, item.block);
   const timed = item.slot.durationSec != null;
   const ov = overrides[item.key] ?? {};
   const reps = ov.reps ?? item.slot.reps ?? 0;
@@ -527,9 +530,9 @@ export default function WorkoutScreen() {
       setLogs(nextLogs);
       if (done + 1 < item.slot.sets) {
         setNote(`Serie ${done + 1} lista. Vamos con la ${done + 2} de ${item.slot.sets}.`);
-        if (item.slot.restSec > 0) {
+        if (restSec > 0) {
           lastCount.current = null;
-          setRestEndsAt(now + item.slot.restSec * 1000);
+          setRestEndsAt(now + restSec * 1000);
           setPainAsked(true);
           setPhase('rest');
         }
@@ -540,9 +543,9 @@ export default function WorkoutScreen() {
     setLogs(nextLogs);
     setAdjusting(false);
     if (done + 1 < item.slot.sets) {
-      if (item.slot.restSec > 0) {
+      if (restSec > 0) {
         lastCount.current = null;
-        setRestEndsAt(now + item.slot.restSec * 1000);
+        setRestEndsAt(now + restSec * 1000);
         setPainAsked(false);
         setPhase('rest');
         cues.play('rest');

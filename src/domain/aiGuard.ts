@@ -14,6 +14,7 @@ import {
 import { BIG_JUMP, effortBlocksRaise, feltTooMuch, progressSlot, wasTooHard } from './progression';
 import { dayIntensity, MIN_REST_SEC, offZone, POWER_REPS_MAX, slotRole, sortByRole, weekFocus } from './strength';
 import { fitPart, withMinCount } from './timeBudget';
+import { withSetRest } from './setRest';
 import { dayNeeds, prepares, stretchesMuscle } from './coverage';
 import type {
   BlockType,
@@ -226,14 +227,16 @@ function keepGentle(blocks: PlannedBlock[], cfg: DayConfig, input: GuardInput, b
 }
 
 // Dosis dentro de los márgenes de las reglas: repeticiones hasta el tope del ejercicio
-// (10 en potencia), descanso mínimo según el rol y el rol A/B/C marcado en Fuerza.
+// (10 en potencia), descanso mínimo según el rol y el rol A/B/C marcado en Fuerza. Fuera de la
+// Fuerza, el descanso mínimo entre series según el tipo de ejercicio: la IA a veces sube una serie
+// y deja el descanso en 0.
 function withinLimits(slot: ExerciseSlot, block: BlockType, input: GuardInput, cycle: CycleInfo): ExerciseSlot {
   const e = input.exercises.find((x) => x.id === slot.exerciseId);
   if (!e) return slot;
   const role = block === 'main_strength' ? slotRole(e, cycle.stage) : null;
   const maxReps = role === 'A' ? POWER_REPS_MAX : e.prescription.repRange?.max;
   const reps = slot.reps != null && maxReps != null ? Math.min(slot.reps, maxReps) : slot.reps;
-  if (!role) return { ...slot, reps };
+  if (!role) return withSetRest({ ...slot, reps }, e, block);
   return { ...slot, reps, role, restSec: Math.max(slot.restSec, MIN_REST_SEC[role]) };
 }
 
