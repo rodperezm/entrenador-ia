@@ -61,6 +61,8 @@ type DayStrengthPlan = {
   // Zona del día cuando la semana se divide (4 a 6 días de Fuerza) y qué vuelta de esa zona es.
   focus?: DayFocus;
   turn?: number;
+  // Zonas que eligió la persona para este día: mandan sobre la estructura de la app (ver pickChosen).
+  chosenGroups?: MuscleGroupId[];
 };
 
 export const MAX_COMPLEXITY: Record<Level, number> = { beginner: 2, intermediate: 3, advanced: 5 };
@@ -168,6 +170,7 @@ type MainContext = {
   // Semana nueva del mismo ciclo: lo fijo son las anclas y el resto se elige de nuevo, rotando.
   rotate: boolean;
   recentMain: Map<string, number>; // castigo por haberlo hecho hace poco, para variar
+  chosenGroups?: MuscleGroupId[]; // zonas que eligió la persona para este día
 };
 
 // Brazos de la semana: si aún no hay bíceps o tríceps en los días ya armados, este día pide el que falta.
@@ -217,7 +220,8 @@ export function weekLocks(
   const lockedByDay: Partial<Record<DayConfig['day'], string[]>> = Object.fromEntries(
     plan.days.map((d) => {
       const slots = d.blocks.filter((b) => b.type === 'main_strength').flatMap((b) => b.slots);
-      const ids = rotate ? anchorIds(slots, byId) : slots.map((x) => x.exerciseId);
+      // Un día armado con las zonas de la persona no deja fijos: no es parte de su progresión.
+      const ids = d.chosenGroups ? [] : rotate ? anchorIds(slots, byId) : slots.map((x) => x.exerciseId);
       const focus = zones[d.day]?.focus ?? 'full';
       return [d.day, ids.filter((id) => !byId.has(id) || !offZone(byId.get(id)!, focus))];
     }),
@@ -341,10 +345,36 @@ function pickMain(pool: Exercise[], groups: MuscleGroupId[], count: number, prof
     return undefined;
   };
 
-  // Dentro del bloque se conservan los fijos. Si uno ya no se puede, entra otro igual o más simple
-  // de la misma familia; si no hay, se omite antes que repetir otro patrón.
   const staged = A_STAGES.flat();
   const stageNow = unlockedA(cycle.stage);
+
+  // Día con las zonas que eligió la persona: se reparten los ejercicios entre esas zonas, por turnos.
+  // Siguen valiendo los mismos cuidados (lesiones, molestias, lugar, nivel, etapa técnica y
+  // balísticos), y se evita lo hecho en los últimos días.
+  if (ctx.chosenGroups?.length) {
+    const chosen = ctx.chosenGroups;
+    const allowed = candidates.filter(
+      (e) =>
+        e.muscleGroups.some((g) => chosen.includes(g as MuscleGroupId)) &&
+        (!staged.includes(e.id) || stageNow.includes(e.id)) &&
+        (canUseBallistics || !e.restrictionFlags.includes('ballistic')),
+    );
+    let added = true;
+    while (picked.length < count && added) {
+      added = false;
+      for (const g of chosen) {
+        if (picked.length >= count) break;
+        const exercise = choose(allowed.filter(isOpen).filter((e) => e.muscleGroups.includes(g)));
+        if (!exercise) continue;
+        picked.push({ exercise, role: slotRole(exercise, cycle.stage) ?? 'B' });
+        added = true;
+      }
+    }
+    return picked;
+  }
+
+  // Dentro del bloque se conservan los fijos. Si uno ya no se puede, entra otro igual o más simple
+  // de la misma familia; si no hay, se omite antes que repetir otro patrón.
   for (const id of locked) {
     const lockedEx = ctx.all.find((e) => e.id === id);
     if (lockedEx && offZone(lockedEx, ctx.focus)) continue; // la zona del día cambió: ese fijo ya no corresponde
@@ -427,10 +457,11 @@ function generateDay(
         locked: plan.locked,
         intensity,
         dayIndex: DAYS.findIndex((x) => x.id === cfg.day),
-        focus: (!cfg.gentleStrength && plan.focus) || 'full',
+        focus: (!cfg.gentleStrength && !plan.chosenGroups && plan.focus) || 'full',
         turn: plan.turn ?? 0,
         rotate: !!plan.rotate,
         recentMain: recentMainPenalty(plan.history),
+        chosenGroups: plan.chosenGroups,
       })
     : [];
   // Cada parte recibe opciones de sobra y se queda con las que caben en sus minutos.
@@ -443,7 +474,7 @@ function generateDay(
       profile.level,
       cycle,
       intensity,
-      part === 'main' && !!plan.focus && plan.focus !== 'full',
+      part === 'main' && !plan.chosenGroups && !!plan.focus && plan.focus !== 'full',
     );
   const mainSlots = sortByRole(
     fit(
@@ -868,22 +899,28 @@ export function generateDayByRules(
   lockedIds: string[] = [],
   weekDays: DayConfig[] = [cfg],
   rotate = false,
+  // Zonas que eligió la persona (opcional): este día se arma con ellas, sin fijos, y queda marcado.
+  chosenGroups?: MuscleGroupId[],
 ): DayPlan {
   const usedThisWeek = new Map<string, number>();
   for (const s of otherDays.flatMap((d) => d.blocks.filter((b) => b.type === 'main_strength').flatMap((b) => b.slots)))
     usedThisWeek.set(s.exerciseId, (usedThisWeek.get(s.exerciseId) ?? 0) + 1);
   const p = withoutPainful(profile, history);
   const cycle = cycleInfo(history, profile, weekDays);
+  const chosen = chosenGroups?.length ? chosenGroups : undefined;
+  const locked = chosen ? [] : lockedIds;
   const day = generateDay(cfg, p, exercises, usedThisWeek, seed, {
     cycle,
     intensity: cycle.preparation ? 'light' : dayIntensity(weekDays, cfg.day, profile.level),
     previousBlock: previousBlockExercises(history, cycle),
     history,
-    locked: new Set(lockedIds),
+    locked: new Set(locked),
     rotate,
     ...weekFocus(weekDays)[cfg.day],
+    chosenGroups: chosen,
   });
-  return applyProgression(day, cfg, profile, exercises, history, cycle, lockedIds);
+  const progressed = applyProgression(day, cfg, profile, exercises, history, cycle, locked);
+  return chosen ? { ...progressed, chosenGroups: chosen } : progressed;
 }
 
 export function generateWeekByRules(

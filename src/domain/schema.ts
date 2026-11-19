@@ -266,6 +266,9 @@ export const DayPlan = z.object({
   blocks: z.array(PlannedBlock),
   // La persona ya respondió el aviso de tiempo de esta rutina: no se vuelve a insistir.
   timeNoticeDismissed: z.boolean().optional(),
+  // La persona cambió las zonas de Fuerza de este día: se arma con ellas y no cuenta para su
+  // progresión (sí como sesión). Vale solo para esta rutina; la semana siguiente mandan las reglas.
+  chosenGroups: z.array(MuscleGroupId).optional(),
   // Cómo cerrar la sesión según la IA. Las reglas de la app deciden qué se ofrece.
   finisher: z.object({ format: z.enum(['normal', 'hiit', 'amrap']), reason: z.string().nullable() }).optional(),
 });
@@ -370,5 +373,8 @@ export const WorkoutSession = z.object({
     .optional(),
   // Ejercicios que hizo con la modificación más fácil: se mantienen, pero la próxima vez no sube la carga.
   modified: z.array(ExerciseId).optional(),
+  // Día armado con las zonas que eligió la persona: cuenta como sesión y kilos movidos, pero no para
+  // la progresión (cargas, etapa técnica, «mejoraste»). El dolor que marque sí cuenta siempre.
+  chosenByUser: z.boolean().optional(),
 });
 export type WorkoutSession = z.infer<typeof WorkoutSession>;

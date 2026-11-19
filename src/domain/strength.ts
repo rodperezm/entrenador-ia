@@ -304,6 +304,8 @@ export function techniqueStage(history: WorkoutSession[], start: Level | number,
     const logs = open.filter((l) => A_STAGES[stage - 1].includes(l.exerciseId));
     const pain = open.some((l) => painOf(l) > 0);
     if (!logs.length && !pain) continue;
+    // Día elegido por la persona: no suma para avanzar de etapa, pero su dolor sí cuenta.
+    if (session.chosenByUser && !pain) continue;
     if (pain || logs.some((l) => l.techniqueOk === false)) {
       stage = Math.max(1, stage - (pain ? 1 : 0));
       good = 0;

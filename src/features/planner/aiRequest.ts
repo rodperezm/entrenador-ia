@@ -125,7 +125,9 @@ export function buildAiRequest(
   // Historial: la última vez que hizo cada ejercicio (de las sesiones recientes).
   const seen = new Set<string>();
   const lastByExercise = history.slice(0, HISTORY_SESSIONS).flatMap((s) => {
-    const ids = [...new Set(s.sets.map((l) => l.exerciseId))].filter((id) => !seen.has(id));
+    // Un día elegido por la persona no cuenta para su progresión: de él solo va lo que dolió.
+    const counted = s.chosenByUser ? s.sets.filter((l) => painOf(l) > 0) : s.sets;
+    const ids = [...new Set(counted.map((l) => l.exerciseId))].filter((id) => !seen.has(id));
     ids.forEach((id) => seen.add(id));
     return ids.map((id) => ({
       exerciseId: id,

@@ -24,8 +24,11 @@ export const BIG_JUMP = 1.2; // subir más de un 20 % de peso de una vez pide pe
 
 export function lastSessionOf(exerciseId: string, history: WorkoutSession[]) {
   for (const s of history) {
-    // En HIIT y AMRAP cambian el peso y la fatiga: solo importa si hubo dolor.
-    const logs = s.sets.filter((l) => l.exerciseId === exerciseId && (!l.format || painOf(l) > 0));
+    // En HIIT y AMRAP cambian el peso y la fatiga, y un día elegido por la persona no cuenta para
+    // su progresión: de esas sesiones solo importa si hubo dolor.
+    const logs = s.sets.filter(
+      (l) => l.exerciseId === exerciseId && ((!l.format && !s.chosenByUser) || painOf(l) > 0),
+    );
     if (logs.length) return { session: s, logs };
   }
   return null;
@@ -38,6 +41,7 @@ const lastLogs = (exerciseId: string, history: WorkoutSession[]): SetLog[] =>
 function topStreak(exerciseId: string, history: WorkoutSession[], weight: number | null, maxReps: number) {
   let streak = 0;
   for (const s of history) {
+    if (s.chosenByUser) continue;
     const logs = s.sets.filter((l) => l.exerciseId === exerciseId && !l.format);
     if (!logs.length) continue;
     const rpes = logs.map((l) => l.rpe).filter((v): v is number => v != null);

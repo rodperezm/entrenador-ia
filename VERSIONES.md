@@ -52,6 +52,30 @@ Plan de ambientes: la dirección de GitHub pasará a ser pruebas, con su propia 
 
 ## Historial
 
+### 1.11.0 · 19 de noviembre de 2026
+
+Día elegido por la persona: si cambias las zonas de Fuerza de un día, ese día se arma con las que elegiste.
+
+**Qué cambia para la persona**
+
+- En «Rehacer o ajustar este día», la parte «Zonas a trabajar» ahora sí manda: si cambias las zonas que propone la app (por ejemplo, de piernas, pecho y espalda a hombros y brazos), la Fuerza de ese día se arma con ellas. Antes «Rehacer con estos ajustes» dejaba los mismos ejercicios.
+- Antes de confirmar aparece un aviso: ese día queda a tu elección, cuenta como sesión y kilos movidos pero no para tu progresión, tus lesiones y molestias se siguen cuidando, y la próxima semana vuelve a armarse con las reglas.
+- En la rutina del día se lee «Armado con las zonas que elegiste».
+- Vale solo para ese día. Si vuelves a elegir las zonas de la app, el día vuelve a las reglas.
+
+**Qué cambia por dentro**
+
+- App: `src/app/day/[day].tsx` (zonas, aviso, rehacer), `src/domain/generator.ts` (armado por zonas elegidas, sin fijos), `src/app/workout/[day].tsx` (marca la sesión), `src/domain/progression.ts`, `src/domain/strength.ts`, `src/domain/progress.ts` y `src/features/planner/aiRequest.ts` (el día elegido no cuenta para la progresión), `src/domain/schema.ts` (dos campos opcionales). Pruebas en `tests/chosenDay.test.ts` (147 en total).
+- Sin cambios en la base de datos ni en la función de la IA. El día lo rehace la app con sus reglas, sin IA.
+
+**Notas para quien siga el trabajo**
+
+- Decisión de Rodrigo: por defecto mandan las reglas de la app y la IA; cambiar las zonas es una opción bajo la responsabilidad de la persona y solo para ese día.
+- La rutina guarda `chosenGroups` y la sesión, `chosenByUser`. La configuración de la semana conserva las zonas de la app, para que la semana siguiente vuelva a las reglas.
+- Lo que no cuenta: subir cargas o repeticiones (`lastSessionOf`, `topStreak`), la etapa técnica, «mejoraste» y el historial que ve la IA. Lo que sí cuenta: la sesión, la racha, los kilos movidos, la variedad y siempre el dolor que se marque.
+- El armado reparte los ejercicios entre las zonas elegidas, por turnos, con los mismos cuidados de siempre (lesiones, molestias, lugar, nivel, etapa técnica y balísticos) y evitando lo hecho en los últimos días. Un día elegido no deja fijos para la semana.
+- Vuelta atrás: publicar desde `v1.10.0`. Los campos nuevos son opcionales: una app anterior los ignora.
+
 ### 1.10.0 · 18 de noviembre de 2026
 
 «Tu avance» en Cuerpo: cuatro maneras de ver cómo cambias, para bien o para mal.

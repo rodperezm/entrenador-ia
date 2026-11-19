@@ -268,6 +268,8 @@ export default function WorkoutScreen() {
       sets: allLogs.map(({ itemKey: _k, ...l }) => l),
       ...(amrapResult.current ? { amrap: amrapResult.current } : {}),
       ...(checkIn ? { checkIn } : {}),
+      // Día armado con las zonas que eligió la persona: no cuenta para su progresión.
+      ...(dayPlan.chosenGroups ? { chosenByUser: true } : {}),
       ...(cantDo.current.length ? { cantDo: cantDo.current } : {}),
       ...(modifiedKeys.length
         ? {

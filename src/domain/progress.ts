@@ -74,6 +74,8 @@ export function progressSummary(history: WorkoutSession[], exercises: Exercise[]
 
   const perExercise = new Map<string, SetLog[]>();
   for (const s of sessions) {
+    // Un día elegido por la persona cuenta como sesión, pero no para comparar su avance.
+    if (s.chosenByUser) continue;
     const done = s.sets.filter((l) => {
       const e = byId.get(l.exerciseId);
       return e?.blockTypes.includes('main_strength') && strengthRole(e) && !l.format && (l.repsDone || l.durationSec);

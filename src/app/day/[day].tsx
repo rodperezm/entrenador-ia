@@ -14,7 +14,7 @@ import { explainDay } from '@/domain/explain';
 import { supportNote } from '@/domain/coverage';
 import { AiProgress } from '@/features/planner/AiProgress';
 import { WhyDay } from '@/features/planner/WhyCards';
-import { MUSCLE_GROUP_LABELS, MUSCLE_GROUPS } from '@/domain/catalog';
+import { MUSCLE_GROUP_LABELS, MUSCLE_GROUPS, type MuscleGroupId } from '@/domain/catalog';
 import { BLOCK_LABELS, ROLE_LABELS } from '@/domain/labels';
 import { type DayConfig, DayOfWeek, type DayPlan, type LocalProfile } from '@/domain/schema';
 import { dayMinutes, leadPart, partCount, timeStatus } from '@/domain/timeBudget';
@@ -57,6 +57,13 @@ type Blocks = DayConfig['blocks'];
 
 const STRENGTH_DAY = ['warmup', 'main', 'cooldown'] as const;
 
+const sameGroups = (a: MuscleGroupId[], b: MuscleGroupId[]) =>
+  a.length === b.length && a.every((g) => b.includes(g));
+const withGroups = (d: DayConfig, muscleGroups: MuscleGroupId[]): DayConfig => ({
+  ...d,
+  blocks: { ...d.blocks, main: { ...d.blocks.main, muscleGroups } },
+});
+
 export default function DayScreen() {
   const params = useLocalSearchParams<{ day: string }>();
   const parsed = DayOfWeek.safeParse(params.day);
@@ -81,6 +88,15 @@ export default function DayScreen() {
   const dayWorked = [...dayMain, ...slotsOf('prehab')];
   const today = isToday(day);
   const dayPlan = plan?.days.find((p) => p.day === day);
+  // Zonas de Fuerza: las propone la app (las de la semana). Si la persona elige otras, este día se
+  // arma con ellas solo esta vez y no cuenta para su progresión; la semana guarda las de la app.
+  const rulesGroups = cfg.blocks.main.muscleGroups;
+  const chosenOf = (d: DayConfig): MuscleGroupId[] | undefined =>
+    d.active && d.blocks.main.enabled && !sameGroups(d.blocks.main.muscleGroups, rulesGroups)
+      ? d.blocks.main.muscleGroups
+      : undefined;
+  // El día tal como está: con las zonas que eligió la persona, si las eligió.
+  const current = dayPlan?.chosenGroups ? withGroups(cfg, dayPlan.chosenGroups) : cfg;
   const stale = !!plan && !!profile && staleDays(plan, week, trainingStamp(profile)).has(day);
   const painful = strongPainIds(sessions);
   const hasPainful = !!dayPlan?.blocks.some((b) => b.slots.some((s) => painful.includes(s.exerciseId)));
@@ -93,7 +109,7 @@ export default function DayScreen() {
   // Los otros días ya tienen Fuerza 6 veces: este no puede llevarla (la semana necesita un día libre).
   const strengthFull = strengthDaysFull(weekChoicesOf(week), day, profile?.level);
   const openAdjust = () =>
-    setDraft(cfg.active ? cfg : applyDayChoice(cfg, strengthFull ? ['cooldown'] : [...STRENGTH_DAY]));
+    setDraft(cfg.active ? current : applyDayChoice(cfg, strengthFull ? ['cooldown'] : [...STRENGTH_DAY]));
   const edit = (patch: (d: DayConfig) => DayConfig) => setDraft(patch(editing ?? cfg));
   const setBlock = <K extends keyof Blocks>(key: K, patch: Partial<Blocks[K]>) =>
     edit((d) => ({ ...d, blocks: { ...d.blocks, [key]: { ...d.blocks[key], ...patch } } }));
@@ -101,12 +117,18 @@ export default function DayScreen() {
   // Vista previa de la duración mientras se ajusta; la semilla fija evita que salte al mover otros ajustes.
   const estimate =
     editing?.active && profile
-      ? dayMinutes(generateDayByRules(editing, [], profile, EXERCISES, sessions, 1).blocks)
+      ? dayMinutes(
+          generateDayByRules(editing, [], profile, EXERCISES, sessions, 1, [], [editing], false, chosenOf(editing))
+            .blocks,
+        )
       : null;
 
   // Guarda los ajustes y rehace solo este día con las reglas de la app (instantáneo, sin costo de IA).
-  const rebuild = async (next: DayConfig) => {
+  const rebuild = async (draftCfg: DayConfig) => {
     if (!profile) return;
+    const chosen = chosenOf(draftCfg);
+    // Las zonas elegidas viven solo en esta rutina: la semana conserva las de la app.
+    const next = chosen ? withGroups(draftCfg, rulesGroups) : draftCfg;
     updateDay(day, () => next);
     setDraft(null);
     if (!next.active) return;
@@ -115,11 +137,23 @@ export default function DayScreen() {
     // Incluye la rutina actual del día para que la nueva prefiera ejercicios distintos.
     const others = (plan?.days ?? []).filter((p) => isActive(p.day));
     const cycleBlock = cycleInfo(sessions, profile, week.days).blockStart;
+    // Un día que ya estaba armado con zonas elegidas no deja fijos: al volver a las de la app, se eligen de nuevo.
     const locked =
-      plan?.cycleBlock === cycleBlock && dayPlan?.location === next.location
+      !chosen && !dayPlan?.chosenGroups && plan?.cycleBlock === cycleBlock && dayPlan?.location === next.location
         ? dayPlan.blocks.filter((b) => b.type === 'main_strength').flatMap((b) => b.slots.map((s) => s.exerciseId))
         : [];
-    const newDay = generateDayByRules(next, others, profile, EXERCISES, sessions, Date.now(), locked, nextWeek.days);
+    const newDay = generateDayByRules(
+      next,
+      others,
+      profile,
+      EXERCISES,
+      sessions,
+      Date.now(),
+      locked,
+      nextWeek.days,
+      false,
+      chosen,
+    );
     const order = DAYS.map((d) => d.id);
     const days = [...(plan?.days ?? []).filter((p) => p.day !== day), newDay].sort(
       (a, b) => order.indexOf(a.day) - order.indexOf(b.day),
@@ -205,9 +239,9 @@ export default function DayScreen() {
             dayPlan={dayPlan}
             cfg={cfg}
             weightKg={latestWeight(records)}
-            onFit={() => rebuild({ ...withAutoCounts(cfg), fitToTime: true })}
-            onFull={() => rebuild({ ...cfg, fitToTime: undefined })}
-            onAddGentle={() => rebuild(withGentleStrength(cfg))}
+            onFit={() => rebuild({ ...withAutoCounts(current), fitToTime: true })}
+            onFull={() => rebuild({ ...current, fitToTime: undefined })}
+            onAddGentle={() => rebuild(withGentleStrength(current))}
             // La Lesión ya no se junta con la Fuerza en un mismo día: no se ofrece sumar fuerza suave.
             canAddStrength={false}
             onDismiss={dismissTimeNotice}
@@ -237,7 +271,11 @@ export default function DayScreen() {
             <View key={b.type} style={styles.routineBlock}>
               <Text style={styles.routineTitle}>{BLOCK_LABELS[b.type]}</Text>
               {b.type === 'main_strength' && (
-                <Text style={styles.muted}>Repites estos ejercicios durante el ciclo para medir tu progreso.</Text>
+                <Text style={styles.muted}>
+                  {dayPlan.chosenGroups
+                    ? 'Armado con las zonas que elegiste: cuenta como sesión, pero no para tu progresión.'
+                    : 'Repites estos ejercicios durante el ciclo para medir tu progreso.'}
+                </Text>
               )}
               {b.slots.map((s, i) => {
                 const ex = EXERCISES_BY_ID.get(s.exerciseId);
@@ -286,6 +324,7 @@ export default function DayScreen() {
           level={profile?.level ?? 'intermediate'}
           estimate={estimate}
           strengthFull={strengthFull}
+          chosen={!!chosenOf(editing)}
           onEdit={edit}
           setBlock={setBlock}
           onConfirm={() => rebuild(editing)}
@@ -375,6 +414,7 @@ function AdjustPanel({
   level,
   estimate,
   strengthFull,
+  chosen,
   onEdit,
   setBlock,
   onConfirm,
@@ -382,6 +422,8 @@ function AdjustPanel({
 }: {
   cfg: DayConfig;
   strengthFull: boolean;
+  /** true: la persona cambió las zonas que propone la app. */
+  chosen: boolean;
   hasConditions: boolean;
   hasRoutine: boolean;
   level: LocalProfile['level'];
@@ -533,9 +575,9 @@ function AdjustPanel({
               {cfg.gentleStrength && (
                 <Text style={styles.muted}>Máximo 2 ejercicios sencillos, sin balísticos ni saltos.</Text>
               )}
-              <Text style={styles.rowLabel}>Zonas con preferencia</Text>
+              <Text style={styles.rowLabel}>Zonas a trabajar</Text>
               <Text style={styles.muted}>
-                Esto solo inclina la elección de ejercicios; la estructura del día la arma la app.
+                Las propone la app. Si las cambias, este día se arma con las que elijas, solo esta vez.
               </Text>
               <View style={styles.chips}>
                 {MUSCLE_GROUPS.map((g) => (
@@ -568,6 +610,12 @@ function AdjustPanel({
       )}
 
       {estimateLabel && <Text style={styles.estimate}>{estimateLabel}</Text>}
+      {chosen && (
+        <Text style={styles.stale}>
+          Este día queda a tu elección. Se cuenta como sesión y kilos movidos, pero no para tu progresión. Tus
+          lesiones y molestias se siguen cuidando. La próxima semana vuelve a armarse con las reglas.
+        </Text>
+      )}
       <Button label={confirmLabel} onPress={onConfirm} />
       {onCancel && <Button label="Cancelar" variant="ghost" onPress={onCancel} />}
       {cfg.active && <Text style={styles.muted}>Arma solo este día al instante, sin tocar el resto de la semana.</Text>}
