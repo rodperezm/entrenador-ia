@@ -22,12 +22,51 @@ export function SidePicker({ side, onSide }: { side: PainSide | null; onSide: (s
       <Text style={styles.label}>¿En qué lado?</Text>
       <View style={styles.sideChips}>
         {SIDE_OPTIONS.map((o) => (
-          <Pressable accessibilityRole="button" aria-selected={!!(side === o.side)}
+          <Pressable
+            accessibilityRole="button"
+            aria-selected={!!(side === o.side)}
             key={o.side}
             onPress={() => onSide(o.side)}
             style={[styles.chip, side === o.side && styles.painOn]}
           >
             <Text style={[styles.chipText, side === o.side && { color: colors.bg }]}>{o.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+export type WeakSideMark = 'left' | 'right' | 'even';
+const WEAK_OPTIONS: { label: string; side: WeakSideMark }[] = [
+  { label: 'Izquierdo', side: 'left' },
+  { label: 'Derecho', side: 'right' },
+  { label: 'Iguales', side: 'even' },
+];
+
+// En ejercicios a un lado: si un lado costó más. Es opcional; tocar de nuevo lo desmarca.
+export function WeakSidePicker({
+  side,
+  onSide,
+  label,
+}: {
+  side: WeakSideMark | null;
+  onSide: (s: WeakSideMark | null) => void;
+  label: string;
+}) {
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <Text style={styles.label}>{label}</Text>
+      <View style={styles.sideChips}>
+        {WEAK_OPTIONS.map((o) => (
+          <Pressable
+            accessibilityRole="button"
+            aria-selected={side === o.side}
+            key={o.side}
+            onPress={() => onSide(side === o.side ? null : o.side)}
+            style={[styles.chip, side === o.side && styles.weakOn]}
+          >
+            <Text style={[styles.chipText, side === o.side && { color: colors.onAccent }]}>{o.label}</Text>
           </Pressable>
         ))}
       </View>
@@ -60,12 +99,16 @@ export function PainPicker({
         {PAIN_OPTIONS.map((o) => {
           const on = pain === o.level;
           return (
-            <Pressable accessibilityRole="button" aria-selected={!!(on)}
+            <Pressable
+              accessibilityRole="button"
+              aria-selected={!!on}
               key={o.level}
               onPress={() => onPain(on ? null : o.level)}
               style={[styles.chip, on && (o.level === 0 ? styles.chipOn : styles.painOn)]}
             >
-              <Text style={[styles.chipText, on && { color: o.level === 0 ? colors.onAccent : colors.bg }]}>{o.label}</Text>
+              <Text style={[styles.chipText, on && { color: o.level === 0 ? colors.onAccent : colors.bg }]}>
+                {o.label}
+              </Text>
             </Pressable>
           );
         })}
@@ -94,6 +137,7 @@ const styles = StyleSheet.create({
   },
   chipOn: { backgroundColor: colors.accent },
   painOn: { backgroundColor: colors.warning },
+  weakOn: { backgroundColor: colors.accent },
   chipText: { color: colors.text, fontWeight: '700' },
   painWarn: { color: colors.warning, fontSize: 13, lineHeight: 18 },
 });

@@ -45,7 +45,14 @@ import { AfterWarmupQuestion, ArrivalQuestion, checkInMessage } from '@/features
 import { clearDraft, DraftSaver, ResumePrompt, useWorkoutDraft } from '@/features/workout/draft';
 import type { FinisherFeedbackResult } from '@/features/workout/FinisherFeedback';
 import { HiitBlock, type HiitResult } from '@/features/workout/HiitBlock';
-import { PAIN_OPTIONS, PainPicker, SidePicker } from '@/features/workout/PainControls';
+import {
+  PAIN_OPTIONS,
+  PainPicker,
+  SidePicker,
+  type WeakSideMark,
+  WeakSidePicker,
+} from '@/features/workout/PainControls';
+import { WEAK_SIDE_LABEL, weakSideCue, weakSideOf } from '@/domain/balance';
 import { useCues } from '@/features/workout/useCues';
 import { useBody } from '@/state/body';
 import { useHistory } from '@/state/history';
@@ -113,6 +120,8 @@ export default function WorkoutScreen() {
   const [pain, setPain] = useState<PainLevel | null>(null);
   const [rpe, setRpe] = useState<number | null>(null);
   const [techniqueOk, setTechniqueOk] = useState(false);
+  // Ejercicios a un lado: si un lado costó más (opcional). Se pregunta al terminar el ejercicio.
+  const [weakMark, setWeakMark] = useState<WeakSideMark | null>(null);
   const [skipped, setSkipped] = useState<string[]>([]);
   // Dolor con lesión conocida: nivel por ejercicio, hoja de opciones y ejercicios cambiados.
   const [itemPain, setItemPain] = useState<Record<string, PainLevel>>({});
@@ -470,6 +479,9 @@ export default function WorkoutScreen() {
   const painHere = (p: PainLevel | null) => Math.max(p ?? 0, itemPain[item.key] ?? 0) as PainLevel;
   const setOv = (patch: Override) => setOverrides((o) => ({ ...o, [item.key]: { ...o[item.key], ...patch } }));
   const askSide = isPerSide(item.slot.exerciseId);
+  // Desbalance entre lados: solo en la Fuerza a un lado, y solo si la persona lo marca.
+  const askWeak = askSide && item.block === 'main_strength';
+  const weakNow = askWeak ? weakSideOf(item.slot.exerciseId, sessions) : null;
   const painSide = painSides[item.key] ?? null;
   const setPainSide = (side: PainSide) => setPainSides((s) => ({ ...s, [item.key]: side }));
 
@@ -493,6 +505,7 @@ export default function WorkoutScreen() {
     setPain(null);
     setRpe(null);
     setTechniqueOk(false);
+    setWeakMark(null);
     setPainSheet(null);
     setPainAsked(false);
     setCantDoSheet(null);
@@ -566,6 +579,7 @@ export default function WorkoutScreen() {
             painLevel: level || pain,
             painFlag: level >= 2,
             ...(item.slot.role === 'A' ? { techniqueOk } : {}),
+            ...(askWeak && weakMark ? { weakSide: weakMark } : {}),
           }
         : l,
     );
@@ -827,7 +841,12 @@ export default function WorkoutScreen() {
       />
 
       <View style={styles.top}>
-        <Pressable accessibilityRole="button" onPress={() => setConfirmEnd(true)} hitSlop={12} accessibilityLabel="Terminar">
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setConfirmEnd(true)}
+          hitSlop={12}
+          accessibilityLabel="Terminar"
+        >
           <Ionicons name="close" size={28} color={colors.text} />
         </Pressable>
         <View style={{ alignItems: 'center' }}>
@@ -837,11 +856,21 @@ export default function WorkoutScreen() {
           </Text>
         </View>
         <View style={styles.topRight}>
-          <Pressable accessibilityRole="button" onPress={() => setShowAll(!showAll)} hitSlop={10} accessibilityLabel="Ver todos">
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setShowAll(!showAll)}
+            hitSlop={10}
+            accessibilityLabel="Ver todos"
+          >
             <Ionicons name={showAll ? 'barbell-outline' : 'list'} size={26} color={colors.text} />
           </Pressable>
           <Link href="/timer" asChild>
-            <Pressable accessibilityRole="link" hitSlop={10} style={{ alignItems: 'center' }} accessibilityLabel="Tabata/HIIT">
+            <Pressable
+              accessibilityRole="link"
+              hitSlop={10}
+              style={{ alignItems: 'center' }}
+              accessibilityLabel="Tabata/HIIT"
+            >
               <Ionicons name="timer-outline" size={26} color={colors.accent} />
             </Pressable>
           </Link>
@@ -861,7 +890,8 @@ export default function WorkoutScreen() {
                   const n = setsDone(it.key);
                   const complete = isComplete(it);
                   return (
-                    <Pressable accessibilityRole="button"
+                    <Pressable
+                      accessibilityRole="button"
                       key={it.key}
                       onPress={() => {
                         goTo(j);
@@ -932,7 +962,9 @@ export default function WorkoutScreen() {
               <Text style={styles.panelTitle}>¡Listo! {EFFORT_QUESTION[kind === 'hold' ? 'hold' : 'reps']}</Text>
               <View style={styles.chips}>
                 {EFFORT_OPTIONS[kind === 'hold' ? 'hold' : 'reps'].map((o) => (
-                  <Pressable accessibilityRole="button" aria-selected={!!(rpe === o.rpe)}
+                  <Pressable
+                    accessibilityRole="button"
+                    aria-selected={!!(rpe === o.rpe)}
                     key={o.rpe}
                     onPress={() => setRpe(rpe === o.rpe ? null : o.rpe)}
                     style={[styles.chip, rpe === o.rpe && styles.chipOn]}
@@ -958,6 +990,17 @@ export default function WorkoutScreen() {
                 onPain={setPain}
               />
               {askSide && (pain ?? 0) > 0 && <SidePicker side={painSide} onSide={setPainSide} />}
+              {askWeak && (
+                <WeakSidePicker
+                  side={weakMark}
+                  onSide={setWeakMark}
+                  label={
+                    weakNow
+                      ? `Tu lado ${WEAK_SIDE_LABEL[weakNow]} venía costando más. ¿Cómo estuvo hoy? (opcional)`
+                      : '¿Un lado te costó más? (opcional)'
+                  }
+                />
+              )}
               <Button label={upcoming == null ? 'Terminar' : 'Continuar'} onPress={() => confirmFeedback()} />
               {pain === 3 && upcoming != null && (
                 <Button label="Terminar por hoy" variant="ghost" onPress={() => confirmFeedback(true)} />
@@ -993,6 +1036,7 @@ export default function WorkoutScreen() {
                   Termina un lado, cambia y marca «{kind === 'none' ? 'Hecho' : 'Hecha'}» al final.
                 </Text>
               )}
+              {weakNow && <Text style={styles.sideHint}>{weakSideCue(weakNow)}</Text>}
 
               {adjusting && (
                 <View style={{ gap: spacing.sm }}>
@@ -1031,7 +1075,9 @@ export default function WorkoutScreen() {
                       </Text>
                       <View style={styles.chips}>
                         {owned.map((kg) => (
-                          <Pressable accessibilityRole="button" aria-selected={!!(weight === kg)}
+                          <Pressable
+                            accessibilityRole="button"
+                            aria-selected={!!(weight === kg)}
                             key={kg}
                             onPress={() => setOv({ weight: kg })}
                             style={[styles.chip, weight === kg && styles.chipOn]}
@@ -1069,7 +1115,8 @@ export default function WorkoutScreen() {
                     <Text style={styles.smallLinkWarn}>¿Duele?</Text>
                   </Pressable>
                 )}
-                <Pressable accessibilityRole="button"
+                <Pressable
+                  accessibilityRole="button"
                   onPress={() => {
                     setPainSheet(null);
                     setCantDoSheet('ask');
@@ -1156,7 +1203,8 @@ export default function WorkoutScreen() {
                   <Pressable accessibilityRole="button" onPress={() => setPainAsked(true)} style={styles.restBtn}>
                     <Text style={styles.restBtnText}>No</Text>
                   </Pressable>
-                  <Pressable accessibilityRole="button"
+                  <Pressable
+                    accessibilityRole="button"
                     onPress={() => {
                       setPainAsked(true);
                       setPainSheet('levels');
@@ -1172,7 +1220,8 @@ export default function WorkoutScreen() {
                   <Text style={styles.restLabel}>Descanso · luego serie {done + 1}</Text>
                   <Text style={styles.restTime}>{fmtClock(Math.max(0, restLeft ?? 0))}</Text>
                 </View>
-                <Pressable accessibilityRole="button"
+                <Pressable
+                  accessibilityRole="button"
                   onPress={toggleTick}
                   style={styles.restBtn}
                   accessibilityLabel={tickOn ? 'Apagar el tic-tac del descanso' : 'Encender el tic-tac del descanso'}
@@ -1180,10 +1229,15 @@ export default function WorkoutScreen() {
                 >
                   <Ionicons name={tickOn ? 'volume-high' : 'volume-mute'} size={20} color={colors.text} />
                 </Pressable>
-                <Pressable accessibilityRole="button" onPress={() => setRestEndsAt((t) => (t ?? Date.now()) + 15000)} style={styles.restBtn}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setRestEndsAt((t) => (t ?? Date.now()) + 15000)}
+                  style={styles.restBtn}
+                >
                   <Text style={styles.restBtnText}>+15 s</Text>
                 </Pressable>
-                <Pressable accessibilityRole="button"
+                <Pressable
+                  accessibilityRole="button"
                   onPress={() => {
                     setRestEndsAt(null);
                     setPhase('work');
@@ -1229,7 +1283,12 @@ function PainSheet({
         <Text style={styles.barTitle}>¿Cuánto duele?</Text>
         <View style={styles.chips}>
           {PAIN_OPTIONS.filter((o) => o.level > 0).map((o) => (
-            <Pressable accessibilityRole="button" key={o.level} onPress={() => onLevel(o.level)} style={[styles.chip, styles.painOn]}>
+            <Pressable
+              accessibilityRole="button"
+              key={o.level}
+              onPress={() => onLevel(o.level)}
+              style={[styles.chip, styles.painOn]}
+            >
               <Text style={[styles.chipText, { color: colors.bg }]}>{o.label}</Text>
             </Pressable>
           ))}
@@ -1453,7 +1512,9 @@ function Summary({
           <Text style={styles.panelTitle}>¿Cómo estuvo hoy?</Text>
           <View style={styles.chips}>
             {FEELING_OPTIONS.map((o) => (
-              <Pressable accessibilityRole="button" aria-selected={!!(feeling === o.id)}
+              <Pressable
+                accessibilityRole="button"
+                aria-selected={!!(feeling === o.id)}
                 key={o.id}
                 onPress={() => onFeeling(o.id)}
                 style={[styles.chip, feeling === o.id && styles.chipOn]}
@@ -1518,7 +1579,12 @@ function Summary({
             <Button label="Mantenerla" variant="ghost" onPress={() => setConfirmDiscard(false)} />
           </View>
         ) : (
-          <Pressable accessibilityRole="button" onPress={() => setConfirmDiscard(true)} hitSlop={8} style={{ alignSelf: 'center' }}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setConfirmDiscard(true)}
+            hitSlop={8}
+            style={{ alignSelf: 'center' }}
+          >
             <Text style={styles.smallLinkMuted}>No guardar esta sesión</Text>
           </Pressable>
         ))}

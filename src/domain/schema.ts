@@ -319,6 +319,8 @@ export const SetLog = z.object({
   // 0 nada · 1 leve · 2 moderado · 3 fuerte. Registros antiguos no lo tienen.
   painLevel: z.number().int().min(0).max(3).nullable().default(null),
   painSide: PainSide.nullable().optional(), // en ejercicios a un lado: dónde dolió
+  // En ejercicios a un lado, si la persona lo marca: qué lado le costó más, o que estuvieron iguales.
+  weakSide: z.enum(['left', 'right', 'even']).optional(),
   techniqueOk: z.boolean().optional(), // bloque A: la persona confirmó que mantuvo la técnica
   format: z.enum(['hiit', 'amrap']).optional(), // bloque C en circuito: no cuenta para subir cargas
 });

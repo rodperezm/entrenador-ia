@@ -52,6 +52,29 @@ Plan de ambientes: la dirección de GitHub pasará a ser pruebas, con su propia 
 
 ## Historial
 
+### 1.12.0 · 19 de noviembre de 2026
+
+Desbalance entre lados: si un lado te cuesta más en un ejercicio a un lado, la app lo cuida.
+
+**Qué cambia para la persona**
+
+- Al terminar un ejercicio de Fuerza a un lado (por ejemplo, el Z-press), aparece «¿Un lado te costó más? (opcional)» con Izquierdo, Derecho e Iguales. Si no marcas nada, todo sigue igual.
+- Si marcas un lado, la próxima vez ese ejercicio no sube de peso ni de repeticiones: la carga espera a que el lado débil alcance al otro.
+- Mientras dure, el ejercicio dice «Empieza por tu lado izquierdo y haz las mismas repeticiones con el derecho», y al terminar pregunta «Tu lado izquierdo venía costando más. ¿Cómo estuvo hoy?».
+- Se apaga solo: con «Iguales» dos sesiones seguidas, o haciendo el ejercicio tres veces sin marcar nada. Con un «Iguales», la carga vuelve a progresar.
+
+**Qué cambia por dentro**
+
+- App: `src/domain/balance.ts` (nuevo: lado débil vigente, apagado y consejo), `src/domain/progression.ts` (la carga se mantiene con un lado marcado; `feltTooMuch` lo cuenta, así la guardia de la IA tampoco sube), `src/domain/schema.ts` (`weakSide` opcional en cada serie), `src/app/workout/[day].tsx` y `src/features/workout/PainControls.tsx` (pregunta y consejo). Pruebas en `tests/weakSide.test.ts` (153 en total).
+- Sin cambios en la base de datos ni en la función de la IA.
+
+**Notas para quien siga el trabajo**
+
+- Nació del Z-press de Rodrigo: 12 kg, derecha bien, izquierda perdía técnica a las 6. Bajar las repeticiones ya hacía que la carga no subiera; esto agrega saber qué lado y el consejo.
+- Solo existe si la persona lo marca. Se pregunta solo en ejercicios de Fuerza con `laterality: 'unilateral'`.
+- Quedan para después: una serie extra para el lado débil si el desbalance sigue, y sugerir consultar a un profesional si la diferencia es grande o viene con dolor.
+- Vuelta atrás: publicar desde `v1.11.1`. El campo nuevo es opcional: una app anterior lo ignora.
+
 ### 1.11.1 · 19 de noviembre de 2026
 
 Las zonas que propone el día salen de sus ejercicios de Fuerza.

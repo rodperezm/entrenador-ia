@@ -1,3 +1,4 @@
+import { WEAK_SIDE_LABEL, weakSideCue } from './balance';
 import { effortKind } from './effort';
 import { weightsFor } from './filter';
 import { evenAlternatingReps } from './sides';
@@ -26,9 +27,7 @@ export function lastSessionOf(exerciseId: string, history: WorkoutSession[]) {
   for (const s of history) {
     // En HIIT y AMRAP cambian el peso y la fatiga, y un día elegido por la persona no cuenta para
     // su progresión: de esas sesiones solo importa si hubo dolor.
-    const logs = s.sets.filter(
-      (l) => l.exerciseId === exerciseId && ((!l.format && !s.chosenByUser) || painOf(l) > 0),
-    );
+    const logs = s.sets.filter((l) => l.exerciseId === exerciseId && ((!l.format && !s.chosenByUser) || painOf(l) > 0));
     if (logs.length) return { session: s, logs };
   }
   return null;
@@ -55,9 +54,12 @@ function topStreak(exerciseId: string, history: WorkoutSession[], weight: number
 
 // La última vez que hizo el ejercicio dijo «Fue mucho»: no se exige más.
 // También cuenta si la última vez lo hizo modificado («No puedo hacerlo» → más fácil): no se sube la carga.
+// Y si la última vez marcó que un lado le costó más: la carga espera al lado débil.
 export const feltTooMuch = (exerciseId: string, history: WorkoutSession[]) => {
-  const session = lastSessionOf(exerciseId, history)?.session;
-  return session?.feeling === 'too_much' || !!session?.modified?.includes(exerciseId);
+  const last = lastSessionOf(exerciseId, history);
+  const session = last?.session;
+  const weakMarked = !!last?.logs.some((l) => l.weakSide === 'left' || l.weakSide === 'right');
+  return session?.feeling === 'too_much' || !!session?.modified?.includes(exerciseId) || weakMarked;
 };
 
 // «Fue mucho» en las dos últimas sesiones: se baja una serie.
@@ -151,6 +153,19 @@ export function progressSlot(
 
   // Calentamiento, movilidad, equilibrio y elongación no progresan en carga: se mantienen.
   if (effortKind(e) === 'none') return slot;
+
+  // Un lado le costó más la última vez: se repite igual hasta que el lado débil alcance al otro
+  // (la progresión la marca el lado débil).
+  const weakMark = logs.flatMap((l) => (l.weakSide && l.weakSide !== 'even' ? [l.weakSide] : [])).at(-1);
+  if (weakMark) {
+    return {
+      ...slot,
+      reps: slot.durationSec != null ? slot.reps : (logs[0].targetReps ?? slot.reps),
+      durationSec: slot.durationSec,
+      weightKg: lastWeight,
+      rationale: `Mantenemos la carga: tu lado ${WEAK_SIDE_LABEL[weakMark]} te costó más. ${weakSideCue(weakMark)}`,
+    };
+  }
 
   // «Fue mucho»: la próxima vez no sube nada; dos veces seguidas, una serie menos.
   if (feeling === 'too_much') {
