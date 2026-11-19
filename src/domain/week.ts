@@ -1,3 +1,4 @@
+import type { MuscleGroupId } from './catalog';
 import type { DayConfig, DayOfWeek, LocalProfile, WeekConfig } from './schema';
 import { MAX_STRENGTH_DAYS, weekFocus } from './strength';
 
@@ -54,6 +55,9 @@ export function nextMondayLabel(today = new Date()) {
 
 // Semana inicial: lunes, miércoles y viernes de cuerpo completo.
 const TRAINING_DAYS: DayOfWeek[] = ['mon', 'wed', 'fri'];
+// Zonas guardadas en la configuración de Fuerza: solo una leve preferencia al armar con reglas.
+// Las zonas que se le muestran a la persona salen de los ejercicios del día (ver strengthGroups).
+export const DEFAULT_MAIN_GROUPS: MuscleGroupId[] = ['legs', 'back', 'chest', 'core'];
 
 export function defaultDayConfig(day: DayOfWeek): DayConfig {
   return {
@@ -65,7 +69,7 @@ export function defaultDayConfig(day: DayOfWeek): DayConfig {
     blocks: {
       warmup: { enabled: true, minutes: 5, exerciseCount: 4 },
       prehab: { enabled: false, exerciseCount: 2 },
-      main: { enabled: true, exerciseCount: 4, muscleGroups: ['legs', 'back', 'chest', 'core'] },
+      main: { enabled: true, exerciseCount: 4, muscleGroups: [...DEFAULT_MAIN_GROUPS] },
       cooldown: { enabled: true, exerciseCount: 4 },
     },
   };

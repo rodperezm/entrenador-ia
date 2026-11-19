@@ -1,4 +1,4 @@
-import { equipmentAt, MEDICAL_CONDITIONS, type MuscleGroupId } from './catalog';
+import { equipmentAt, MEDICAL_CONDITIONS, MUSCLE_GROUPS, type MuscleGroupId } from './catalog';
 import { kettlebellLevel, levelFor, techniqueFirst } from './experience';
 import { trainingStamp } from '@/domain/profileStamp';
 import { type CycleInfo, cycleInfo, previousBlockExercises } from './cycle';
@@ -219,14 +219,24 @@ export function weekLocks(
   const zones = weekFocus(days);
   const lockedByDay: Partial<Record<DayConfig['day'], string[]>> = Object.fromEntries(
     plan.days.map((d) => {
-      const slots = d.blocks.filter((b) => b.type === 'main_strength').flatMap((b) => b.slots);
-      // Un día armado con las zonas de la persona no deja fijos: no es parte de su progresión.
-      const ids = d.chosenGroups ? [] : rotate ? anchorIds(slots, byId) : slots.map((x) => x.exerciseId);
+      // Un día armado con las zonas de la persona no es parte de su progresión: los fijos salen de lo
+      // que había armado la app o la IA antes del cambio.
+      const slots = d.chosenGroups
+        ? (d.proposedMain ?? [])
+        : d.blocks.filter((b) => b.type === 'main_strength').flatMap((b) => b.slots);
+      const ids = rotate ? anchorIds(slots, byId) : slots.map((x) => x.exerciseId);
       const focus = zones[d.day]?.focus ?? 'full';
       return [d.day, ids.filter((id) => !byId.has(id) || !offZone(byId.get(id)!, focus))];
     }),
   );
   return { lockedByDay, rotate };
+}
+
+// Zonas que trabaja una Fuerza (la principal de cada ejercicio, la primera de su lista): son las que
+// se le proponen a la persona al ajustar el día, sea que la haya armado la app o la IA.
+export function strengthGroups(slots: ExerciseSlot[], byId: Map<string, Exercise>): MuscleGroupId[] {
+  const groups = new Set(slots.flatMap((s) => byId.get(s.exerciseId)?.muscleGroups.slice(0, 1) ?? []));
+  return MUSCLE_GROUPS.filter((g) => groups.has(g));
 }
 
 const patternFamily = (e: Exercise) =>
@@ -359,15 +369,21 @@ function pickMain(pool: Exercise[], groups: MuscleGroupId[], count: number, prof
         (!staged.includes(e.id) || stageNow.includes(e.id)) &&
         (canUseBallistics || !e.restrictionFlags.includes('ballistic')),
     );
-    let added = true;
-    while (picked.length < count && added) {
-      added = false;
-      for (const g of chosen) {
-        if (picked.length >= count) break;
-        const exercise = choose(allowed.filter(isOpen).filter((e) => e.muscleGroups.includes(g)));
-        if (!exercise) continue;
-        picked.push({ exercise, role: slotRole(exercise, cycle.stage) ?? 'B' });
-        added = true;
+    // Primero los que tienen esa zona como principal; si no alcanzan, los que también la trabajan.
+    for (const fits of [
+      (e: Exercise, g: MuscleGroupId) => e.muscleGroups[0] === g,
+      (e: Exercise, g: MuscleGroupId) => e.muscleGroups.includes(g),
+    ]) {
+      let added = true;
+      while (picked.length < count && added) {
+        added = false;
+        for (const g of chosen) {
+          if (picked.length >= count) break;
+          const exercise = choose(allowed.filter(isOpen).filter((e) => fits(e, g)));
+          if (!exercise) continue;
+          picked.push({ exercise, role: slotRole(exercise, cycle.stage) ?? 'B' });
+          added = true;
+        }
       }
     }
     return picked;
@@ -573,7 +589,11 @@ function generateDay(
       'prehab',
       options.map((e) =>
         withSetRest(
-          prescribe(e, profile, fromConditions.has(e.id) ? 'Para cuidar tu lesión. No reemplaza un tratamiento.' : null),
+          prescribe(
+            e,
+            profile,
+            fromConditions.has(e.id) ? 'Para cuidar tu lesión. No reemplaza un tratamiento.' : null,
+          ),
           e,
           'prehab',
         ),

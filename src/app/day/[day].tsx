@@ -8,7 +8,7 @@ import { Button, Stepper } from '@/components/ui';
 import { EXERCISES, EXERCISES_BY_ID } from '@/data/exercises.seed';
 import { averageMet, kcalRangeLabel, latestWeight } from '@/domain/calories';
 import { cycleInfo } from '@/domain/cycle';
-import { generateDayByRules, strongPainIds } from '@/domain/generator';
+import { generateDayByRules, strengthGroups, strongPainIds } from '@/domain/generator';
 import { dayIntensity, strengthInfo, weekFocus } from '@/domain/strength';
 import { explainDay } from '@/domain/explain';
 import { supportNote } from '@/domain/coverage';
@@ -20,6 +20,7 @@ import { type DayConfig, DayOfWeek, type DayPlan, type LocalProfile } from '@/do
 import { dayMinutes, leadPart, partCount, timeStatus } from '@/domain/timeBudget';
 import {
   applyDayChoice,
+  DEFAULT_MAIN_GROUPS,
   minutesRange,
   strengthLimitNote,
   toggleDayType,
@@ -88,15 +89,20 @@ export default function DayScreen() {
   const dayWorked = [...dayMain, ...slotsOf('prehab')];
   const today = isToday(day);
   const dayPlan = plan?.days.find((p) => p.day === day);
-  // Zonas de Fuerza: las propone la app (las de la semana). Si la persona elige otras, este día se
-  // arma con ellas solo esta vez y no cuenta para su progresión; la semana guarda las de la app.
-  const rulesGroups = cfg.blocks.main.muscleGroups;
+  // Zonas de Fuerza: se proponen las que trabajan los ejercicios que armó la app o la IA. Si la persona
+  // elige otras, este día se arma con ellas solo esta vez y no cuenta para su progresión.
+  const proposedMain = dayPlan?.chosenGroups
+    ? (dayPlan.proposedMain ?? [])
+    : (dayPlan?.blocks.filter((b) => b.type === 'main_strength').flatMap((b) => b.slots) ?? []);
+  const proposed = dayPlan?.chosenGroups
+    ? (dayPlan.proposedGroups ?? DEFAULT_MAIN_GROUPS)
+    : strengthGroups(proposedMain, EXERCISES_BY_ID);
   const chosenOf = (d: DayConfig): MuscleGroupId[] | undefined =>
-    d.active && d.blocks.main.enabled && !sameGroups(d.blocks.main.muscleGroups, rulesGroups)
+    proposed.length && d.active && d.blocks.main.enabled && !sameGroups(d.blocks.main.muscleGroups, proposed)
       ? d.blocks.main.muscleGroups
       : undefined;
-  // El día tal como está: con las zonas que eligió la persona, si las eligió.
-  const current = dayPlan?.chosenGroups ? withGroups(cfg, dayPlan.chosenGroups) : cfg;
+  // El día tal como está: con las zonas que eligió la persona o, si no, las de sus ejercicios.
+  const current = proposed.length ? withGroups(cfg, dayPlan?.chosenGroups ?? proposed) : cfg;
   const stale = !!plan && !!profile && staleDays(plan, week, trainingStamp(profile)).has(day);
   const painful = strongPainIds(sessions);
   const hasPainful = !!dayPlan?.blocks.some((b) => b.slots.some((s) => painful.includes(s.exerciseId)));
@@ -127,8 +133,9 @@ export default function DayScreen() {
   const rebuild = async (draftCfg: DayConfig) => {
     if (!profile) return;
     const chosen = chosenOf(draftCfg);
-    // Las zonas elegidas viven solo en esta rutina: la semana conserva las de la app.
-    const next = chosen ? withGroups(draftCfg, rulesGroups) : draftCfg;
+    // Las zonas que se muestran salen de los ejercicios: la configuración de la semana no las guarda
+    // (vuelve a las de siempre, que solo inclinan levemente las reglas).
+    const next = dayPlan ? withGroups(draftCfg, DEFAULT_MAIN_GROUPS) : draftCfg;
     updateDay(day, () => next);
     setDraft(null);
     if (!next.active) return;
@@ -137,12 +144,13 @@ export default function DayScreen() {
     // Incluye la rutina actual del día para que la nueva prefiera ejercicios distintos.
     const others = (plan?.days ?? []).filter((p) => isActive(p.day));
     const cycleBlock = cycleInfo(sessions, profile, week.days).blockStart;
-    // Un día que ya estaba armado con zonas elegidas no deja fijos: al volver a las de la app, se eligen de nuevo.
+    // Se conservan los ejercicios de Fuerza que había armado la app o la IA (al volver de unas zonas
+    // elegidas, vuelven esos mismos).
     const locked =
-      !chosen && !dayPlan?.chosenGroups && plan?.cycleBlock === cycleBlock && dayPlan?.location === next.location
-        ? dayPlan.blocks.filter((b) => b.type === 'main_strength').flatMap((b) => b.slots.map((s) => s.exerciseId))
+      !chosen && plan?.cycleBlock === cycleBlock && dayPlan?.location === next.location
+        ? proposedMain.map((s) => s.exerciseId)
         : [];
-    const newDay = generateDayByRules(
+    const generated = generateDayByRules(
       next,
       others,
       profile,
@@ -154,6 +162,8 @@ export default function DayScreen() {
       false,
       chosen,
     );
+    // Con zonas elegidas se guarda lo que proponía la app o la IA, para volver a ello y no perder las anclas.
+    const newDay = chosen ? { ...generated, proposedGroups: proposed, proposedMain } : generated;
     const order = DAYS.map((d) => d.id);
     const days = [...(plan?.days ?? []).filter((p) => p.day !== day), newDay].sort(
       (a, b) => order.indexOf(a.day) - order.indexOf(b.day),

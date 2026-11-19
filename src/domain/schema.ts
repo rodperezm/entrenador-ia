@@ -269,6 +269,10 @@ export const DayPlan = z.object({
   // La persona cambió las zonas de Fuerza de este día: se arma con ellas y no cuenta para su
   // progresión (sí como sesión). Vale solo para esta rutina; la semana siguiente mandan las reglas.
   chosenGroups: z.array(MuscleGroupId).optional(),
+  // Con zonas elegidas: lo que había armado la app o la IA (sus zonas y su Fuerza), para mostrar
+  // qué proponía, volver a esos mismos ejercicios y no perder las anclas del ciclo.
+  proposedGroups: z.array(MuscleGroupId).optional(),
+  proposedMain: z.array(ExerciseSlot).optional(),
   // Cómo cerrar la sesión según la IA. Las reglas de la app deciden qué se ofrece.
   finisher: z.object({ format: z.enum(['normal', 'hiit', 'amrap']), reason: z.string().nullable() }).optional(),
 });

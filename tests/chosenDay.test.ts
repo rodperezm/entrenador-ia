@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { EXERCISES, EXERCISES_BY_ID } from '@/data/exercises.seed';
-import { generateDayByRules, weekLocks } from '@/domain/generator';
+import { generateDayByRules, strengthGroups, weekLocks } from '@/domain/generator';
 import { progressSummary } from '@/domain/progress';
 import { lastSessionOf } from '@/domain/progression';
 import type { DayOfWeek, DayPlan, LocalProfile, SetLog, WeekConfig, WorkoutSession } from '@/domain/schema';
@@ -46,9 +46,10 @@ test('con zonas elegidas, la fuerza sale de esas zonas aunque el día tuviera fi
   ]);
   const ids = mainIds(chosen);
   assert.ok(ids.length > 0);
+  // La zona principal de cada ejercicio es una de las elegidas.
   for (const id of ids) {
-    const groups = EXERCISES_BY_ID.get(id)!.muscleGroups;
-    assert.ok(groups.includes('shoulders') || groups.includes('arms'), `${id} no es de hombro ni brazos`);
+    const main = EXERCISES_BY_ID.get(id)!.muscleGroups[0];
+    assert.ok(main === 'shoulders' || main === 'arms', `${id} no es principalmente de hombro ni brazos`);
   }
   assert.deepEqual(chosen.chosenGroups, ['shoulders', 'arms']);
   assert.equal(rules.chosenGroups, undefined);
@@ -62,8 +63,21 @@ test('las zonas elegidas no saltan los cuidados: lo excluido no vuelve', () => {
   assert.ok(!mainIds(again).includes(first[0]));
 });
 
-test('un día elegido no deja fijos para la semana', () => {
-  const day = generateDayByRules(cfg, [], profile(), EXERCISES, [], 9, [], week.days, false, ['arms']);
+test('las zonas propuestas son las que trabajan los ejercicios del día', () => {
+  const rules = generateDayByRules(cfg, [], profile(), EXERCISES, [], 7, [], week.days);
+  const slots = rules.blocks.filter((b) => b.type === 'main_strength').flatMap((b) => b.slots);
+  const groups = strengthGroups(slots, EXERCISES_BY_ID);
+  assert.deepEqual(
+    [...groups].sort(),
+    [...new Set(slots.map((s) => EXERCISES_BY_ID.get(s.exerciseId)!.muscleGroups[0]))].sort(),
+  );
+});
+
+test('un día elegido deja como fijos los ejercicios que había propuesto la app', () => {
+  const rules = generateDayByRules(cfg, [], profile(), EXERCISES, [], 7, [], week.days);
+  const proposedMain = rules.blocks.filter((b) => b.type === 'main_strength').flatMap((b) => b.slots);
+  const chosen = generateDayByRules(cfg, [], profile(), EXERCISES, [], 9, [], week.days, false, ['arms']);
+  const day = { ...chosen, proposedGroups: strengthGroups(proposedMain, EXERCISES_BY_ID), proposedMain };
   const plan = {
     days: [day],
     summary: '',
@@ -72,7 +86,10 @@ test('un día elegido no deja fijos para la semana', () => {
     configHash: 'x',
     cycleBlock: 'b',
   };
-  assert.deepEqual(weekLocks(plan, 'b', EXERCISES, week.days).lockedByDay.mon, []);
+  assert.deepEqual(
+    weekLocks(plan, 'b', EXERCISES, week.days).lockedByDay.mon,
+    proposedMain.map((s) => s.exerciseId),
+  );
 });
 
 const strengthId = EXERCISES.find((e) => e.blockTypes.includes('main_strength') && strengthRole(e) === 'B')!.id;

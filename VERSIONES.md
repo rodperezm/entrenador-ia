@@ -52,6 +52,29 @@ Plan de ambientes: la dirección de GitHub pasará a ser pruebas, con su propia 
 
 ## Historial
 
+### 1.11.1 · 19 de noviembre de 2026
+
+Las zonas que propone el día salen de sus ejercicios de Fuerza.
+
+**Qué cambia para la persona**
+
+- Al abrir «Rehacer o ajustar este día», las zonas marcadas son las de los ejercicios de Fuerza que armó la app o la IA (por ejemplo, piernas, pecho y espalda). Antes podían aparecer zonas que la persona había tocado en una versión anterior, sin relación con sus ejercicios.
+- Si cambias las zonas y después vuelves a las propuestas, regresan exactamente los mismos ejercicios de antes, no otros.
+- Con zonas elegidas, cada ejercicio es principalmente de esas zonas: con hombros y brazos ya no entran ejercicios que son sobre todo de core.
+
+**Qué cambia por dentro**
+
+- App: `src/app/day/[day].tsx` (zonas propuestas desde los ejercicios, vuelta a la rutina original), `src/domain/generator.ts` (`strengthGroups`, armado por zona principal primero, fijos desde la rutina propuesta), `src/domain/schema.ts` (dos campos opcionales más en la rutina del día), `src/domain/week.ts` (`DEFAULT_MAIN_GROUPS`). Pruebas en `tests/chosenDay.test.ts` (148 en total).
+- Sin cambios en la base de datos ni en la función de la IA.
+
+**Notas para quien siga el trabajo**
+
+- La zona principal de un ejercicio es la primera de su `muscleGroups`.
+- Al elegir zonas, la rutina guarda `proposedGroups` y `proposedMain` (la Fuerza que había armado la app o la IA). Sirven para mostrar lo propuesto, volver a esos mismos ejercicios y mantener las anclas del ciclo en `weekLocks`.
+- Las zonas guardadas en la configuración de la semana vuelven a las de siempre al rehacer un día: solo inclinan levemente las reglas. Así se limpia lo que dejó guardado la versión 1.10.0 cuando la persona tocaba las zonas.
+- Un día elegido con la 1.11.0 no tiene `proposedMain`: al volver a las zonas propuestas, la Fuerza se elige de nuevo.
+- Vuelta atrás: publicar desde `v1.11.0`.
+
 ### 1.11.0 · 19 de noviembre de 2026
 
 Día elegido por la persona: si cambias las zonas de Fuerza de un día, ese día se arma con las que elegiste.
