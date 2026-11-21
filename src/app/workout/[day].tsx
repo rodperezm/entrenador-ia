@@ -52,6 +52,7 @@ import {
   type WeakSideMark,
   WeakSidePicker,
 } from '@/features/workout/PainControls';
+import { ChoiceTiles } from '@/features/workout/ChoiceTiles';
 import { WEAK_SIDE_LABEL, weakSideCue, weakSideOf } from '@/domain/balance';
 import { useCues } from '@/features/workout/useCues';
 import { useBody } from '@/state/body';
@@ -1521,33 +1522,14 @@ function Summary({
       {logs.length > 0 && <Text style={styles.summaryHero}>{hero}</Text>}
       {cameTired && <Text style={styles.text}>Llegaste cansado y lo hiciste igual. Bien hecho.</Text>}
       {logs.length > 0 && (
-        <View style={styles.panel}>
-          <Text style={styles.panelTitle}>¿Cómo estuvo hoy?</Text>
-          {/* Una escala: de más suave a más exigente. */}
-          <View style={styles.feelGrid}>
-            {FEELING_OPTIONS.map((o) => {
-              const on = feeling === o.id;
-              return (
-                <Pressable
-                  accessibilityRole="button"
-                  aria-selected={on}
-                  key={o.id}
-                  onPress={() => onFeeling(o.id)}
-                  style={[styles.feelTile, on && styles.feelTileOn]}
-                >
-                  <Ionicons name={o.icon} size={24} color={on ? colors.onAccent : colors.accent} />
-                  <Text style={[styles.feelText, on && { color: colors.onAccent }]}>{o.label}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-          <View style={styles.feelScale}>
-            <Text style={styles.feelScaleText}>Más suave</Text>
-            <View style={styles.feelScaleLine} />
-            <Text style={styles.feelScaleText}>Más exigente</Text>
-          </View>
-          {feeling && <Text style={styles.hint}>{FEELING_NOTE[feeling]}</Text>}
-        </View>
+        <ChoiceTiles
+          title="¿Cómo estuvo hoy?"
+          options={FEELING_OPTIONS}
+          selected={feeling}
+          onPick={onFeeling}
+          scale={['Más suave', 'Más exigente']}
+          note={feeling ? FEELING_NOTE[feeling] : null}
+        />
       )}
       {/* Solo lo que tiene valor: un día de movilidad no muestra repeticiones ni kilos en cero. */}
       {logs.length > 0 && (
@@ -1739,23 +1721,6 @@ const styles = StyleSheet.create({
   summary: { padding: spacing.xl, gap: spacing.lg },
   summaryTitle: { color: colors.text, ...display(38), textAlign: 'center' },
   summaryHero: { color: colors.accent, fontSize: 17, fontWeight: '800', textAlign: 'center', marginTop: -spacing.sm },
-  feelGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  feelTile: {
-    width: '48%',
-    flexGrow: 1,
-    minHeight: 76,
-    backgroundColor: colors.surfaceAlt,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  feelTileOn: { backgroundColor: colors.accent },
-  feelText: { color: colors.text, fontWeight: '700', fontSize: 14, textAlign: 'center' },
-  feelScale: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  feelScaleText: { color: colors.textMuted, fontSize: 12, fontWeight: '600' },
-  feelScaleLine: { flex: 1, height: 2, borderRadius: 1, backgroundColor: colors.border },
   checkInNote: { color: colors.accent, fontSize: 15, fontWeight: '700', lineHeight: 21 },
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'center' },
   stat: {

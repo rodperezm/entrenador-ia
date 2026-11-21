@@ -1,14 +1,40 @@
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text } from 'react-native';
-import { Button, OptionCard } from '@/components/ui';
+import { BodyMap } from '@/components/BodyMap';
+import { Button } from '@/components/ui';
 import { AFTER_WARMUP_OPTIONS, ARRIVAL_OPTIONS, ZONES } from '@/domain/checkIn';
 import type { BodyZone, CheckIn } from '@/domain/schema';
+import { type Choice, ChoiceTiles } from '@/features/workout/ChoiceTiles';
 import { colors, display, spacing } from '@/theme';
 
-const PAIN_LEVELS: { level: 1 | 2 | 3; label: string; description: string }[] = [
-  { level: 1, label: 'Leve', description: 'Se nota, pero no limita' },
-  { level: 2, label: 'Moderado', description: 'Molesta al moverme' },
-  { level: 3, label: 'Fuerte', description: 'Me limita o duele mucho' },
+// Íconos de cada respuesta, en la misma línea que «¿Cómo estuvo hoy?» al terminar.
+const ARRIVAL_ICON: Record<CheckIn['arrival'], Choice<string>['icon']> = {
+  energized: 'flash-outline',
+  normal: 'thumbs-up-outline',
+  tired: 'battery-half-outline',
+  pain: 'bandage-outline',
+};
+const AFTER_WARMUP_ICON: Record<NonNullable<CheckIn['afterWarmup']>, Choice<string>['icon']> = {
+  activated: 'flash-outline',
+  tired: 'battery-half-outline',
+  very_tired: 'battery-dead-outline',
+};
+
+// «¿Dónde te duele?»: cada zona con la figura del cuerpo, del lado en que mejor se ve.
+const ZONE_VIEW: Record<BodyZone, 'front' | 'back'> = {
+  shoulder: 'front',
+  elbow_wrist: 'front',
+  neck: 'back',
+  low_back: 'back',
+  hip: 'front',
+  knee: 'front',
+  ankle_foot: 'back',
+};
+
+const PAIN_LEVELS: Choice<1 | 2 | 3>[] = [
+  { id: 1, label: 'Leve', description: 'Se nota, pero no limita', tone: 'warning' },
+  { id: 2, label: 'Moderado', description: 'Molesta al moverme', tone: 'warning' },
+  { id: 3, label: 'Fuerte', description: 'Me limita o duele mucho', tone: 'warning' },
 ];
 
 // Al empezar: cómo llega la persona. Con dolor, pregunta dónde y cuánto.
@@ -17,39 +43,49 @@ export function ArrivalQuestion({ onAnswer, insetTop }: { onAnswer: (c: CheckIn)
   const [askingPain, setAskingPain] = useState(false);
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingTop: insetTop + 32 }]}>
+    <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingTop: insetTop + 40 }]}>
       {!askingPain ? (
         <>
           <Text style={styles.title}>¿Cómo llegas hoy?</Text>
-          {ARRIVAL_OPTIONS.map((o) => (
-            <OptionCard
-              key={o.id}
-              title={o.label}
-              selected={false}
-              onPress={() => (o.id === 'pain' ? setAskingPain(true) : onAnswer({ arrival: o.id }))}
-            />
-          ))}
+          <Text style={styles.hero}>Tu sesión se ajusta a cómo llegas</Text>
+          <ChoiceTiles
+            options={ARRIVAL_OPTIONS.map((o) => ({
+              ...o,
+              icon: ARRIVAL_ICON[o.id],
+              tone: o.id === 'pain' ? ('warning' as const) : undefined,
+            }))}
+            onPick={(id) => (id === 'pain' ? setAskingPain(true) : onAnswer({ arrival: id }))}
+          />
         </>
       ) : !zone ? (
         <>
           <Text style={styles.title}>¿Dónde te duele?</Text>
-          {ZONES.map((z) => (
-            <OptionCard key={z.id} title={z.label} selected={false} onPress={() => setZone(z.id)} />
-          ))}
+          <Text style={styles.hero}>Hoy cuidamos esa zona</Text>
+          <ChoiceTiles
+            options={ZONES.map((z) => ({
+              id: z.id,
+              label: z.label,
+              visual: (
+                <BodyMap
+                  primary={z.muscles.map((muscle) => ({ muscle, intensity: 1 }))}
+                  views={[ZONE_VIEW[z.id]]}
+                  height={84}
+                />
+              ),
+            }))}
+            onPick={setZone}
+          />
           <Button label="Volver" variant="ghost" onPress={() => setAskingPain(false)} />
         </>
       ) : (
         <>
           <Text style={styles.title}>¿Cuánto te duele?</Text>
-          {PAIN_LEVELS.map((p) => (
-            <OptionCard
-              key={p.level}
-              title={p.label}
-              description={p.description}
-              selected={false}
-              onPress={() => onAnswer({ arrival: 'pain', painZone: zone, painLevel: p.level })}
-            />
-          ))}
+          <Text style={styles.hero}>{ZONES.find((z) => z.id === zone)!.label}</Text>
+          <ChoiceTiles
+            options={PAIN_LEVELS}
+            scale={['Menos', 'Más']}
+            onPick={(level) => onAnswer({ arrival: 'pain', painZone: zone, painLevel: level })}
+          />
           <Button label="Volver" variant="ghost" onPress={() => setZone(null)} />
         </>
       )}
@@ -66,12 +102,14 @@ export function AfterWarmupQuestion({
   insetTop: number;
 }) {
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingTop: insetTop + 32 }]}>
+    <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingTop: insetTop + 40 }]}>
       <Text style={styles.title}>¿Cómo te sientes ahora?</Text>
-      <Text style={styles.body}>Ya calentaste. Muchas veces el cuerpo responde al empezar.</Text>
-      {AFTER_WARMUP_OPTIONS.map((o) => (
-        <OptionCard key={o.id} title={o.label} selected={false} onPress={() => onAnswer(o.id)} />
-      ))}
+      <Text style={styles.hero}>Ya calentaste: muchas veces el cuerpo responde al empezar</Text>
+      <ChoiceTiles
+        options={AFTER_WARMUP_OPTIONS.map((o) => ({ ...o, icon: AFTER_WARMUP_ICON[o.id] }))}
+        scale={['Con energía', 'Sin energía']}
+        onPick={onAnswer}
+      />
     </ScrollView>
   );
 }
@@ -100,7 +138,7 @@ export function checkInMessage(c: CheckIn, day: { warmup: boolean; strength: boo
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: spacing.lg, gap: spacing.md, paddingBottom: 48 },
-  title: { color: colors.text, ...display(34), marginBottom: spacing.sm },
-  body: { color: colors.textMuted, fontSize: 15, lineHeight: 21 },
+  content: { padding: spacing.xl, gap: spacing.lg, paddingBottom: 48 },
+  title: { color: colors.text, ...display(38), textAlign: 'center' },
+  hero: { color: colors.accent, fontSize: 17, fontWeight: '800', textAlign: 'center', marginTop: -spacing.sm },
 });

@@ -52,6 +52,29 @@ Plan de ambientes: la dirección de GitHub pasará a ser pruebas, con su propia 
 
 ## Historial
 
+### 1.13.1 · 21 de noviembre de 2026
+
+Las preguntas del inicio de la sesión con el mismo diseño de «¡Lo lograste!».
+
+**Qué cambia para la persona**
+
+- «¿Cómo llegas hoy?»: título centrado, una línea en rojo («Tu sesión se ajusta a cómo llegas») y cuatro tarjetas con ícono (Con energía, Normal, Cansado y Con dolor o molestia, esta última en ámbar).
+- «¿Dónde te duele?»: cada zona es una tarjeta con la figura del cuerpo y la zona marcada en rojo.
+- «¿Cuánto te duele?»: la zona elegida bajo el título y Leve, Moderado y Fuerte como tarjetas con su descripción y una escala de «Menos» a «Más».
+- «¿Cómo te sientes ahora?» (después de calentar, si llegaste cansado): tarjetas con ícono y escala.
+- Las opciones y lo que hace la app con cada respuesta no cambian.
+
+**Qué cambia por dentro**
+
+- App: `src/features/workout/ChoiceTiles.tsx` (nuevo: las tarjetas con ícono o dibujo, escala y nota), usado en `src/features/workout/CheckInPanel.tsx` y en la pantalla final de `src/app/workout/[day].tsx`.
+- Sin cambios en la base de datos ni en la función de la IA.
+
+**Notas para quien siga el trabajo**
+
+- Las preguntas de la sesión comparten `ChoiceTiles`: un cambio de diseño se hace en un solo lugar.
+- La figura de cada zona usa los músculos de `ZONES` (`src/domain/checkIn.ts`) y `ZONE_VIEW` elige si se ve de frente o de espalda.
+- Vuelta atrás: publicar desde `v1.13.0`. No deja nada a medias en los teléfonos.
+
 ### 1.13.0 · 21 de noviembre de 2026
 
 «¿Cómo estuvo hoy?» con cuatro respuestas y una pantalla final con más carácter.
