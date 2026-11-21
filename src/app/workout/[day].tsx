@@ -1087,10 +1087,10 @@ export default function WorkoutScreen() {
               )}
               {/* La zona grande muestra el número que importa: repeticiones o segundos, y el peso. */}
               <Text style={styles.focusBig}>
-                {timed ? `${seconds} s` : reps}
-                {!timed && <Text style={styles.focusUnit}> {side ?? 'reps'}</Text>}
+                {timed ? seconds : reps}
+                <Text style={styles.focusUnit}> {timed ? 'segundos' : 'repeticiones'}</Text>
               </Text>
-              {timed && !!side && <Text style={styles.focusUnitLine}>{side}</Text>}
+              {!!side && <Text style={styles.focusUnitLine}>{side}</Text>}
               {usesKb && weight ? (
                 <View style={styles.weightChip}>
                   <Text style={styles.weightChipText}>{weightLabel(item.slot.exerciseId, weight)}</Text>
