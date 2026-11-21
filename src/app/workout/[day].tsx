@@ -1,10 +1,9 @@
-import { BebasNeue_400Regular, useFonts } from '@expo-google-fonts/bebas-neue';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useStayAwake } from '@/lib/useStayAwake';
 import { Link, router, Stack, useLocalSearchParams } from 'expo-router';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BodyMap } from '@/components/BodyMap';
 import { Button, CheckRow, Stepper } from '@/components/ui';
@@ -88,11 +87,8 @@ type Override = { reps?: number; seconds?: number; weight?: number | null };
 // Entrenamiento guiado: un ejercicio a la vez. «✓ Hecha» registra lo planificado,
 // el descanso arranca solo y al terminar las series se pregunta el esfuerzo una vez.
 // «Ver todos» permite saltar a otro ejercicio para cambiar el orden.
-const BOTTOM_BAR_SPACE = 140; // alto que tapa la barra de descanso o confirmación
-const CLOCK_LARGE = 88;
-const CLOCK_MEDIUM = 64;
-const CLOCK_SMALL = 32;
-const COMPACT_HEIGHT = 720;
+const BOTTOM_BAR_SPACE = 140; // alto que tapa la hoja de confirmación, dolor o «No puedo hacerlo»
+const ACTION_BAR_SPACE = 150; // alto de la barra fija con «Hecha» y las acciones
 const TICK_KEY = 'workout-tick.v1'; // 'off' si la persona apagó el tic-tac del descanso
 // Sesión que parece hecha sin querer: menos de 5 minutos o series marcadas cada menos de 5 segundos.
 const SHORT_SESSION_MS = 5 * 60 * 1000;
@@ -102,8 +98,6 @@ type SaveState = 'saved' | 'discarded' | { ask: 'short' | 'fast' };
 export default function WorkoutScreen() {
   useStayAwake('workout');
   const insets = useSafeAreaInsets();
-  const { height: screenHeight } = useWindowDimensions();
-  const [fontsLoaded] = useFonts({ BebasNeue_400Regular });
   const day = DayOfWeek.safeParse(useLocalSearchParams<{ day: string }>().day).data;
   const { week, plan } = usePlan();
   const { sessions, addSession, updateSession, removeSession } = useHistory();
@@ -118,6 +112,9 @@ export default function WorkoutScreen() {
   const [idx, setIdx] = useState(0);
   const [phase, setPhase] = useState<Phase>('work');
   const [restEndsAt, setRestEndsAt] = useState<number | null>(null);
+  // Ejercicios por tiempo: cuenta regresiva opcional que la persona inicia.
+  const [holdEndsAt, setHoldEndsAt] = useState<number | null>(null);
+  const lastHold = useRef<number | null>(null);
   const [overrides, setOverrides] = useState<Record<string, Override>>({});
   const [adjusting, setAdjusting] = useState(false);
   const [painOpen, setPainOpen] = useState(false);
@@ -196,6 +193,17 @@ export default function WorkoutScreen() {
     else if (tickOn && prev === restLeft + 1) cues.play(restLeft % 2 ? 'tock' : 'tick');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restLeft]);
+
+  // Cuenta de un ejercicio por tiempo: pitidos en los últimos 3 y aviso al llegar a cero.
+  const holdLeft = holdEndsAt ? Math.max(0, Math.ceil((holdEndsAt - now) / 1000)) : null;
+  useEffect(() => {
+    if (holdLeft == null || holdLeft === lastHold.current) return;
+    const prev = lastHold.current;
+    lastHold.current = holdLeft;
+    if (holdLeft === 0 && (prev ?? 1) > 0) cues.play('work');
+    else if (holdLeft > 0 && holdLeft <= 3) cues.play('count');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [holdLeft]);
 
   if (!dayPlan || !day) {
     return (
@@ -504,6 +512,7 @@ export default function WorkoutScreen() {
     setNote(null);
     setPhase('work');
     setRestEndsAt(null);
+    setHoldEndsAt(null);
     setAdjusting(false);
     setPainOpen(false);
     setPain(null);
@@ -541,6 +550,7 @@ export default function WorkoutScreen() {
     markTimes.current.push(now);
     // Tocar «Hecha» durante el descanso lo termina y registra la serie siguiente.
     setRestEndsAt(null);
+    setHoldEndsAt(null);
     if (phase === 'rest') setPhase('work');
     // Calentamiento, movilidad y elongación: cada toque registra una serie, sin pregunta de
     // esfuerzo; recién con la última pasa al ejercicio siguiente.
@@ -810,9 +820,14 @@ export default function WorkoutScreen() {
   const split = timed ? null : alternatingSplit(item.slot.exerciseId, reps);
   const target = timed ? `${seconds} s${side ? ` ${side}` : ''}` : side ? `${reps} ${side}` : `${reps} reps`;
   const position = items.filter(isClosed).length + 1;
-  const barOpen = confirmEnd || phase === 'rest' || painSheet != null || cantDoSheet != null;
-  const clockSize =
-    barOpen || phase === 'feedback' ? CLOCK_SMALL : screenHeight < COMPACT_HEIGHT ? CLOCK_MEDIUM : CLOCK_LARGE;
+  // Hojas que tapan la barra de acciones: confirmar término, dolor y «No puedo hacerlo».
+  const barOpen = confirmEnd || painSheet != null || cantDoSheet != null;
+  // «Hecha» y las acciones van fijas abajo, al alcance del pulgar (no durante la pregunta de esfuerzo).
+  const actionsOpen = !barOpen && phase !== 'feedback';
+  const startHold = () => {
+    lastHold.current = null;
+    setHoldEndsAt(Date.now() + seconds * 1000);
+  };
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
@@ -926,7 +941,9 @@ export default function WorkoutScreen() {
           contentContainerStyle={[
             styles.content,
             styles.contentFill,
-            { paddingBottom: insets.bottom + (barOpen ? BOTTOM_BAR_SPACE : spacing.lg) },
+            {
+              paddingBottom: insets.bottom + (barOpen ? BOTTOM_BAR_SPACE : actionsOpen ? ACTION_BAR_SPACE : spacing.lg),
+            },
           ]}
         >
           <Text style={styles.blockTitle}>
@@ -937,10 +954,10 @@ export default function WorkoutScreen() {
           {note && <Text style={styles.checkInNote}>{note}</Text>}
 
           {ex && (
-            <View style={styles.mapRow}>
-              <BodyMap primary={ex.anatomy.primary} secondary={ex.anatomy.secondary} height={90} />
+            <View style={styles.techCard}>
+              <BodyMap primary={ex.anatomy.primary} secondary={ex.anatomy.secondary} height={110} />
               <View style={{ flex: 1, gap: 4 }}>
-                {ex.instructions.keyCues.slice(0, 2).map((c, i) => (
+                {ex.instructions.keyCues.slice(0, 3).map((c, i) => (
                   <Text key={i} style={styles.cue}>
                     • {c.es}
                   </Text>
@@ -1010,6 +1027,62 @@ export default function WorkoutScreen() {
                 <Button label="Terminar por hoy" variant="ghost" onPress={() => confirmFeedback(true)} />
               )}
             </View>
+          ) : phase === 'rest' ? (
+            // Descanso: la cuenta ocupa la zona grande; debajo, lo que viene y sus controles.
+            <View style={styles.panel}>
+              <Text style={[styles.restLabel, { textAlign: 'center' }]}>Descanso · luego serie {done + 1}</Text>
+              <Text style={[styles.focusBig, { color: colors.good }]}>{fmtClock(Math.max(0, restLeft ?? 0))}</Text>
+              <Text style={styles.sideHint}>
+                Siguiente: {target}
+                {usesKb && weight ? ` · ${weightLabel(item.slot.exerciseId, weight)}` : ''}
+              </Text>
+              <View style={[styles.restRow, { justifyContent: 'center' }]}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={toggleTick}
+                  style={styles.restBtn}
+                  accessibilityLabel={tickOn ? 'Apagar el tic-tac del descanso' : 'Encender el tic-tac del descanso'}
+                  hitSlop={6}
+                >
+                  <Ionicons name={tickOn ? 'volume-high' : 'volume-mute'} size={20} color={colors.text} />
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setRestEndsAt((t) => (t ?? Date.now()) + 15000)}
+                  style={styles.restBtn}
+                >
+                  <Text style={styles.restBtnText}>+15 s</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setRestEndsAt(null);
+                    setPhase('work');
+                  }}
+                  style={styles.restBtn}
+                >
+                  <Text style={styles.restBtnText}>Terminar descanso</Text>
+                </Pressable>
+              </View>
+              {hasConditions && !painAsked && (
+                <View style={styles.askRow}>
+                  <Text style={styles.askText}>¿Te dolió esa serie?</Text>
+                  <Pressable accessibilityRole="button" onPress={() => setPainAsked(true)} style={styles.restBtn}>
+                    <Text style={styles.restBtnText}>No</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => {
+                      setPainAsked(true);
+                      setPainSheet('levels');
+                    }}
+                    style={[styles.restBtn, { backgroundColor: colors.warning }]}
+                  >
+                    <Text style={[styles.restBtnText, { color: colors.bg }]}>Sí</Text>
+                  </Pressable>
+                </View>
+              )}
+            </View>
           ) : (
             <View style={styles.panel}>
               <Text style={styles.setLabel}>
@@ -1027,10 +1100,27 @@ export default function WorkoutScreen() {
                   ))}
                 </View>
               )}
-              <Text style={styles.target}>
-                {target}
-                {usesKb && weight ? ` · ${weightLabel(item.slot.exerciseId, weight)}` : ''}
+              {/* La zona grande muestra el número que importa: repeticiones, o la cuenta si es por tiempo. */}
+              <Text
+                style={[styles.focusBig, holdLeft != null && { color: holdLeft === 0 ? colors.good : colors.accent }]}
+              >
+                {timed ? (holdLeft != null ? fmtClock(holdLeft) : `${seconds} s`) : reps}
+                {!timed && <Text style={styles.focusUnit}> {side ?? 'reps'}</Text>}
               </Text>
+              {timed && !!side && <Text style={styles.focusUnitLine}>{side}</Text>}
+              {usesKb && weight ? (
+                <View style={styles.weightChip}>
+                  <Text style={styles.weightChipText}>{weightLabel(item.slot.exerciseId, weight)}</Text>
+                </View>
+              ) : null}
+              {timed && (
+                <Pressable accessibilityRole="button" onPress={startHold} style={styles.holdBtn} hitSlop={6}>
+                  <Ionicons name={holdLeft == null ? 'play' : 'refresh'} size={16} color={colors.text} />
+                  <Text style={styles.restBtnText}>
+                    {holdLeft == null ? 'Empezar cuenta' : holdLeft === 0 ? 'Otra vez' : 'Reiniciar'}
+                  </Text>
+                </Pressable>
+              )}
               {split && <Text style={styles.sideHint}>Alternando: {split}.</Text>}
               {ex && modifiedKeys.includes(item.key) && (
                 <Text style={styles.modNote}>Modificado: {modificationFor(ex)}</Text>
@@ -1104,59 +1194,45 @@ export default function WorkoutScreen() {
                 />
               )}
               {kind === 'none' && askSide && (pain ?? 0) > 0 && <SidePicker side={painSide} onSide={setPainSide} />}
-
-              <Pressable accessibilityRole="button" onPress={markDone} style={styles.doneBtn}>
-                <Ionicons name="checkmark" size={28} color={colors.onAccent} />
-                <Text style={styles.doneText}>{kind === 'none' ? 'Hecho' : 'Hecha'}</Text>
-              </Pressable>
-
-              <View style={styles.links}>
-                <Pressable accessibilityRole="button" onPress={() => setAdjusting(!adjusting)} hitSlop={8}>
-                  <Text style={styles.smallLink}>{adjusting ? 'Listo' : 'Ajustar'}</Text>
-                </Pressable>
-                {hasConditions && kind !== 'none' && (
-                  <Pressable accessibilityRole="button" onPress={() => setPainSheet('levels')} hitSlop={8}>
-                    <Text style={styles.smallLinkWarn}>¿Duele?</Text>
-                  </Pressable>
-                )}
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => {
-                    setPainSheet(null);
-                    setCantDoSheet('ask');
-                  }}
-                  hitSlop={8}
-                >
-                  <Text style={styles.smallLink}>No puedo hacerlo</Text>
-                </Pressable>
-                <Pressable accessibilityRole="button" onPress={skip} hitSlop={8}>
-                  <Text style={styles.smallLinkMuted}>Saltar ejercicio</Text>
-                </Pressable>
-              </View>
             </View>
           )}
 
-          {upcoming != null && phase !== 'feedback' && (
+          {upcoming != null && upcoming !== idx && phase !== 'feedback' && (
             <Text style={styles.next}>A continuación: {exName(items[upcoming].slot.exerciseId)}</Text>
           )}
-
-          {/* Usa solo el espacio libre; con descanso o preguntas se achica para no competir con ellos. */}
-          <View style={styles.clockArea}>
-            <Text
-              style={[
-                styles.clock,
-                fontsLoaded && { fontFamily: 'BebasNeue_400Regular' },
-                { fontSize: clockSize, lineHeight: clockSize * 1.05 },
-              ]}
-            >
-              {fmtClock((now - startedAt) / 1000)}
-            </Text>
-            <Text style={styles.clockLabel}>Tiempo de entrenamiento</Text>
-          </View>
         </ScrollView>
       )}
 
-      {/* Barra inferior: descanso automático o confirmación de término */}
+      {/* Barra fija abajo, al alcance del pulgar: «Hecha» y las acciones del ejercicio. */}
+      {actionsOpen && !showAll && (
+        <View style={[styles.bottomBar, { paddingBottom: insets.bottom + spacing.md }]}>
+          <Pressable accessibilityRole="button" onPress={markDone} style={styles.doneBtn}>
+            <Ionicons name="checkmark" size={28} color={colors.onAccent} />
+            <Text style={styles.doneText}>{kind === 'none' ? 'Hecho' : 'Hecha'}</Text>
+          </Pressable>
+          <View style={styles.actions}>
+            <ActionButton
+              icon="options-outline"
+              label={adjusting ? 'Listo' : 'Ajustar'}
+              onPress={() => setAdjusting(!adjusting)}
+            />
+            {hasConditions && kind !== 'none' && (
+              <ActionButton icon="medkit-outline" label="¿Duele?" warn onPress={() => setPainSheet('levels')} />
+            )}
+            <ActionButton
+              icon="hand-left-outline"
+              label="No puedo"
+              onPress={() => {
+                setPainSheet(null);
+                setCantDoSheet('ask');
+              }}
+            />
+            <ActionButton icon="play-skip-forward-outline" label="Saltar" onPress={skip} />
+          </View>
+        </View>
+      )}
+
+      {/* Hojas inferiores: confirmar término, dolor o «No puedo hacerlo» (tapan la barra de acciones) */}
       {barOpen && (
         <View style={[styles.bottomBar, { paddingBottom: insets.bottom + spacing.md }]}>
           {cantDoSheet != null && !confirmEnd ? (
@@ -1188,7 +1264,7 @@ export default function WorkoutScreen() {
               }}
               onClose={() => setPainSheet(null)}
             />
-          ) : confirmEnd ? (
+          ) : (
             <>
               <Text style={styles.barTitle}>¿Terminar el entrenamiento?</Text>
               <Text style={styles.hint}>
@@ -1199,59 +1275,6 @@ export default function WorkoutScreen() {
               <Button label="Sí, terminar" onPress={() => finish()} />
               <Button label="Seguir entrenando" variant="ghost" onPress={() => setConfirmEnd(false)} />
             </>
-          ) : (
-            <View style={{ gap: spacing.sm }}>
-              {hasConditions && !painAsked && (
-                <View style={styles.askRow}>
-                  <Text style={styles.askText}>¿Te dolió esa serie?</Text>
-                  <Pressable accessibilityRole="button" onPress={() => setPainAsked(true)} style={styles.restBtn}>
-                    <Text style={styles.restBtnText}>No</Text>
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() => {
-                      setPainAsked(true);
-                      setPainSheet('levels');
-                    }}
-                    style={[styles.restBtn, { backgroundColor: colors.warning }]}
-                  >
-                    <Text style={[styles.restBtnText, { color: colors.bg }]}>Sí</Text>
-                  </Pressable>
-                </View>
-              )}
-              <View style={styles.restRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.restLabel}>Descanso · luego serie {done + 1}</Text>
-                  <Text style={styles.restTime}>{fmtClock(Math.max(0, restLeft ?? 0))}</Text>
-                </View>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={toggleTick}
-                  style={styles.restBtn}
-                  accessibilityLabel={tickOn ? 'Apagar el tic-tac del descanso' : 'Encender el tic-tac del descanso'}
-                  hitSlop={6}
-                >
-                  <Ionicons name={tickOn ? 'volume-high' : 'volume-mute'} size={20} color={colors.text} />
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => setRestEndsAt((t) => (t ?? Date.now()) + 15000)}
-                  style={styles.restBtn}
-                >
-                  <Text style={styles.restBtnText}>+15 s</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => {
-                    setRestEndsAt(null);
-                    setPhase('work');
-                  }}
-                  style={styles.restBtn}
-                >
-                  <Text style={styles.restBtnText}>Saltar</Text>
-                </Pressable>
-              </View>
-            </View>
           )}
         </View>
       )}
@@ -1592,6 +1615,26 @@ function Summary({
   );
 }
 
+// Acción del ejercicio en la barra fija: ícono con su nombre debajo, repartidas parejas.
+function ActionButton({
+  icon,
+  label,
+  warn,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  warn?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress} style={styles.action} hitSlop={4}>
+      <Ionicons name={icon} size={22} color={warn ? colors.warning : colors.text} />
+      <Text style={[styles.actionText, warn && { color: colors.warning }]}>{label}</Text>
+    </Pressable>
+  );
+}
+
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.stat}>
@@ -1613,7 +1656,23 @@ const styles = StyleSheet.create({
   setDotDone: { backgroundColor: colors.accent, borderColor: colors.accent },
   setDotNow: { borderColor: colors.accent },
   sideHint: { color: colors.textMuted, fontSize: 13, lineHeight: 18, textAlign: 'center' },
-  target: { color: colors.text, fontSize: 34, fontWeight: '900', textAlign: 'center', fontVariant: ['tabular-nums'] },
+  focusBig: { color: colors.text, fontSize: 56, fontWeight: '900', textAlign: 'center', fontVariant: ['tabular-nums'] },
+  focusUnit: { color: colors.textMuted, fontSize: 20, fontWeight: '700' },
+  focusUnitLine: {
+    color: colors.textMuted,
+    fontSize: 15,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: -spacing.sm,
+  },
+  weightChip: {
+    alignSelf: 'center',
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  weightChipText: { color: colors.text, fontSize: 18, fontWeight: '800' },
   doneBtn: {
     backgroundColor: colors.accent,
     borderRadius: radius.pill,
@@ -1624,9 +1683,20 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   doneText: { color: colors.onAccent, fontSize: 20, fontWeight: '900' },
-  links: { flexDirection: 'row', justifyContent: 'space-between' },
+  actions: { flexDirection: 'row', justifyContent: 'space-around' },
+  action: { flex: 1, alignItems: 'center', gap: 2, paddingVertical: 2 },
+  actionText: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
+  holdBtn: {
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
   smallLink: { color: colors.link, fontWeight: '700', fontSize: 14 },
-  smallLinkWarn: { color: colors.warning, fontWeight: '700', fontSize: 14 },
   askRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   askText: { flex: 1, color: colors.text, fontWeight: '700' },
   smallLinkMuted: { color: colors.textMuted, fontWeight: '700', fontSize: 14 },
@@ -1660,9 +1730,6 @@ const styles = StyleSheet.create({
   timerText: { color: colors.accent, fontSize: 13, fontWeight: '700' },
   content: { padding: spacing.lg, gap: spacing.lg },
   contentFill: { flexGrow: 1 },
-  clockArea: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.xs },
-  clock: { color: colors.text, fontWeight: '400', fontVariant: ['tabular-nums'] },
-  clockLabel: { color: colors.textMuted, fontSize: 12, fontWeight: '600' },
   blockTitle: { color: colors.accent, fontSize: 12, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
   card: { backgroundColor: colors.surface, borderRadius: radius.lg, overflow: 'hidden' },
   cardDone: { opacity: 0.6 },
@@ -1674,7 +1741,14 @@ const styles = StyleSheet.create({
   dotOn: { backgroundColor: colors.accent },
   extra: { color: colors.accent, fontSize: 13, fontWeight: '700' },
   cardBody: { paddingHorizontal: spacing.lg, paddingBottom: spacing.lg, gap: spacing.md },
-  mapRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  techCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+  },
   cue: { color: colors.text, fontSize: 13, lineHeight: 18 },
   link: { color: colors.link, fontWeight: '700', marginTop: 4 },
   logged: { color: colors.text, fontSize: 13 },
@@ -1710,7 +1784,6 @@ const styles = StyleSheet.create({
   barTitle: { color: colors.text, fontSize: 18, fontWeight: '800' },
   restRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   restLabel: { color: colors.good, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 },
-  restTime: { color: colors.text, fontSize: 40, fontWeight: '900', fontVariant: ['tabular-nums'] },
   restBtn: {
     backgroundColor: colors.surfaceAlt,
     borderRadius: radius.pill,
