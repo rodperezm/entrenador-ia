@@ -1,9 +1,10 @@
+import { BebasNeue_400Regular, useFonts } from '@expo-google-fonts/bebas-neue';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useStayAwake } from '@/lib/useStayAwake';
 import { Link, router, Stack, useLocalSearchParams } from 'expo-router';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BodyMap } from '@/components/BodyMap';
 import { Button, CheckRow, Stepper } from '@/components/ui';
@@ -44,14 +45,8 @@ import { AfterWarmupQuestion, ArrivalQuestion, checkInMessage } from '@/features
 import { clearDraft, DraftSaver, ResumePrompt, useWorkoutDraft } from '@/features/workout/draft';
 import type { FinisherFeedbackResult } from '@/features/workout/FinisherFeedback';
 import { HiitBlock, type HiitResult } from '@/features/workout/HiitBlock';
-import {
-  PAIN_OPTIONS,
-  PainPicker,
-  SidePicker,
-  type WeakSideMark,
-  WeakSidePicker,
-} from '@/features/workout/PainControls';
-import { ChoiceTiles } from '@/features/workout/ChoiceTiles';
+import { PainPicker, SidePicker, type WeakSideMark, WeakSidePicker } from '@/features/workout/PainControls';
+import { type Choice, ChoiceTiles } from '@/features/workout/ChoiceTiles';
 import { WEAK_SIDE_LABEL, weakSideCue, weakSideOf } from '@/domain/balance';
 import { useCues } from '@/features/workout/useCues';
 import { useBody } from '@/state/body';
@@ -89,6 +84,11 @@ type Override = { reps?: number; seconds?: number; weight?: number | null };
 // «Ver todos» permite saltar a otro ejercicio para cambiar el orden.
 const BOTTOM_BAR_SPACE = 140; // alto que tapa la hoja de confirmación, dolor o «No puedo hacerlo»
 const ACTION_BAR_SPACE = 150; // alto de la barra fija con «Hecha» y las acciones
+// Reloj de la sesión: grande con espacio libre; chico en el descanso y en las preguntas.
+const CLOCK_LARGE = 88;
+const CLOCK_MEDIUM = 56;
+const CLOCK_SMALL = 32;
+const COMPACT_HEIGHT = 900;
 const TICK_KEY = 'workout-tick.v1'; // 'off' si la persona apagó el tic-tac del descanso
 // Sesión que parece hecha sin querer: menos de 5 minutos o series marcadas cada menos de 5 segundos.
 const SHORT_SESSION_MS = 5 * 60 * 1000;
@@ -98,6 +98,8 @@ type SaveState = 'saved' | 'discarded' | { ask: 'short' | 'fast' };
 export default function WorkoutScreen() {
   useStayAwake('workout');
   const insets = useSafeAreaInsets();
+  const { height: screenHeight } = useWindowDimensions();
+  const [fontsLoaded] = useFonts({ BebasNeue_400Regular });
   const day = DayOfWeek.safeParse(useLocalSearchParams<{ day: string }>().day).data;
   const { week, plan } = usePlan();
   const { sessions, addSession, updateSession, removeSession } = useHistory();
@@ -112,9 +114,6 @@ export default function WorkoutScreen() {
   const [idx, setIdx] = useState(0);
   const [phase, setPhase] = useState<Phase>('work');
   const [restEndsAt, setRestEndsAt] = useState<number | null>(null);
-  // Ejercicios por tiempo: cuenta regresiva opcional que la persona inicia.
-  const [holdEndsAt, setHoldEndsAt] = useState<number | null>(null);
-  const lastHold = useRef<number | null>(null);
   const [overrides, setOverrides] = useState<Record<string, Override>>({});
   const [adjusting, setAdjusting] = useState(false);
   const [painOpen, setPainOpen] = useState(false);
@@ -193,17 +192,6 @@ export default function WorkoutScreen() {
     else if (tickOn && prev === restLeft + 1) cues.play(restLeft % 2 ? 'tock' : 'tick');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restLeft]);
-
-  // Cuenta de un ejercicio por tiempo: pitidos en los últimos 3 y aviso al llegar a cero.
-  const holdLeft = holdEndsAt ? Math.max(0, Math.ceil((holdEndsAt - now) / 1000)) : null;
-  useEffect(() => {
-    if (holdLeft == null || holdLeft === lastHold.current) return;
-    const prev = lastHold.current;
-    lastHold.current = holdLeft;
-    if (holdLeft === 0 && (prev ?? 1) > 0) cues.play('work');
-    else if (holdLeft > 0 && holdLeft <= 3) cues.play('count');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [holdLeft]);
 
   if (!dayPlan || !day) {
     return (
@@ -512,7 +500,6 @@ export default function WorkoutScreen() {
     setNote(null);
     setPhase('work');
     setRestEndsAt(null);
-    setHoldEndsAt(null);
     setAdjusting(false);
     setPainOpen(false);
     setPain(null);
@@ -550,7 +537,6 @@ export default function WorkoutScreen() {
     markTimes.current.push(now);
     // Tocar «Hecha» durante el descanso lo termina y registra la serie siguiente.
     setRestEndsAt(null);
-    setHoldEndsAt(null);
     if (phase === 'rest') setPhase('work');
     // Calentamiento, movilidad y elongación: cada toque registra una serie, sin pregunta de
     // esfuerzo; recién con la última pasa al ejercicio siguiente.
@@ -824,10 +810,8 @@ export default function WorkoutScreen() {
   const barOpen = confirmEnd || painSheet != null || cantDoSheet != null;
   // «Hecha» y las acciones van fijas abajo, al alcance del pulgar (no durante la pregunta de esfuerzo).
   const actionsOpen = !barOpen && phase !== 'feedback';
-  const startHold = () => {
-    lastHold.current = null;
-    setHoldEndsAt(Date.now() + seconds * 1000);
-  };
+  const clockSize =
+    barOpen || phase !== 'work' ? CLOCK_SMALL : screenHeight < COMPACT_HEIGHT ? CLOCK_MEDIUM : CLOCK_LARGE;
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
@@ -941,6 +925,7 @@ export default function WorkoutScreen() {
           contentContainerStyle={[
             styles.content,
             styles.contentFill,
+            { gap: spacing.md },
             {
               paddingBottom: insets.bottom + (barOpen ? BOTTOM_BAR_SPACE : actionsOpen ? ACTION_BAR_SPACE : spacing.lg),
             },
@@ -955,7 +940,7 @@ export default function WorkoutScreen() {
 
           {ex && (
             <View style={styles.techCard}>
-              <BodyMap primary={ex.anatomy.primary} secondary={ex.anatomy.secondary} height={110} />
+              <BodyMap primary={ex.anatomy.primary} secondary={ex.anatomy.secondary} height={84} />
               <View style={{ flex: 1, gap: 4 }}>
                 {ex.instructions.keyCues.slice(0, 3).map((c, i) => (
                   <Text key={i} style={styles.cue}>
@@ -1029,7 +1014,7 @@ export default function WorkoutScreen() {
             </View>
           ) : phase === 'rest' ? (
             // Descanso: la cuenta ocupa la zona grande; debajo, lo que viene y sus controles.
-            <View style={styles.panel}>
+            <View style={[styles.panel, styles.focusPanel]}>
               <Text style={[styles.restLabel, { textAlign: 'center' }]}>Descanso · luego serie {done + 1}</Text>
               <Text style={[styles.focusBig, { color: colors.good }]}>{fmtClock(Math.max(0, restLeft ?? 0))}</Text>
               <Text style={styles.sideHint}>
@@ -1084,7 +1069,7 @@ export default function WorkoutScreen() {
               )}
             </View>
           ) : (
-            <View style={styles.panel}>
+            <View style={[styles.panel, styles.focusPanel]}>
               <Text style={styles.setLabel}>
                 {kind === 'none' && item.slot.sets === 1
                   ? 'Una vez'
@@ -1100,11 +1085,9 @@ export default function WorkoutScreen() {
                   ))}
                 </View>
               )}
-              {/* La zona grande muestra el número que importa: repeticiones, o la cuenta si es por tiempo. */}
-              <Text
-                style={[styles.focusBig, holdLeft != null && { color: holdLeft === 0 ? colors.good : colors.accent }]}
-              >
-                {timed ? (holdLeft != null ? fmtClock(holdLeft) : `${seconds} s`) : reps}
+              {/* La zona grande muestra el número que importa: repeticiones o segundos, y el peso. */}
+              <Text style={styles.focusBig}>
+                {timed ? `${seconds} s` : reps}
                 {!timed && <Text style={styles.focusUnit}> {side ?? 'reps'}</Text>}
               </Text>
               {timed && !!side && <Text style={styles.focusUnitLine}>{side}</Text>}
@@ -1113,14 +1096,6 @@ export default function WorkoutScreen() {
                   <Text style={styles.weightChipText}>{weightLabel(item.slot.exerciseId, weight)}</Text>
                 </View>
               ) : null}
-              {timed && (
-                <Pressable accessibilityRole="button" onPress={startHold} style={styles.holdBtn} hitSlop={6}>
-                  <Ionicons name={holdLeft == null ? 'play' : 'refresh'} size={16} color={colors.text} />
-                  <Text style={styles.restBtnText}>
-                    {holdLeft == null ? 'Empezar cuenta' : holdLeft === 0 ? 'Otra vez' : 'Reiniciar'}
-                  </Text>
-                </Pressable>
-              )}
               {split && <Text style={styles.sideHint}>Alternando: {split}.</Text>}
               {ex && modifiedKeys.includes(item.key) && (
                 <Text style={styles.modNote}>Modificado: {modificationFor(ex)}</Text>
@@ -1200,6 +1175,20 @@ export default function WorkoutScreen() {
           {upcoming != null && upcoming !== idx && phase !== 'feedback' && (
             <Text style={styles.next}>A continuación: {exName(items[upcoming].slot.exerciseId)}</Text>
           )}
+
+          {/* Reloj de la sesión: usa el espacio libre; en el descanso y las preguntas se achica. */}
+          <View style={styles.clockArea}>
+            <Text
+              style={[
+                styles.clock,
+                fontsLoaded && { fontFamily: 'BebasNeue_400Regular' },
+                { fontSize: clockSize, lineHeight: clockSize * 1.05 },
+              ]}
+            >
+              {fmtClock((now - startedAt) / 1000)}
+            </Text>
+            <Text style={styles.clockLabel}>Tiempo de entrenamiento</Text>
+          </View>
         </ScrollView>
       )}
 
@@ -1308,18 +1297,7 @@ function PainSheet({
     return (
       <>
         <Text style={styles.barTitle}>¿Cuánto duele?</Text>
-        <View style={styles.chips}>
-          {PAIN_OPTIONS.filter((o) => o.level > 0).map((o) => (
-            <Pressable
-              accessibilityRole="button"
-              key={o.level}
-              onPress={() => onLevel(o.level)}
-              style={[styles.chip, styles.painOn]}
-            >
-              <Text style={[styles.chipText, { color: colors.bg }]}>{o.label}</Text>
-            </Pressable>
-          ))}
-        </View>
+        <ChoiceTiles bare options={PAIN_LEVEL_TILES} scale={['Menos', 'Más']} onPick={onLevel} />
         <Button label="No duele" variant="ghost" onPress={onClose} />
       </>
     );
@@ -1359,6 +1337,18 @@ function PainSheet({
   );
 }
 
+const PAIN_LEVEL_TILES: Choice<PainLevel>[] = [
+  { id: 1, label: 'Leve', description: 'Se nota, pero no limita', tone: 'warning' },
+  { id: 2, label: 'Moderado', description: 'Molesta al moverme', tone: 'warning' },
+  { id: 3, label: 'Fuerte', description: 'Me limita o duele mucho', tone: 'warning' },
+];
+const CANT_DO_ICON: Record<CantDoReason, Choice<CantDoReason>['icon']> = {
+  no_place: 'home-outline',
+  dont_know: 'help-circle-outline',
+  too_hard: 'barbell-outline',
+  not_safe: 'shield-outline',
+};
+
 // «No puedo hacerlo»: primero el motivo; después, hacerlo modificado (se mantiene el ejercicio),
 // cambiarlo por uno más simple o saltarlo.
 function CantDoSheet({
@@ -1384,27 +1374,35 @@ function CantDoSheet({
     return (
       <>
         <Text style={styles.barTitle}>¿Qué pasa con este ejercicio?</Text>
-        <View style={styles.chips}>
-          {CANT_DO_OPTIONS.map((o) => (
-            <Pressable accessibilityRole="button" key={o.id} onPress={() => onReason(o.id)} style={styles.chip}>
-              <Text style={styles.chipText}>{o.label}</Text>
-            </Pressable>
-          ))}
-        </View>
+        <ChoiceTiles
+          bare
+          options={CANT_DO_OPTIONS.map((o) => ({ ...o, icon: CANT_DO_ICON[o.id] }))}
+          onPick={onReason}
+        />
         <Button label="Volver" variant="ghost" onPress={onClose} />
       </>
     );
+  // Primero lo que mantiene el ejercicio (hacerlo más fácil); debajo, cambiarlo o saltarlo.
   return (
     <>
       <Text style={styles.barTitle}>Hazlo más fácil</Text>
-      <Text style={styles.modText}>{modification}</Text>
+      <View style={styles.modCard}>
+        <Ionicons name="trending-down-outline" size={22} color={colors.accent} />
+        <Text style={[styles.modText, { flex: 1 }]}>{modification}</Text>
+      </View>
       <Button label="Lo hago así" onPress={onModify} />
-      <Text style={styles.hint}>
-        {altName ? `O cámbialo por ${altName}, parecido y más simple. ` : ''}
-        Si lo cambias o lo saltas, no te lo volveremos a proponer en las próximas 4 semanas.
-      </Text>
-      {altName && <Button label="Cambiarlo" variant="ghost" onPress={onSwap} />}
-      <Button label="Saltarlo por hoy" variant="ghost" onPress={onSkip} />
+      <Text style={styles.hint}>O si prefieres:</Text>
+      <ChoiceTiles
+        bare
+        options={[
+          ...(altName
+            ? [{ id: 'swap' as const, label: 'Cambiarlo', description: altName, icon: 'swap-horizontal' as const }]
+            : []),
+          { id: 'skip' as const, label: 'Saltarlo por hoy', icon: 'play-skip-forward-outline' as const },
+        ]}
+        onPick={(id) => (id === 'swap' ? onSwap() : onSkip())}
+        note="Si lo cambias o lo saltas, no te lo volveremos a proponer en las próximas 4 semanas."
+      />
       <Button label="Volver" variant="ghost" onPress={onClose} />
     </>
   );
@@ -1649,6 +1647,7 @@ const styles = StyleSheet.create({
   topRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   exName: { color: colors.text, ...display(30) },
   panel: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.md },
+  focusPanel: { paddingVertical: spacing.md, gap: spacing.sm },
   panelTitle: { color: colors.text, fontSize: 16, fontWeight: '800' },
   setLabel: { color: colors.textMuted, fontSize: 14, fontWeight: '700', textAlign: 'center' },
   setDots: { flexDirection: 'row', justifyContent: 'center', gap: 8 },
@@ -1656,7 +1655,7 @@ const styles = StyleSheet.create({
   setDotDone: { backgroundColor: colors.accent, borderColor: colors.accent },
   setDotNow: { borderColor: colors.accent },
   sideHint: { color: colors.textMuted, fontSize: 13, lineHeight: 18, textAlign: 'center' },
-  focusBig: { color: colors.text, fontSize: 56, fontWeight: '900', textAlign: 'center', fontVariant: ['tabular-nums'] },
+  focusBig: { color: colors.text, fontSize: 46, fontWeight: '900', textAlign: 'center', fontVariant: ['tabular-nums'] },
   focusUnit: { color: colors.textMuted, fontSize: 20, fontWeight: '700' },
   focusUnitLine: {
     color: colors.textMuted,
@@ -1676,7 +1675,7 @@ const styles = StyleSheet.create({
   doneBtn: {
     backgroundColor: colors.accent,
     borderRadius: radius.pill,
-    paddingVertical: 18,
+    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1686,16 +1685,6 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', justifyContent: 'space-around' },
   action: { flex: 1, alignItems: 'center', gap: 2, paddingVertical: 2 },
   actionText: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
-  holdBtn: {
-    alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: colors.surfaceAlt,
-    borderRadius: radius.md,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
   smallLink: { color: colors.link, fontWeight: '700', fontSize: 14 },
   askRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   askText: { flex: 1, color: colors.text, fontWeight: '700' },
@@ -1717,6 +1706,14 @@ const styles = StyleSheet.create({
   text: { color: colors.text, fontSize: 15, lineHeight: 21, textAlign: 'center' },
   hint: { color: colors.textMuted, fontSize: 13, lineHeight: 18 },
   modText: { color: colors.text, fontSize: 15, lineHeight: 21 },
+  modCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
   modNote: { color: colors.accent, fontSize: 14, lineHeight: 19, textAlign: 'center', fontWeight: '600' },
   top: {
     flexDirection: 'row',
@@ -1730,6 +1727,9 @@ const styles = StyleSheet.create({
   timerText: { color: colors.accent, fontSize: 13, fontWeight: '700' },
   content: { padding: spacing.lg, gap: spacing.lg },
   contentFill: { flexGrow: 1 },
+  clockArea: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.xs },
+  clock: { color: colors.text, fontWeight: '400', fontVariant: ['tabular-nums'] },
+  clockLabel: { color: colors.textMuted, fontSize: 12, fontWeight: '600' },
   blockTitle: { color: colors.accent, fontSize: 12, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
   card: { backgroundColor: colors.surface, borderRadius: radius.lg, overflow: 'hidden' },
   cardDone: { opacity: 0.6 },

@@ -23,6 +23,7 @@ export function ChoiceTiles<T extends string | number>({
   onPick,
   scale,
   note,
+  bare,
 }: {
   title?: string;
   options: Choice<T>[];
@@ -30,9 +31,11 @@ export function ChoiceTiles<T extends string | number>({
   onPick: (id: T) => void;
   scale?: [string, string];
   note?: string | null;
+  /** Sin el fondo del panel: para usarlas dentro de una hoja que ya tiene el suyo. */
+  bare?: boolean;
 }) {
   return (
-    <View style={styles.panel}>
+    <View style={bare ? styles.bare : styles.panel}>
       {title ? <Text style={styles.panelTitle}>{title}</Text> : null}
       <View style={styles.grid}>
         {options.map((o) => {
@@ -69,6 +72,7 @@ export function ChoiceTiles<T extends string | number>({
 
 const styles = StyleSheet.create({
   panel: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.md },
+  bare: { gap: spacing.md },
   panelTitle: { color: colors.text, fontSize: 16, fontWeight: '800' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   tile: {

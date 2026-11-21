@@ -20,14 +20,14 @@ export function SidePicker({ side, onSide }: { side: PainSide | null; onSide: (s
   return (
     <View style={{ gap: spacing.sm }}>
       <Text style={styles.label}>¿En qué lado?</Text>
-      <View style={styles.sideChips}>
+      <View style={styles.evenRow}>
         {SIDE_OPTIONS.map((o) => (
           <Pressable
             accessibilityRole="button"
             aria-selected={!!(side === o.side)}
             key={o.side}
             onPress={() => onSide(o.side)}
-            style={[styles.chip, side === o.side && styles.painOn]}
+            style={[styles.chip, styles.evenChip, side === o.side && styles.painOn]}
           >
             <Text style={[styles.chipText, side === o.side && { color: colors.bg }]}>{o.label}</Text>
           </Pressable>
@@ -57,14 +57,14 @@ export function WeakSidePicker({
   return (
     <View style={{ gap: spacing.sm }}>
       <Text style={styles.label}>{label}</Text>
-      <View style={styles.sideChips}>
+      <View style={styles.evenRow}>
         {WEAK_OPTIONS.map((o) => (
           <Pressable
             accessibilityRole="button"
             aria-selected={side === o.side}
             key={o.side}
             onPress={() => onSide(side === o.side ? null : o.side)}
-            style={[styles.chip, side === o.side && styles.weakOn]}
+            style={[styles.chip, styles.evenChip, side === o.side && styles.weakOn]}
           >
             <Text style={[styles.chipText, side === o.side && { color: colors.onAccent }]}>{o.label}</Text>
           </Pressable>
@@ -95,7 +95,8 @@ export function PainPicker({
   return (
     <View style={{ gap: spacing.sm }}>
       <Text style={styles.label}>¿Sentiste molestia o dolor?</Text>
-      <View style={styles.chips}>
+      {/* Cuatro opciones del mismo ancho, de «Nada» a «Fuerte». */}
+      <View style={styles.evenRow}>
         {PAIN_OPTIONS.map((o) => {
           const on = pain === o.level;
           return (
@@ -104,7 +105,7 @@ export function PainPicker({
               aria-selected={!!on}
               key={o.level}
               onPress={() => onPain(on ? null : o.level)}
-              style={[styles.chip, on && (o.level === 0 ? styles.chipOn : styles.painOn)]}
+              style={[styles.chip, styles.evenChip, on && (o.level === 0 ? styles.chipOn : styles.painOn)]}
             >
               <Text style={[styles.chipText, on && { color: o.level === 0 ? colors.onAccent : colors.bg }]}>
                 {o.label}
@@ -126,7 +127,8 @@ const styles = StyleSheet.create({
   label: { color: colors.textMuted, fontSize: 14, fontWeight: '600' },
   link: { color: colors.textMuted, fontWeight: '700', fontSize: 14 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, flexShrink: 1, justifyContent: 'flex-end' },
-  sideChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  evenRow: { flexDirection: 'row', gap: 6 },
+  evenChip: { flex: 1, minWidth: 0, paddingHorizontal: 4, paddingVertical: 10 },
   chip: {
     minWidth: 40,
     paddingHorizontal: 10,
