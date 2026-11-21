@@ -86,6 +86,25 @@ test('con un lado marcado la carga no sube y se sugiere empezar por el débil', 
   assert.ok(!progressSlot(slot, ex, profile, history('even')).rationale?.includes('lado'));
 });
 
+test('«Con lo justo» mantiene la carga, sin quitar series', () => {
+  const slot: ExerciseSlot = {
+    exerciseId: ex.id,
+    sets: 3,
+    reps: 8,
+    durationSec: null,
+    weightKg: 12,
+    restSec: 60,
+    rationale: null,
+    role: 'B',
+  };
+  const tight = history(null).map((s) => ({ ...s, feeling: 'tight' as const }));
+  const held = progressSlot(slot, ex, profile, tight);
+  assert.equal(held.weightKg, 12);
+  assert.equal(held.sets, 3);
+  assert.equal(held.rationale, 'Mantenemos la carga: la última vez terminaste con lo justo.');
+  assert.equal(feltTooMuch(ex.id, tight), true);
+});
+
 test('el consejo nombra los dos lados', () => {
   assert.equal(weakSideCue('left'), 'Empieza por tu lado izquierdo y haz las mismas repeticiones con el derecho.');
 });

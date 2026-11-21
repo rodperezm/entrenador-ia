@@ -66,14 +66,17 @@ const SIDE_NOTE: Record<PainSide, string> = {
   both: ' (ambos lados)',
 };
 const exName = (id: string) => EXERCISES_BY_ID.get(id)?.name.es ?? id;
-const FEELING_OPTIONS: { id: Feeling; label: string }[] = [
-  { id: 'wanted_more', label: 'Me quedé con ganas' },
-  { id: 'right', label: 'Justo' },
-  { id: 'too_much', label: 'Fue mucho' },
+// De más suave a más exigente.
+const FEELING_OPTIONS: { id: Feeling; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { id: 'wanted_more', label: 'Me quedé con ganas', icon: 'flash-outline' },
+  { id: 'right', label: 'Bien', icon: 'thumbs-up-outline' },
+  { id: 'tight', label: 'Con lo justo', icon: 'speedometer-outline' },
+  { id: 'too_much', label: 'Fue mucho', icon: 'battery-dead-outline' },
 ];
 const FEELING_NOTE: Record<Feeling, string> = {
   wanted_more: 'Anotado: la próxima vez podemos subir.',
   right: 'Anotado: seguimos con tu progresión.',
+  tight: 'Anotado: la próxima vez mantenemos la carga.',
   too_much: 'Anotado: la próxima vez no subimos nada.',
 };
 
@@ -1501,47 +1504,62 @@ function Summary({
     ),
   ];
   const [mild, moderate, strong] = [painIn(1), painIn(2), painIn(3)];
+  const sets = logs.filter((l) => (l.repsDone ?? 0) > 0 || (l.durationSec ?? 0) > 0).length;
+  const reserve = rpes.length ? (rpes.reduce((a, b) => a + (10 - b), 0) / rpes.length).toFixed(1) : null;
+  // Una línea que dice qué fue la sesión: con carga, los kilos; sin ella, el tiempo dedicado.
+  const seriesText = `${sets} ${sets === 1 ? 'serie' : 'series'}`;
+  const hero = volume
+    ? `Moviste ${volume.toLocaleString('es-CL')} kg${minutes > 0 ? ` en ${minutes} min` : ''}`
+    : minutes > 0
+      ? `${minutes} min y ${seriesText} para tu cuerpo`
+      : `${seriesText} para tu cuerpo`;
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={[styles.summary, insetsStyle]}>
       <Stack.Screen options={{ headerShown: false, gestureEnabled: true }} />
       <Text style={styles.summaryTitle}>{logs.length ? '¡Lo lograste! 💪' : 'Entrenamiento terminado'}</Text>
+      {logs.length > 0 && <Text style={styles.summaryHero}>{hero}</Text>}
       {cameTired && <Text style={styles.text}>Llegaste cansado y lo hiciste igual. Bien hecho.</Text>}
       {logs.length > 0 && (
         <View style={styles.panel}>
           <Text style={styles.panelTitle}>¿Cómo estuvo hoy?</Text>
-          <View style={styles.chips}>
-            {FEELING_OPTIONS.map((o) => (
-              <Pressable
-                accessibilityRole="button"
-                aria-selected={!!(feeling === o.id)}
-                key={o.id}
-                onPress={() => onFeeling(o.id)}
-                style={[styles.chip, feeling === o.id && styles.chipOn]}
-              >
-                <Text style={[styles.chipText, feeling === o.id && { color: colors.onAccent }]}>{o.label}</Text>
-              </Pressable>
-            ))}
+          {/* Una escala: de más suave a más exigente. */}
+          <View style={styles.feelGrid}>
+            {FEELING_OPTIONS.map((o) => {
+              const on = feeling === o.id;
+              return (
+                <Pressable
+                  accessibilityRole="button"
+                  aria-selected={on}
+                  key={o.id}
+                  onPress={() => onFeeling(o.id)}
+                  style={[styles.feelTile, on && styles.feelTileOn]}
+                >
+                  <Ionicons name={o.icon} size={24} color={on ? colors.onAccent : colors.accent} />
+                  <Text style={[styles.feelText, on && { color: colors.onAccent }]}>{o.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <View style={styles.feelScale}>
+            <Text style={styles.feelScaleText}>Más suave</Text>
+            <View style={styles.feelScaleLine} />
+            <Text style={styles.feelScaleText}>Más exigente</Text>
           </View>
           {feeling && <Text style={styles.hint}>{FEELING_NOTE[feeling]}</Text>}
         </View>
       )}
+      {/* Solo lo que tiene valor: un día de movilidad no muestra repeticiones ni kilos en cero. */}
       {logs.length > 0 && (
         <View style={styles.statsGrid}>
           <Stat label="Minutos" value={String(minutes)} />
-          <Stat
-            label="Series"
-            value={String(logs.filter((l) => (l.repsDone ?? 0) > 0 || (l.durationSec ?? 0) > 0).length)}
-          />
-          <Stat label="Repeticiones" value={String(totalReps)} />
-          <Stat label="Kg movidos" value={volume ? volume.toLocaleString('es-CL') : '—'} />
-          <Stat
-            label="Reps de reserva"
-            value={rpes.length ? (rpes.reduce((a, b) => a + (10 - b), 0) / rpes.length).toFixed(1) : '—'}
-          />
+          <Stat label="Series" value={String(sets)} />
+          {totalReps > 0 && <Stat label="Repeticiones" value={String(totalReps)} />}
+          {volume > 0 && <Stat label="Kg movidos" value={volume.toLocaleString('es-CL')} />}
+          {reserve != null && <Stat label="Reps de reserva" value={reserve} />}
+          {kcal && <Stat label="kcal estimadas" value={kcal.replace(/\s*kcal$/, '')} />}
         </View>
       )}
-      {logs.length > 0 && kcal && <Text style={styles.text}>Gasto estimado: {kcal}</Text>}
       {strong.length > 0 && (
         <View style={styles.painBox}>
           <Text style={styles.painTitle}>Dolor fuerte en: {strong.join(', ')}</Text>
@@ -1720,6 +1738,24 @@ const styles = StyleSheet.create({
   restBtnText: { color: colors.text, fontWeight: '700' },
   summary: { padding: spacing.xl, gap: spacing.lg },
   summaryTitle: { color: colors.text, ...display(38), textAlign: 'center' },
+  summaryHero: { color: colors.accent, fontSize: 17, fontWeight: '800', textAlign: 'center', marginTop: -spacing.sm },
+  feelGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  feelTile: {
+    width: '48%',
+    flexGrow: 1,
+    minHeight: 76,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  feelTileOn: { backgroundColor: colors.accent },
+  feelText: { color: colors.text, fontWeight: '700', fontSize: 14, textAlign: 'center' },
+  feelScale: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  feelScaleText: { color: colors.textMuted, fontSize: 12, fontWeight: '600' },
+  feelScaleLine: { flex: 1, height: 2, borderRadius: 1, backgroundColor: colors.border },
   checkInNote: { color: colors.accent, fontSize: 15, fontWeight: '700', lineHeight: 21 },
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'center' },
   stat: {

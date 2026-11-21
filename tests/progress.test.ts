@@ -30,9 +30,23 @@ test('una sesión de hace más de seis semanas no entra en la constancia', () =>
 
 test('«cómo responde tu cuerpo» resume lo marcado en las últimas 4 semanas', () => {
   const p = progressSummary(
-    [at(0, { feeling: 'right' }), at(3, { feeling: 'wanted_more' }), at(8), at(40, { feeling: 'too_much' })],
+    [
+      at(0, { feeling: 'right' }),
+      at(3, { feeling: 'wanted_more' }),
+      at(5, { feeling: 'tight' }),
+      at(8),
+      at(40, { feeling: 'too_much' }),
+    ],
     EXERCISES,
     NOW,
   );
-  assert.deepEqual(p.body, { sessions: 3, painFree: 3, answered: 2, right: 1, wantedMore: 1, tooMuch: 0 });
+  assert.deepEqual(p.body, {
+    sessions: 4,
+    painFree: 4,
+    answered: 3,
+    right: 1,
+    tight: 1,
+    wantedMore: 1,
+    tooMuch: 0,
+  });
 });

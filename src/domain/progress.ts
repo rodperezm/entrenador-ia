@@ -33,7 +33,15 @@ export type ProgressSummary = {
   /** Sesiones de cada una de las últimas semanas, de la más antigua a la actual. */
   weeks: { monday: number; count: number }[];
   /** Últimas 4 semanas: sesiones sin ninguna molestia, y cómo dijo la persona que terminó. */
-  body: { sessions: number; painFree: number; answered: number; right: number; wantedMore: number; tooMuch: number };
+  body: {
+    sessions: number;
+    painFree: number;
+    answered: number;
+    right: number;
+    tight: number;
+    wantedMore: number;
+    tooMuch: number;
+  };
 };
 
 export const PROGRESS_WEEKS = 6;
@@ -147,6 +155,7 @@ export function progressSummary(history: WorkoutSession[], exercises: Exercise[]
     painFree: recent.filter((x) => x.sets.every((l) => painOf(l) === 0)).length,
     answered: feelings.length,
     right: feelings.filter((f) => f === 'right').length,
+    tight: feelings.filter((f) => f === 'tight').length,
     wantedMore: feelings.filter((f) => f === 'wanted_more').length,
     tooMuch: feelings.filter((f) => f === 'too_much').length,
   };

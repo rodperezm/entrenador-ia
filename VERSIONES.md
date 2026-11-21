@@ -52,6 +52,30 @@ Plan de ambientes: la dirección de GitHub pasará a ser pruebas, con su propia 
 
 ## Historial
 
+### 1.13.0 · 21 de noviembre de 2026
+
+«¿Cómo estuvo hoy?» con cuatro respuestas y una pantalla final con más carácter.
+
+**Qué cambia para la persona**
+
+- Al terminar, «¿Cómo estuvo hoy?» es una escala de cuatro pasos, de más suave a más exigente: Me quedé con ganas, Bien, Con lo justo y Fue mucho. Son tarjetas con ícono y una línea «Más suave – Más exigente».
+- «Con lo justo» es nuevo: la próxima vez se mantiene la carga, sin subir ni quitar series. «Bien» reemplaza a «Justo».
+- Bajo el título aparece una línea que resume la sesión: «Moviste 896 kg en 26 min», o en un día sin pesas, «26 min y 15 series para tu cuerpo».
+- Solo se muestran los datos con valor (un día de movilidad ya no muestra «0 repeticiones» ni «—»), y las calorías pasan a ser una tarjeta.
+- En «Mi progreso», «Terminaste «justo»» pasa a «Terminaste «bien»» y se cuentan las veces «con lo justo».
+
+**Qué cambia por dentro**
+
+- App: `src/domain/schema.ts` (`tight` en `Feeling`), `src/domain/progression.ts` (con `tight` se mantiene la carga; `feltTooMuch` lo cuenta, así la guardia de la IA tampoco sube), `src/app/workout/[day].tsx` (pantalla final), `src/domain/progress.ts` y `src/app/progress.tsx` (conteo), `src/features/account/excelExport.ts` (nombres en el Excel). Pruebas: 154 en total.
+- Función de la IA (`supabase/functions/generate-plan/index.ts`): las instrucciones describen la escala y piden mantener la carga con `tight`. Publicada el 21-11 en pruebas (versión 5) y en producción (versión 32), antes de esta versión de la app.
+- Sin cambios en la base de datos.
+
+**Notas para quien siga el trabajo**
+
+- `right` conserva su sentido: lo guardado como «Justo» significaba «bien», por eso solo cambió el texto. «Con lo justo» es un valor nuevo (`tight`) para no mezclar registros antiguos con el nuevo significado.
+- En la función de pruebas, `usage.ts` quedó con un comentario sin las palabras «como antes»; no cambia el funcionamiento y se corrige al publicar la función de nuevo.
+- Vuelta atrás: publicar la app desde `v1.12.0`. Una app anterior no reconoce `tight`: al cargar el historial deja fuera las sesiones con «Con lo justo» (`salvageList`), así que conviene no volver atrás si ya hay sesiones con esa respuesta. La función nueva funciona igual con la app anterior.
+
 ### 1.12.0 · 19 de noviembre de 2026
 
 Desbalance entre lados: si un lado te cuesta más en un ejercicio a un lado, la app lo cuida.

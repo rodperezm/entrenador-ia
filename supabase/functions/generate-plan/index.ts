@@ -112,8 +112,9 @@ Reglas obligatorias:
   * "pain" leve → mantén la misma carga, no subas.
   * "pain" moderado → baja la exigencia (menos reps o kettlebell más liviana).
   * "pain" fuerte → NO uses ese ejercicio esta semana: cámbialo por un candidato más suave del mismo patrón y explícalo en "rationale".
-- Sensación de la persona ("recentFeelings"): manda sobre las reglas de progresión. "arrival" es cómo llegó (energized, normal, tired, pain), "afterWarmup" cómo se sintió tras calentar (activated, tired, very_tired), "feeling" cómo estuvo al terminar (wanted_more = se quedó con ganas, right = justo, too_much = fue mucho) y "painNextDay" cómo amaneció la molestia (better, same, worse).
+- Sensación de la persona ("recentFeelings"): manda sobre las reglas de progresión. "arrival" es cómo llegó (energized, normal, tired, pain), "afterWarmup" cómo se sintió tras calentar (activated, tired, very_tired), "feeling" cómo estuvo al terminar (de más suave a más exigente: wanted_more = se quedó con ganas, right = bien, tight = con lo justo, too_much = fue mucho) y "painNextDay" cómo amaneció la molestia (better, same, worse).
   * too_much → no subas nada en esos ejercicios; dos veces seguidas → una serie menos.
+  * tight → lo terminó al límite: mantén la misma carga en esos ejercicios, sin subir ni quitar series.
   * wanted_more → puedes subir aunque el RPE haya sido 9.
   * Si llega cansado seguido pero se activa al calentar, mantén la exigencia; si sigue cansado tras calentar varias veces, baja el volumen de la semana y explícalo.
   * Dolor al llegar en una zona (painZone), o painNextDay worse → evita esa semana los ejercicios que carguen esa zona.

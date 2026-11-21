@@ -52,14 +52,19 @@ function topStreak(exerciseId: string, history: WorkoutSession[], weight: number
   return streak;
 }
 
-// La última vez que hizo el ejercicio dijo «Fue mucho»: no se exige más.
+// La última vez que hizo el ejercicio dijo «Fue mucho» o «Con lo justo»: no se exige más.
 // También cuenta si la última vez lo hizo modificado («No puedo hacerlo» → más fácil): no se sube la carga.
 // Y si la última vez marcó que un lado le costó más: la carga espera al lado débil.
 export const feltTooMuch = (exerciseId: string, history: WorkoutSession[]) => {
   const last = lastSessionOf(exerciseId, history);
   const session = last?.session;
   const weakMarked = !!last?.logs.some((l) => l.weakSide === 'left' || l.weakSide === 'right');
-  return session?.feeling === 'too_much' || !!session?.modified?.includes(exerciseId) || weakMarked;
+  return (
+    session?.feeling === 'too_much' ||
+    session?.feeling === 'tight' ||
+    !!session?.modified?.includes(exerciseId) ||
+    weakMarked
+  );
 };
 
 // «Fue mucho» en las dos últimas sesiones: se baja una serie.
@@ -180,6 +185,16 @@ export function progressSlot(
       rationale: tooMuchTwice(history)
         ? 'Una serie menos: las dos últimas veces te pareció mucho.'
         : 'Mantenemos la carga: la última vez te pareció mucho.',
+    };
+  }
+
+  // «Con lo justo»: lo terminó al límite. Se repite igual, sin quitar nada.
+  if (feeling === 'tight') {
+    return {
+      ...slot,
+      reps: slot.durationSec != null ? slot.reps : (logs[0].targetReps ?? slot.reps),
+      weightKg: lastWeight,
+      rationale: 'Mantenemos la carga: la última vez terminaste con lo justo.',
     };
   }
 

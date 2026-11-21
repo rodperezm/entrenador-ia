@@ -158,16 +158,17 @@ export default function ProgressScreen() {
           <View style={styles.stats}>
             <Stat value={`${p.body.painFree} de ${p.body.sessions}`} label="Sesiones sin molestias" />
             {p.body.answered ? (
-              <Stat value={`${p.body.right} de ${p.body.answered}`} label="Terminaste «justo»" />
+              <Stat value={`${p.body.right} de ${p.body.answered}`} label="Terminaste «bien»" />
             ) : null}
           </View>
         ) : (
           <Text style={styles.note}>Sin sesiones en las últimas 4 semanas.</Text>
         )}
-        {p.body.wantedMore + p.body.tooMuch > 0 && (
+        {p.body.wantedMore + p.body.tight + p.body.tooMuch > 0 && (
           <Text style={styles.note}>
             {[
               p.body.wantedMore ? `${plural(p.body.wantedMore, 'vez', 'veces')} con ganas de más` : null,
+              p.body.tight ? `${plural(p.body.tight, 'vez', 'veces')} «con lo justo»` : null,
               p.body.tooMuch ? `${plural(p.body.tooMuch, 'vez', 'veces')} «fue mucho»` : null,
             ]
               .filter(Boolean)

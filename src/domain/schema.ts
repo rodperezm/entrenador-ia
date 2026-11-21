@@ -344,7 +344,9 @@ export const CheckIn = z.object({
   afterWarmup: z.enum(['activated', 'tired', 'very_tired']).optional(),
 });
 export type CheckIn = z.infer<typeof CheckIn>;
-export const Feeling = z.enum(['wanted_more', 'right', 'too_much']);
+// De más suave a más exigente: «Me quedé con ganas», «Bien» (right; antes se llamaba «Justo»),
+// «Con lo justo» (tight: lo terminó al límite) y «Fue mucho».
+export const Feeling = z.enum(['wanted_more', 'right', 'tight', 'too_much']);
 export type Feeling = z.infer<typeof Feeling>;
 export const PainFollowUp = z.enum(['better', 'same', 'worse']);
 export type PainFollowUp = z.infer<typeof PainFollowUp>;

@@ -22,7 +22,7 @@ const PAIN = ['Nada', 'Leve', 'Moderado', 'Fuerte'];
 const SIDE = { left: 'Izquierdo', right: 'Derecho', both: 'Ambos' };
 const FORMAT = { hiit: 'HIIT', amrap: 'AMRAP' };
 const AFTER_WARMUP = { activated: 'Me activé', tired: 'Sigo cansado', very_tired: 'Muy cansado' };
-const FEELING = { wanted_more: 'Me quedé con ganas', right: 'Justo', too_much: 'Fue mucho' };
+const FEELING = { wanted_more: 'Me quedé con ganas', right: 'Bien', tight: 'Con lo justo', too_much: 'Fue mucho' };
 const NEXT_DAY = { better: 'Mejor', same: 'Igual', worse: 'Peor' };
 const arrivalText = (c: CheckIn | undefined) => {
   if (!c) return null;
