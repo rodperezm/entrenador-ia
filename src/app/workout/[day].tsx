@@ -1052,7 +1052,12 @@ export default function WorkoutScreen() {
               {hasConditions && !painAsked && (
                 <View style={styles.askRow}>
                   <Text style={styles.askText}>¿Te dolió esa serie?</Text>
-                  <Pressable accessibilityRole="button" onPress={() => setPainAsked(true)} style={styles.restBtn}>
+                  {/* Iguales y sin relleno: ninguna parece elegida. «Sí» va en ámbar porque es la de cuidado. */}
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setPainAsked(true)}
+                    style={[styles.restBtn, styles.askBtn]}
+                  >
                     <Text style={styles.restBtnText}>No</Text>
                   </Pressable>
                   <Pressable
@@ -1061,9 +1066,9 @@ export default function WorkoutScreen() {
                       setPainAsked(true);
                       setPainSheet('levels');
                     }}
-                    style={[styles.restBtn, { backgroundColor: colors.warning }]}
+                    style={[styles.restBtn, styles.askBtn]}
                   >
-                    <Text style={[styles.restBtnText, { color: colors.bg }]}>Sí</Text>
+                    <Text style={[styles.restBtnText, { color: colors.warning }]}>Sí</Text>
                   </Pressable>
                 </View>
               )}
@@ -1791,6 +1796,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   restBtnText: { color: colors.text, fontWeight: '700' },
+  askBtn: { minWidth: 64, alignItems: 'center' },
   summary: { padding: spacing.xl, gap: spacing.lg },
   summaryTitle: { color: colors.text, ...display(38), textAlign: 'center' },
   summaryHero: { color: colors.accent, fontSize: 17, fontWeight: '800', textAlign: 'center', marginTop: -spacing.sm },
