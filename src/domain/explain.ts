@@ -225,8 +225,8 @@ export function explainWeek(input: {
 }
 
 const INTENSITY_NOTE: Record<Intensity, string> = {
-  intense: 'Día fuerte: la dosis completa de la semana.',
-  moderate: 'Día moderado: una serie menos, para recuperarte entre días exigentes.',
+  intense: 'Día fuerte: hoy van todas las series que te tocan.',
+  moderate: 'Día moderado: una serie menos que tu día fuerte, para recuperarte.',
   light: 'Día suave: técnica y movimiento, sin buscar más carga.',
 };
 
@@ -243,6 +243,8 @@ export function explainDay(input: {
   profile: LocalProfile;
   exercises: Exercise[];
   intensity: Intensity | null;
+  /** Si la semana tiene días de Fuerza más livianos: sin ellos, «Día fuerte» no dice nada nuevo. */
+  weekMixed?: boolean;
   /** Zona del día cuando la Fuerza de la semana va dividida. */
   focus?: DayFocus;
 }): string[] {
@@ -255,7 +257,9 @@ export function explainDay(input: {
 
   const focus = !cfg.gentleStrength && main.length ? (input.focus ?? 'full') : 'full';
   if (focus !== 'full') lines.push(FOCUS_NOTE[focus]);
-  if (main.length && input.intensity && !cfg.gentleStrength) lines.push(INTENSITY_NOTE[input.intensity]);
+  // «Día fuerte» solo se explica si hay otros días más livianos con qué compararlo.
+  const intensity = input.intensity === 'intense' && !input.weekMixed ? null : input.intensity;
+  if (main.length && intensity && !cfg.gentleStrength) lines.push(INTENSITY_NOTE[intensity]);
 
   const families = [...new Set(main.flatMap((s) => (ex(s) ? [familyOf(ex(s)!)] : [])).filter((f): f is Family => !!f))];
   // Calentamiento y elongación se explican con lo que de verdad cubren, no con lo que se esperaba.

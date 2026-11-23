@@ -273,6 +273,9 @@ export default function DayScreen() {
                     : dayIntensity(week.days, day, profile.level)
                   : null,
                 focus: weekFocus(week.days)[day]?.focus,
+                weekMixed: week.days
+                  .filter((d) => d.active && d.blocks.main.enabled && !d.gentleStrength)
+                  .some((d) => dayIntensity(week.days, d.day, profile.level) !== 'intense'),
               })}
             />
           )}
