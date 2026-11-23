@@ -1014,9 +1014,10 @@ export default function WorkoutScreen() {
             </View>
           ) : phase === 'rest' ? (
             // Descanso: la cuenta ocupa la zona grande; debajo, lo que viene y sus controles.
-            <View style={[styles.panel, styles.focusPanel]}>
+            // Enmarcado en amarillo (semáforo): pausa. El verde queda para el tiempo de entrenamiento.
+            <View style={[styles.panel, styles.focusPanel, styles.restFrame]}>
               <Text style={[styles.restLabel, { textAlign: 'center' }]}>Descanso · luego serie {done + 1}</Text>
-              <Text style={[styles.focusBig, { color: colors.good }]}>{fmtClock(Math.max(0, restLeft ?? 0))}</Text>
+              <Text style={[styles.focusBig, { color: colors.rest }]}>{fmtClock(Math.max(0, restLeft ?? 0))}</Text>
               <Text style={styles.sideHint}>
                 Siguiente: {target}
                 {usesKb && weight ? ` · ${weightLabel(item.slot.exerciseId, weight)}` : ''}
@@ -1183,16 +1184,19 @@ export default function WorkoutScreen() {
 
           {/* Reloj de la sesión: usa el espacio libre; en el descanso y las preguntas se achica. */}
           <View style={styles.clockArea}>
-            <Text
-              style={[
-                styles.clock,
-                fontsLoaded && { fontFamily: 'BebasNeue_400Regular' },
-                { fontSize: clockSize, lineHeight: clockSize * 1.05 },
-              ]}
-            >
-              {fmtClock((now - startedAt) / 1000)}
-            </Text>
-            <Text style={styles.clockLabel}>Tiempo de entrenamiento</Text>
+            {/* Enmarcado en verde (semáforo): estás entrenando. */}
+            <View style={styles.clockFrame}>
+              <Text
+                style={[
+                  styles.clock,
+                  fontsLoaded && { fontFamily: 'BebasNeue_400Regular' },
+                  { fontSize: clockSize, lineHeight: clockSize * 1.05 },
+                ]}
+              >
+                {fmtClock((now - startedAt) / 1000)}
+              </Text>
+              <Text style={styles.clockLabel}>Tiempo de entrenamiento</Text>
+            </View>
           </View>
         </ScrollView>
       )}
@@ -1734,7 +1738,18 @@ const styles = StyleSheet.create({
   contentFill: { flexGrow: 1 },
   clockArea: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.xs },
   clock: { color: colors.text, fontWeight: '400', fontVariant: ['tabular-nums'] },
-  clockLabel: { color: colors.textMuted, fontSize: 12, fontWeight: '600' },
+  clockFrame: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderWidth: 2,
+    borderColor: colors.good,
+    backgroundColor: colors.goodSoft,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  clockLabel: { color: colors.good, fontSize: 12, fontWeight: '700' },
   blockTitle: { color: colors.accent, fontSize: 12, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
   card: { backgroundColor: colors.surface, borderRadius: radius.lg, overflow: 'hidden' },
   cardDone: { opacity: 0.6 },
@@ -1788,7 +1803,8 @@ const styles = StyleSheet.create({
   },
   barTitle: { color: colors.text, fontSize: 18, fontWeight: '800' },
   restRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  restLabel: { color: colors.good, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 },
+  restFrame: { borderWidth: 2, borderColor: colors.rest, backgroundColor: colors.restSoft },
+  restLabel: { color: colors.rest, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 },
   restBtn: {
     backgroundColor: colors.surfaceAlt,
     borderRadius: radius.pill,

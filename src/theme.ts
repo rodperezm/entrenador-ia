@@ -14,6 +14,10 @@ export const colors = {
   // Semáforo de los índices corporales y del descanso. «Atención» es el ámbar de los avisos (warning).
   // El rojo de «mal» es distinto del de la marca a propósito: no debe confundirse con un botón.
   good: '#2EBD6B',
+  goodSoft: 'rgba(46, 189, 107, 0.10)',
+  // Descanso en el entrenamiento: amarillo limón, distinto del ámbar de los avisos y del dolor.
+  rest: '#FFD43B',
+  restSoft: 'rgba(255, 212, 59, 0.10)',
   bad: '#E5484D',
   low: '#6FA6D6', // bajo lo esperado (por ejemplo, poca grasa corporal)
   white: '#FFFFFF',
