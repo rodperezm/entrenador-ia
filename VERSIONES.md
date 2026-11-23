@@ -52,6 +52,27 @@ Plan de ambientes: la dirección de GitHub pasará a ser pruebas, con su propia 
 
 ## Historial
 
+### 1.14.1 · 23 de noviembre de 2026
+
+Semáforo en el entrenamiento y «Día fuerte» explicado con claridad.
+
+**Qué cambia para la persona**
+
+- Entrenamiento: el reloj de la sesión va en un marco verde («estás entrenando») y el descanso, en un marco amarillo, con el tiempo del descanso también en amarillo. El amarillo es distinto del ámbar de «¿Duele?» y del «Sí», que siguen significando cuidado.
+- «¿Por qué esta sesión?»: «Día fuerte» ahora dice «hoy van todas las series que te tocan», y «Día moderado», «una serie menos que tu día fuerte, para recuperarte».
+- Esa línea solo aparece si la semana combina días fuertes y moderados. Si todos los días de fuerza son fuertes, ya no se muestra, porque no aporta.
+
+**Qué cambia por dentro**
+
+- App: `src/theme.ts` (colores `rest`, `restSoft` y `goodSoft`), `src/app/workout/[day].tsx` (marcos `clockFrame` y `restFrame`), `src/domain/explain.ts` (textos y `weekMixed`) y `src/app/day/[day].tsx` (calcula si la semana alterna). Prueba nueva: `tests/explainIntensity.test.ts`. Pruebas: 156 en total.
+- Sin cambios en la base de datos ni en la función de la IA.
+
+**Notas para quien siga el trabajo**
+
+- El verde del semáforo es solo para el tiempo de entrenamiento; el descanso usa `colors.rest` (amarillo limón). No usar `colors.warning` para el descanso: es el color del dolor y los avisos.
+- `weekMixed` se calcula con `dayIntensity` sobre los días de Fuerza activos (sin los de fuerza suave). Los días moderado y suave siempre muestran su línea.
+- Vuelta atrás: publicar desde `v1.14.0`. No deja nada a medias en los teléfonos.
+
 ### 1.14.0 · 23 de noviembre de 2026
 
 La pantalla del entrenamiento rediseñada: el ejercicio en grande, las acciones siempre a mano y el reloj de la sesión a la vista.
