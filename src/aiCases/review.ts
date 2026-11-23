@@ -55,7 +55,7 @@ const BAD_WORDS: [RegExp, string][] = [
 
 export function caseRequest(c: AiCase, now = Date.now()) {
   const history = c.history(now);
-  return { request: buildAiRequest(c.week, c.profile, EXERCISES, history, null, null), history };
+  return { request: buildAiRequest(c.week, c.profile, EXERCISES, history, null, null, now), history };
 }
 
 // Lo que el revisor mira en una semana. Con `raw` revisa la respuesta de la IA contra lo que se le

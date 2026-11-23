@@ -735,9 +735,9 @@ export function cantDoIds(history: WorkoutSession[], now = Date.now(), profileUp
 }
 
 // Lo que no se propone por ahora: dolor fuerte o repetido y lo que no pudo hacer.
-export const avoidedIds = (history: WorkoutSession[], profileUpdatedAt?: string) => [
-  ...strongPainIds(history),
-  ...cantDoIds(history, Date.now(), profileUpdatedAt),
+export const avoidedIds = (history: WorkoutSession[], profileUpdatedAt?: string, now = Date.now()) => [
+  ...strongPainIds(history, now),
+  ...cantDoIds(history, now, profileUpdatedAt),
 ];
 
 const withoutPainful = (profile: LocalProfile, history: WorkoutSession[]): LocalProfile => ({

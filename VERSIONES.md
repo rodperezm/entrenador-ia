@@ -52,6 +52,35 @@ Plan de ambientes: la dirección de GitHub pasará a ser pruebas, con su propia 
 
 ## Historial
 
+### 1.14.0 · 23 de noviembre de 2026
+
+La pantalla del entrenamiento rediseñada: el ejercicio en grande, las acciones siempre a mano y el reloj de la sesión a la vista.
+
+**Qué cambia para la persona**
+
+- El reloj grande de la sesión sigue arriba; se achica durante el descanso o cuando se abre una hoja, para que todo quepa.
+- El ejercicio actual va en un solo panel: el número grande con «segundos» o «repeticiones» al lado, el lado que toca, el peso y una tarjeta de técnica con la figura del cuerpo y hasta tres claves.
+- «Hecha» y las acciones (Ajustar, ¿Duele?, No puedo y Saltar) quedan fijas abajo, sin tener que bajar a buscarlas.
+- El descanso se muestra en el mismo panel, con el tiempo en verde, «Siguiente: …», «+15 s» y «Terminar descanso». Ya no aparece «Empezar cuenta».
+- «¿Te dolió esa serie?» tiene No y Sí del mismo tamaño, sin que Sí parezca marcado.
+- «¿Sentiste molestia o dolor?» muestra los niveles como tarjetas parejas, con escala de «Menos» a «Más».
+- «No puedo» se rediseñó: primero el motivo en tarjetas con ícono; después «Hazlo más fácil» como opción principal y, si prefieres, Cambiarlo o Saltarlo por hoy.
+- «A continuación» solo aparece cuando el siguiente ejercicio es otro.
+
+**Qué cambia por dentro**
+
+- App: `src/app/workout/[day].tsx` (diseño de la pantalla, barra fija, descanso dentro del panel, hojas de dolor y de «No puedo»), `src/features/workout/ChoiceTiles.tsx` (modo `bare` para usar las tarjetas dentro de una hoja) y `src/features/workout/PainControls.tsx` (opciones del mismo ancho).
+- La lógica no cambia: lo que se guarda de cada serie, la progresión y las respuestas son las mismas. Pruebas: 154 en total.
+- Casos fijos de la IA: `avoidedIds` y `buildAiRequest` reciben la fecha de referencia (`now`), así la prueba «Dolor fuerte en un ejercicio la semana pasada» usa la fecha del caso y no la de hoy. Fallaba desde el 23-11 porque el dolor quedaba a más de 14 días. En la app no cambia nada: por defecto es la fecha de hoy.
+- Sin cambios en la base de datos ni en la función de la IA.
+
+**Notas para quien siga el trabajo**
+
+- Se armó en la rama `rediseno-entrenamiento`, probada en pruebas con los comentarios de Rodrigo, y se unió a main sin cambios.
+- El tamaño del reloj depende del alto de la pantalla (`COMPACT_HEIGHT` = 900): en 812 px de alto el reloj medio queda sobre la barra fija. Si se agrega algo al panel, revisar en ese alto.
+- `barOpen` (hoja abierta) y `actionsOpen` (barra de acciones) definen el espacio al final del contenido; si se agrega otra hoja, sumarla a `barOpen`.
+- Vuelta atrás: publicar desde `v1.13.1`. No deja nada a medias en los teléfonos.
+
 ### 1.13.1 · 21 de noviembre de 2026
 
 Las preguntas del inicio de la sesión con el mismo diseño de «¡Lo lograste!».

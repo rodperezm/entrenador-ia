@@ -49,6 +49,8 @@ export function buildAiRequest(
   history: WorkoutSession[],
   body: BodySnapshot | null,
   plan: StoredWeekPlan | null = null,
+  // Fecha de referencia: la de hoy; los casos fijos de la IA usan la suya.
+  now = Date.now(),
 ) {
   const forConditions = new Set(
     profile.conditions.flatMap((c) => MEDICAL_CONDITIONS.find((m) => m.id === c.conditionId)?.prehabExerciseIds ?? []),
@@ -60,7 +62,7 @@ export function buildAiRequest(
   const anywhere = {
     ...profile,
     equipment: [...new Set([...profile.equipment, ...equipmentAt('park', profile)])],
-    excludedExerciseIds: [...profile.excludedExerciseIds, ...avoidedIds(history, trainingStamp(profile))],
+    excludedExerciseIds: [...profile.excludedExerciseIds, ...avoidedIds(history, trainingStamp(profile), now)],
   };
   const allowed = new Map<string, Set<BlockType>>();
   for (const block of BLOCKS) {
