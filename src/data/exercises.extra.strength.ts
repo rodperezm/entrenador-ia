@@ -308,7 +308,7 @@ export const EXTRA_STRENGTH: ExerciseInput[] = [
     stretches: ['stretch_hamstring_supine', 'stretch_glute_figure4'],
   },
   // El clean sin el balanceo: la pesa parte quieta en el suelo. Más fácil de controlar y golpea menos
-  // el antebrazo. Es balístico, así que se gana con el clean en la escala técnica (A_STAGES).
+  // el antebrazo. Es parte del paso 12 de la fila técnica (domain/ladder), junto al clean.
   {
     id: 'kb_dead_clean',
     name: 'Clean desde el suelo',

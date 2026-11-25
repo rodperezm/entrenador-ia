@@ -57,8 +57,8 @@ export const EXTRA_KB_BATCH1: ExerciseInput[] = [
     stretches: ['stretch_hamstring_supine', 'stretch_hip_flexor_kneeling'],
     tags: ['potencia'],
   },
-  // Paso 5 de la progresión técnica (25-11-2026): el péndulo del swing sin el golpe de cadera.
-  // Comparte etapa con el swing con pausa en A_STAGES hasta que la escala tenga los 15 pasos.
+  // Paso 5 de la fila técnica (25-11-2026): el péndulo del swing sin el golpe de cadera.
+  // Paso propio de la fila técnica (domain/ladder): 1 semana de práctica antes del swing con pausa.
   {
     id: 'kb_hike_pass',
     name: 'Hike pass con kettlebell',

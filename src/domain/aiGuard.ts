@@ -12,6 +12,7 @@ import {
   prescribe,
 } from './generator';
 import { BIG_JUMP, effortBlocksRaise, feltTooMuch, progressSlot, wasTooHard } from './progression';
+import { BASE_STEPS, LADDER } from './ladder';
 import { dayIntensity, MIN_REST_SEC, offZone, POWER_REPS_MAX, slotRole, sortByRole, weekFocus } from './strength';
 import { fitPart, withMinCount } from './timeBudget';
 import { withSetRest } from './setRest';
@@ -140,6 +141,62 @@ function ensureShoulderPrep(blocks: PlannedBlock[], cfg: DayConfig, input: Guard
   return blocks.map((b) => (b === warmup ? { ...b, slots } : b));
 }
 
+// Todo día con trabajo de cadera parte con la bisagra en el calentamiento, como en las reglas (y
+// quien está en el paso 1 de la fila, siempre). Si la IA no la puso, entra primero y sale el último.
+function ensureHingeDrill(blocks: PlannedBlock[], cfg: DayConfig, input: GuardInput, cycle: CycleInfo): PlannedBlock[] {
+  const warmup = blocks.find((b) => b.type === 'warmup');
+  const main = blocks.find((b) => b.type === 'main_strength')?.slots ?? [];
+  if (!warmup?.slots.length || !main.length) return blocks;
+  const byId = new Map(input.exercises.map((e) => [e.id, e]));
+  const hinged = main.some((s) => byId.get(s.exerciseId)?.movementPattern === 'hinge') || cycle.stage === 1;
+  if (!hinged || warmup.slots.some((s) => byId.get(s.exerciseId)?.tags.includes('hinge_drill'))) return blocks;
+  const dayProfile = { ...input.profile, equipment: equipmentAt(cfg.location, input.profile) };
+  const drill = filterExercisesForUser(input.exercises, dayProfile, 'warmup').find((e) => e.tags.includes('hinge_drill'));
+  if (!drill) return blocks;
+  const slots = [prescribe(drill, input.profile, null), ...warmup.slots.slice(0, -1)];
+  return blocks.map((b) => (b === warmup ? { ...b, slots } : b));
+}
+
+// El paso actual de la fila tiene que estar en la semana para poder confirmarlo. Si la IA no lo puso
+// en ningún día, entra en el primer día de Fuerza donde corresponde, en lugar de un ejercicio del
+// mismo rol que no sea fijo (o se suma).
+function ensureLadderStep(days: DayPlan[], input: GuardInput, cycle: CycleInfo): DayPlan[] {
+  const byId = new Map(input.exercises.map((e) => [e.id, e]));
+  const zones = weekFocus(input.days);
+  const groups =
+    cycle.stage <= BASE_STEPS ? LADDER.slice(1, BASE_STEPS).map((s) => s.ids) : [LADDER[cycle.stage - 1].ids];
+  let out = days;
+  for (const ids of groups) {
+    const inWeek = out.some((d) =>
+      d.blocks.some((b) => b.type === 'main_strength' && b.slots.some((s) => ids.includes(s.exerciseId))),
+    );
+    if (inWeek) continue;
+    const pick = ids.map((id) => byId.get(id)).find((e) => !!e && input.mainCandidates.includes(e.id));
+    if (!pick) continue;
+    const role = slotRole(pick, cycle.stage) ?? 'B';
+    let done = false;
+    out = out.map((d) => {
+      const cfg = input.days.find((c) => c.day === d.day);
+      if (done || !cfg || cfg.gentleStrength) return d;
+      const focus = zones[d.day]?.focus ?? 'full';
+      if (offZone(pick, focus)) return d;
+      const available = new Set<string>(equipmentAt(cfg.location, input.profile));
+      if (!pick.equipment.required.every((q) => available.has(q))) return d;
+      if (role === 'A' && dayIntensity(input.days, d.day, input.profile.level) === 'light') return d;
+      const main = d.blocks.find((b) => b.type === 'main_strength');
+      if (!main) return d;
+      const fixed = input.lockedByDay[d.day] ?? [];
+      const slot = { ...prescribe(pick, input.profile, null), role };
+      const slots = [...main.slots];
+      const at = slots.findIndex((s) => !fixed.includes(s.exerciseId) && s.role === role);
+      if (at >= 0) slots.splice(at, 1);
+      done = true;
+      return { ...d, blocks: d.blocks.map((b) => (b === main ? { ...b, slots: [slot, ...slots] } : b)) };
+    });
+  }
+  return out;
+}
+
 // Con una lesión, el día de Fuerza no lleva bloque de Lesión: el calentamiento parte activando esa
 // zona con uno de sus ejercicios indicados. Si la IA no lo puso, entra primero y sale el último.
 function ensureInjuryActivation(blocks: PlannedBlock[], cfg: DayConfig, input: GuardInput): PlannedBlock[] {
@@ -248,11 +305,12 @@ export function guardAiPlan(plan: GeneratedWeekPlan, rawInput: GuardInput): Gene
   let restored = false;
   const zones = weekFocus(days);
   let rezoned = false;
-  const guarded = plan.days.map((day) => {
+  const withStep = ensureLadderStep(plan.days, input, cycle);
+  const guarded = withStep.map((day) => {
     const cfg = days.find((d) => d.day === day.day);
     if (!cfg) return day;
     let blocks = day.blocks;
-    const others = plan.days.filter((d) => d.day !== day.day);
+    const others = withStep.filter((d) => d.day !== day.day);
     const byRules = () =>
       generateDayByRules(cfg, others, profile, exercises, history, 1, lockedByDay[day.day], days, !!input.rotate);
     if (changedWithoutReason(day, cfg, input)) {
@@ -283,6 +341,7 @@ export function guardAiPlan(plan: GeneratedWeekPlan, rawInput: GuardInput): Gene
       .filter((b): b is PlannedBlock => !!b);
     blocks = keepGentle(blocks, cfg, input, byRules);
     blocks = ensureShoulderPrep(blocks, cfg, input);
+    blocks = ensureHingeDrill(blocks, cfg, input, cycle);
     blocks = ensureInjuryActivation(blocks, cfg, input);
     blocks = ensureCoverage(blocks, cfg, input);
     blocks = blocks.map((b) => {

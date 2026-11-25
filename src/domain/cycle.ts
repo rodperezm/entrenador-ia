@@ -1,6 +1,6 @@
 import type { DayConfig, LocalProfile, WorkoutSession } from './schema';
 import { learningKettlebell, startStage, techniqueFirst } from './experience';
-import { techniqueStage } from './strength';
+import { ladderStep, SWING_2H_STEP } from './ladder';
 import { dayDate } from './week';
 
 // Ciclos de entrenamiento: bloques de 4 semanas cumplidas y 3 focos seguidos. Todo se deduce
@@ -10,7 +10,6 @@ const DAY_MS = 24 * 3600 * 1000;
 const WEEK_MS = 7 * DAY_MS;
 const RESTART_AFTER_MS = 21 * DAY_MS;
 const BEGINNER_MAX_TECHNIQUE_BLOCKS = 2;
-const SWING_STAGE = 3;
 
 const WEEK_NAMES = [
   'Introductoria (Adaptación)',
@@ -32,7 +31,7 @@ export type CycleInfo = {
   phaseName: (typeof PHASES)[number]['name'];
   blockStart: string; // AAAA-MM-DD
   previousBlockStart: string | null; // inicio del bloque anterior, si lo hubo
-  stage: number; // etapa del bloque A
+  stage: number; // paso de la fila técnica de la kettlebell (1 a 15, ver domain/ladder)
   preparation: boolean; // días previos al primer lunes del ciclo
 };
 
@@ -115,14 +114,18 @@ export function cycleInfo(
   today = new Date(),
 ): CycleInfo {
   const person = typeof who === 'string' ? { level: who } : who;
-  const { preparation, blockStarts, position } = walkCycle(history, days, today);
+  const { preparation, blockStarts, position, deloadWeeks } = walkCycle(history, days, today);
   const blockIndex = Math.floor(position / 4);
   const weekIndex = position % 4;
   const blockStartMs = blockStarts.at(-1)!;
-  const stage = techniqueStage(history, startStage(person), blockStarts);
+  // En la semana de descarga no se suma un paso nuevo de la fila.
+  const stage = ladderStep(history, startStage(person), {
+    now: today.getTime(),
+    isDeload: (t) => deloadWeeks.some((w) => t >= w.from && t < w.to),
+  });
   // Quien está aprendiendo la kettlebell sigue en Técnica hasta dominar el swing, o por dos bloques como máximo.
   const staysOnTechnique =
-    learningKettlebell(person) && stage < SWING_STAGE && blockIndex < BEGINNER_MAX_TECHNIQUE_BLOCKS;
+    learningKettlebell(person) && stage < SWING_2H_STEP && blockIndex < BEGINNER_MAX_TECHNIQUE_BLOCKS;
   const phase = staysOnTechnique ? PHASES[0] : PHASES[blockIndex % PHASES.length];
   return {
     block: blockIndex + 1,

@@ -1,5 +1,6 @@
 import { equipmentAt, MEDICAL_CONDITIONS, MUSCLE_GROUPS, type MuscleGroupId } from './catalog';
-import { kettlebellLevel, levelFor, techniqueFirst } from './experience';
+import { kettlebellLevel, levelFor, techniqueFirst, usesKettlebell } from './experience';
+import { BASE_STEPS, currentLadderIds, LADDER, ladderOpen, ladderStepOf, SWING_1H_STEP } from './ladder';
 import { trainingStamp } from '@/domain/profileStamp';
 import { type CycleInfo, cycleInfo, markDeload, previousBlockExercises } from './cycle';
 import { filterExercisesForUser, weightsFor } from './filter';
@@ -19,13 +20,11 @@ import type {
 import { painOf } from './schema';
 import { BIG_JUMP, feltTooMuch, progressSlot, wasTooHard } from './progression';
 import {
-  A_STAGES,
-  FREE_BALLISTIC_STAGE,
-  unlockedA,
   anchorIds,
   dayIntensity,
   type DayFocus,
   isArmAccessory,
+  isBasePower,
   isZoneAccessory,
   offZone,
   type Intensity,
@@ -251,10 +250,20 @@ function pickMain(pool: Exercise[], groups: MuscleGroupId[], count: number, prof
   // sin ella, la condición física.
   const capFor = (e: Exercise) => Math.max(2, MAX_COMPLEXITY[levelFor(e, profile)] - easier);
   const targetFor = (e: Exercise) => Math.max(1, TARGET_COMPLEXITY[levelFor(e, profile)] - easier);
-  // Orden fijo: el azar del puntaje no debe depender de cómo llegó barajada la lista.
+  // Con kettlebell, lo abierto lo decide la fila técnica (paso ganado, familia, prerrequisitos y una
+  // dificultad que sube con lo ganado). Orden fijo: el azar del puntaje no debe depender de cómo llegó
+  // barajada la lista.
+  const byId = new Map(ctx.all.map((e) => [e.id, e]));
+  const kbCap = MAX_COMPLEXITY[kettlebellLevel(profile)];
   const candidates = pool
-    .filter((e) => e.complexityLevel <= capFor(e) && strengthRole(e) !== null)
+    .filter(
+      (e) =>
+        strengthRole(e) !== null &&
+        (usesKettlebell(e) ? ladderOpen(e, cycle.stage, kbCap, byId, easier) : e.complexityLevel <= capFor(e)),
+    )
     .sort((a, b) => a.id.localeCompare(b.id));
+  // Lo que la persona tiene que practicar para ganar su paso: va antes que todo lo demás.
+  const current = new Set(currentLadderIds(cycle.stage));
   const picked: { exercise: Exercise; role: StrengthRole }[] = [];
   const wantedGroups = new Set(groups);
   const canUseBallistics =
@@ -272,6 +281,7 @@ function pickMain(pool: Exercise[], groups: MuscleGroupId[], count: number, prof
         (e.progression.chainId !== null && p.exercise.progression.chainId === e.progression.chainId),
     );
   const choose = (options: Exercise[]) =>
+    options.find((e) => current.has(e.id)) ??
     options.find((e) => locked.has(e.id)) ??
     options
       .map((e) => ({
@@ -297,17 +307,21 @@ function pickMain(pool: Exercise[], groups: MuscleGroupId[], count: number, prof
     const open = candidates.filter(isOpen);
     const inRole = (role: StrengthRole) => open.filter((e) => strengthRole(e) === role);
     if (need.role === 'A') {
+      // Los balísticos abiertos (los de la fila ya ganados y, con la fila completa, sus variantes).
+      const power = inRole('A');
       if (need.explosive) {
-        if (!canUseBallistics || cycle.stage < FREE_BALLISTIC_STAGE) return undefined;
-        return choose(open.filter((e) => unlockedA(cycle.stage).includes(e.id)));
+        if (!canUseBallistics || cycle.stage < SWING_1H_STEP) return undefined;
+        return choose(power);
       }
-      const isStageOne = cycle.stage === 1;
-      if (isStageOne ? allowsStageOne : canUseBallistics) {
-        // Primero lo nuevo de su etapa (así puede confirmarlo); si no se puede, lo ya ganado.
-        const stage =
-          choose(open.filter((e) => A_STAGES[cycle.stage - 1].includes(e.id))) ??
-          choose(open.filter((e) => unlockedA(cycle.stage).includes(e.id)));
-        if (stage) return stage;
+      if (cycle.stage <= BASE_STEPS) {
+        // En la base todavía no hay balísticos: el bloque A es un peso muerto.
+        const base = allowsStageOne ? choose(open.filter((e) => isBasePower(e.id, cycle.stage))) : undefined;
+        if (base) return base;
+      } else if (canUseBallistics) {
+        // Primero el del paso actual (así puede confirmarlo); si no, el más avanzado ya ganado.
+        const latest = Math.max(0, ...power.map((e) => ladderStepOf(e.id) ?? 0));
+        const pick = choose(power.filter((e) => ladderStepOf(e.id) === latest)) ?? choose(power);
+        if (pick) return pick;
       }
       return choose(inRole('B').filter((e) => e.movementPattern === 'hinge'));
     }
@@ -345,9 +359,9 @@ function pickMain(pool: Exercise[], groups: MuscleGroupId[], count: number, prof
       if (!canUseBallistics) return choose(options.filter((e) => !e.restrictionFlags.includes('ballistic')));
       return choose(options.filter((e) => e.movementPattern === 'carry')) ?? choose(options);
     }
-    // Etapa 1: el bloque A ya es un peso muerto; la bisagra de fuerza no repite otro peso muerto básico.
+    // En la base el bloque A ya es un peso muerto: la bisagra de fuerza no repite otro peso muerto básico.
     const sameAsA = (e: Exercise) =>
-      cycle.stage === 1 && A_STAGES[0].includes(e.id) && picked.some((p) => A_STAGES[0].includes(p.exercise.id));
+      isBasePower(e.id, cycle.stage) && picked.some((p) => isBasePower(p.exercise.id, cycle.stage));
     for (const pattern of need.patterns ?? []) {
       const exercise = choose(inRole('B').filter((e) => e.movementPattern === pattern && !sameAsA(e)));
       if (exercise) return exercise;
@@ -355,8 +369,44 @@ function pickMain(pool: Exercise[], groups: MuscleGroupId[], count: number, prof
     return undefined;
   };
 
-  const staged = A_STAGES.flat();
-  const stageNow = unlockedA(cycle.stage);
+  // El paso actual tiene que estar en el día para poder confirmarlo. Si los lugares de la sesión no lo
+  // trajeron (un día corto, o un paso que no es del bloque A, como el press o la levantada turca),
+  // reemplaza a uno del mismo rol y familia que no sea fijo, o se suma si hay lugar.
+  const ensureCurrent = () => {
+    const groups =
+      cycle.stage <= BASE_STEPS ? LADDER.slice(1, BASE_STEPS).map((s) => s.ids) : [LADDER[cycle.stage - 1].ids];
+    for (const ids of groups) {
+      // Si ya está, pasa adelante: los últimos de la lista son los que se quitan si faltan minutos.
+      const already = picked.findIndex((p) => ids.includes(p.exercise.id));
+      if (already >= 0) {
+        picked.unshift(...picked.splice(already, 1));
+        continue;
+      }
+      const exercise = choose(
+        candidates
+          .filter(isOpen)
+          .filter(
+            (e) =>
+              ids.includes(e.id) &&
+              !offZone(e, ctx.focus) &&
+              (canUseBallistics || !e.restrictionFlags.includes('ballistic')),
+          ),
+      );
+      if (!exercise) continue;
+      const role = slotRole(exercise, cycle.stage) ?? 'B';
+      const free = (p: (typeof picked)[number]) => !locked.has(p.exercise.id) && !current.has(p.exercise.id);
+      let at = picked.findIndex((p) => free(p) && p.role === role && patternFamily(p.exercise) === patternFamily(exercise));
+      if (at < 0) at = picked.findIndex((p) => free(p) && p.role === role);
+      if (at < 0 && picked.length >= count) {
+        for (let i = picked.length - 1; i >= 0 && at < 0; i--) if (free(picked[i]) && picked[i].role !== 'A') at = i;
+      }
+      if (at >= 0) picked.splice(at, 1);
+      else if (picked.length >= count) continue;
+      // Primero dentro de su rol: si faltan minutos, se quita lo último.
+      picked.unshift({ exercise, role });
+    }
+    return picked;
+  };
 
   // Día con las zonas que eligió la persona: se reparten los ejercicios entre esas zonas, por turnos.
   // Siguen valiendo los mismos cuidados (lesiones, molestias, lugar, nivel, etapa técnica y
@@ -366,7 +416,6 @@ function pickMain(pool: Exercise[], groups: MuscleGroupId[], count: number, prof
     const allowed = candidates.filter(
       (e) =>
         e.muscleGroups.some((g) => chosen.includes(g as MuscleGroupId)) &&
-        (!staged.includes(e.id) || stageNow.includes(e.id)) &&
         (canUseBallistics || !e.restrictionFlags.includes('ballistic')),
     );
     // Primero los que tienen esa zona como principal; si no alcanzan, los que también la trabajan.
@@ -394,12 +443,28 @@ function pickMain(pool: Exercise[], groups: MuscleGroupId[], count: number, prof
   for (const id of locked) {
     const lockedEx = ctx.all.find((e) => e.id === id);
     if (lockedEx && offZone(lockedEx, ctx.focus)) continue; // la zona del día cambió: ese fijo ya no corresponde
-    const fixed = candidates.find((e) => e.id === id && (!staged.includes(id) || stageNow.includes(id)));
+    const fixed = candidates.find((e) => e.id === id);
     const original = ctx.all.find((e) => e.id === id);
-    const role = original && strengthRole(original);
+    const role = original && slotRole(original, cycle.stage);
+    // Un fijo de la fila que quedó atrás (la persona ganó un paso a mitad del bloque) da lugar al
+    // movimiento del paso nuevo del mismo rol, para que pueda practicarlo y confirmarlo.
+    const behind = fixed && (ladderStepOf(fixed.id) ?? 0) > 0 && !current.has(fixed.id);
+    const upgrade = behind
+      ? choose(
+          candidates
+            .filter(isOpen)
+            .filter(
+              (e) =>
+                current.has(e.id) &&
+                slotRole(e, cycle.stage) === role &&
+                (canUseBallistics || !e.restrictionFlags.includes('ballistic')),
+            ),
+        )
+      : undefined;
     const replacement =
+      upgrade ??
       fixed ??
-      (role === 'A' || (original && staged.includes(id))
+      (role === 'A'
         ? forNeed({ role: 'A', patterns: ['hinge'] })
         : role && original
           ? choose(
@@ -416,7 +481,7 @@ function pickMain(pool: Exercise[], groups: MuscleGroupId[], count: number, prof
     if (replacement) picked.push({ exercise: replacement, role: slotRole(replacement, cycle.stage) ?? 'B' });
   }
   // Misma semana: se conserva todo. Semana nueva del ciclo: las anclas van y el resto se elige otra vez.
-  if (locked.size && !ctx.rotate) return picked;
+  if (locked.size && !ctx.rotate) return ensureCurrent();
 
   // Cada lugar de la sesión se cubre una vez: si un fijo ya lo cumple (p. ej. el ancla de piernas),
   // no se agrega otro igual.
@@ -438,7 +503,7 @@ function pickMain(pool: Exercise[], groups: MuscleGroupId[], count: number, prof
       used.add(picked.length - 1);
     }
   }
-  return picked;
+  return ensureCurrent();
 }
 function generateDay(
   cfg: DayConfig,
@@ -531,10 +596,11 @@ function generateDay(
     const options = (b.main.enabled || !gentleWarmups.length ? warmups : gentleWarmups).sort(
       (x, y) => activates(y) - activates(x) || fresh(y) - fresh(x),
     );
-    // Fijos al inicio: el principiante con swing o peso muerto parte con el ejercicio que enseña la
-    // bisagra; con barra de activación, todo día de fuerza prepara el hombro.
+    // Fijos al inicio: todo día con trabajo de cadera (peso muerto, swing, clean, snatch…) parte con la
+    // bisagra, sea cual sea el nivel; quien está en el paso 1 de la fila, siempre. Con barra de
+    // activación, todo día de fuerza prepara el hombro.
     const forced: Exercise[] = [];
-    if (profile.level === 'beginner' && main.some((m) => m.exercise.movementPattern === 'hinge')) {
+    if (main.some((m) => m.exercise.movementPattern === 'hinge') || (b.main.enabled && cycle.stage === 1)) {
       const drill = options.find((e) => e.tags.includes('hinge_drill'));
       if (drill) forced.push(drill);
     }
