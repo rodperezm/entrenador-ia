@@ -1,8 +1,10 @@
 // Video de YouTube de cada ejercicio, según la planilla «KETTAI-ejercicios vf» del 01-11-2026.
 // Los de dos kettlebells y 12 cuyo título no calzaba se eligieron por búsqueda el 01-11-2026.
+// El 25-11-2026 se cambiaron 5 que pasaban de 4 minutos (peso muerto, pistol, flexión esfinge,
+// swing con dos kettlebells y salto a banco). Regla: videos de 4 minutos o menos.
 export const YOUTUBE_VIDEO_IDS: Record<string, string> = {
   kb_double_deadlift: 'EcVRwK6ytQQ',
-  kb_double_swing: 'CNLVihi7bY4',
+  kb_double_swing: 'hvoW_kXVTZc',
   kb_double_front_squat: '6XghYOzny8U',
   kb_double_press: 'u4CJpJYIr2Y',
   kb_double_floor_press: '99HJPMAlJns',
@@ -23,7 +25,7 @@ export const YOUTUBE_VIDEO_IDS: Record<string, string> = {
   single_leg_balance: 'HIjmx9X3WNo',
   wall_slide: 'HfhTtmTpOMk',
   band_pull_apart: 'qfKGWIEqSl4',
-  kb_deadlift: '8qM_3DOe5MY',
+  kb_deadlift: 'sDbMsk3d6F4',
   kb_swing_2h: '1FjAoO5McVI',
   kb_swing_1h: '7VhIR3JGh_s',
   kb_clean: '0pp3hIPTJqo',
@@ -118,7 +120,7 @@ export const YOUTUBE_VIDEO_IDS: Record<string, string> = {
   kb_jerk: '9NFkYaviXgk',
   kb_clean_press: 'km3f8_rpDdg',
   jump_squat: 'PQkr_jS84-0',
-  bench_jump: 'NYLOoumdJ1Y',
+  bench_jump: 'bbFEYR3i8JU',
   kb_front_squat: 'hIptzpjaKLs',
   kb_cossack_squat: '-MtiV-nR1oA',
   kb_bulgarian_split_squat: 'ySb3CILy_5w',
@@ -145,7 +147,7 @@ export const YOUTUBE_VIDEO_IDS: Record<string, string> = {
   kb_sumo_squat: 'CFCyccgV9bU',
   kb_thruster: 'is3SP_5TW8Q',
   box_pistol_squat: 'xKCHAzzNj3s',
-  pistol_squat: 'TGgZjbC6TPI',
+  pistol_squat: '2c0gUVLfBLs',
   parallel_bar_dips: '85u_8mz5lBA',
   kb_long_cycle: 'C4Dy1HtRn4U',
   stretch_hamstring_standing: 'sHvur2PUEvg',
@@ -173,7 +175,7 @@ export const YOUTUBE_VIDEO_IDS: Record<string, string> = {
   kb_concentration_curl: '37ZUoKL_ntc',
   kb_reverse_curl: '4N656mWC-58',
   kb_close_grip_floor_press: 'Lsq8EYzll88',
-  sphinx_push_up: 'Xn4g0G2rS44',
+  sphinx_push_up: 'Z92WIe4vbNk',
   kb_shrug: 'X0d_gL6jkSg',
   kb_rdl: 'paZiQQkLaGI',
   kb_kickstand_rdl: 'IXzdtAeM1qk',
