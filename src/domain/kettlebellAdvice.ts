@@ -31,7 +31,8 @@ export function heavierKettlebellAdvice(input: {
   const nextKg = STANDARD_KG.find((kg) => kg > currentKg);
   if (!currentKg || !nextKg) return null;
 
-  const recent = history.filter((s) => now - Date.parse(s.finishedAt) < RECENT_MS);
+  // La semana de descarga no prueba que la pesa quedó chica: va con menos series y sin subir carga.
+  const recent = history.filter((s) => !s.deload && now - Date.parse(s.finishedAt) < RECENT_MS);
   const mastered = exercises.filter((e) => {
     const role = strengthRole(e);
     const max = e.prescription.repRange?.max;

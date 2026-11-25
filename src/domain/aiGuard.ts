@@ -1,6 +1,6 @@
 import { equipmentAt, MEDICAL_CONDITIONS } from './catalog';
 import { techniqueFirst } from './experience';
-import { type CycleInfo, cycleInfo } from './cycle';
+import { type CycleInfo, cycleInfo, markDeload } from './cycle';
 import { filterExercisesForUser, isUnsafeWeight } from './filter';
 import {
   generateDayByRules,
@@ -240,7 +240,9 @@ function withinLimits(slot: ExerciseSlot, block: BlockType, input: GuardInput, c
   return { ...slot, reps, role, restSec: Math.max(slot.restSec, MIN_REST_SEC[role]) };
 }
 
-export function guardAiPlan(plan: GeneratedWeekPlan, input: GuardInput): GeneratedWeekPlan {
+export function guardAiPlan(plan: GeneratedWeekPlan, rawInput: GuardInput): GeneratedWeekPlan {
+  // Las sesiones de descarga no sirven de referencia para la carga (ver markDeload).
+  const input = { ...rawInput, history: markDeload(rawInput.history, rawInput.days) };
   const { days, profile, exercises, history, lockedByDay } = input;
   const cycle = cycleInfo(history, profile, days);
   let restored = false;

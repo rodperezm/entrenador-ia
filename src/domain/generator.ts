@@ -1,7 +1,7 @@
 import { equipmentAt, MEDICAL_CONDITIONS, MUSCLE_GROUPS, type MuscleGroupId } from './catalog';
 import { kettlebellLevel, levelFor, techniqueFirst } from './experience';
 import { trainingStamp } from '@/domain/profileStamp';
-import { type CycleInfo, cycleInfo, previousBlockExercises } from './cycle';
+import { type CycleInfo, cycleInfo, markDeload, previousBlockExercises } from './cycle';
 import { filterExercisesForUser, weightsFor } from './filter';
 import type {
   CantDoReason,
@@ -751,8 +751,12 @@ export const hadPain = (id: string, history: WorkoutSession[]) => {
   return !!last?.sets.some((l) => l.exerciseId === id && painOf(l) > 0);
 };
 
-export const lastWeightOf = (id: string, history: WorkoutSession[]) =>
-  history.flatMap((s) => s.sets).find((l) => l.exerciseId === id && l.weightKg != null && !l.format)?.weightKg ?? null;
+// El peso de la última vez. Una semana de descarga pudo usar menos: cuenta solo si no hay otra referencia.
+export const lastWeightOf = (id: string, history: WorkoutSession[]) => {
+  const weightIn = (list: WorkoutSession[]) =>
+    list.flatMap((s) => s.sets).find((l) => l.exerciseId === id && l.weightKg != null && !l.format)?.weightKg ?? null;
+  return weightIn(history.filter((s) => !s.deload)) ?? weightIn(history);
+};
 
 // Avanzado: el remate rota su forma de densidad en cada bloque, y la semana de máxima intensidad la duplica.
 function densityFinisher(slot: ExerciseSlot, e: Exercise, cycle: CycleInfo): ExerciseSlot {
@@ -914,7 +918,7 @@ export function generateDayByRules(
   otherDays: DayPlan[],
   profile: LocalProfile,
   exercises: Exercise[],
-  history: WorkoutSession[] = [],
+  allHistory: WorkoutSession[] = [],
   seed = Date.now(),
   lockedIds: string[] = [],
   weekDays: DayConfig[] = [cfg],
@@ -925,6 +929,7 @@ export function generateDayByRules(
   const usedThisWeek = new Map<string, number>();
   for (const s of otherDays.flatMap((d) => d.blocks.filter((b) => b.type === 'main_strength').flatMap((b) => b.slots)))
     usedThisWeek.set(s.exerciseId, (usedThisWeek.get(s.exerciseId) ?? 0) + 1);
+  const history = markDeload(allHistory, weekDays);
   const p = withoutPainful(profile, history);
   const cycle = cycleInfo(history, profile, weekDays);
   const chosen = chosenGroups?.length ? chosenGroups : undefined;
@@ -947,12 +952,13 @@ export function generateWeekByRules(
   week: { days: DayConfig[] },
   profile: LocalProfile,
   exercises: Exercise[],
-  history: WorkoutSession[] = [],
+  allHistory: WorkoutSession[] = [],
   seed = Date.now(),
   lockedByDay: Partial<Record<DayConfig['day'], string[]>> = {},
   rotate = false,
 ): GeneratedWeekPlan {
   const usedThisWeek = new Map<string, number>();
+  const history = markDeload(allHistory, week.days);
   const cycle = cycleInfo(history, profile, week.days);
   const previousBlock = previousBlockExercises(history, cycle);
   const days = week.days

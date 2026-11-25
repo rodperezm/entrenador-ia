@@ -465,6 +465,9 @@ export default function WorkoutScreen() {
   const ex = EXERCISES_BY_ID.get(item.slot.exerciseId);
   // En calentamiento y elongación todo va de un toque, sin pregunta de esfuerzo.
   const kind = item.block === 'warmup' || item.block === 'cooldown' || !ex ? 'none' : effortKind(ex);
+  // Semana de descarga: no se busca el límite, así que no se pregunta cuánto más podía (solo el dolor).
+  // La progresión tampoco toma en cuenta el esfuerzo de esta semana (ver markDeload).
+  const deloadWeek = phase === 'feedback' && !!profile && cycleInfo(sessions, profile, week.days).week === 4;
   const done = setsDone(item.key);
   // Con el mínimo por tipo de ejercicio: así los planes ya guardados también dan respiro entre series.
   const restSec = setRestSec(item.slot, ex, item.block);
@@ -965,22 +968,33 @@ export default function WorkoutScreen() {
 
           {phase === 'feedback' ? (
             <View style={styles.panel}>
-              <Text style={styles.panelTitle}>¡Listo! {EFFORT_QUESTION[kind === 'hold' ? 'hold' : 'reps']}</Text>
-              <View style={styles.chips}>
-                {EFFORT_OPTIONS[kind === 'hold' ? 'hold' : 'reps'].map((o) => (
-                  <Pressable
-                    accessibilityRole="button"
-                    aria-selected={!!(rpe === o.rpe)}
-                    key={o.rpe}
-                    onPress={() => setRpe(rpe === o.rpe ? null : o.rpe)}
-                    style={[styles.chip, rpe === o.rpe && styles.chipOn]}
-                  >
-                    <Text style={[styles.chipText, rpe === o.rpe && { color: colors.onAccent }]}>{o.label}</Text>
-                  </Pressable>
-                ))}
-              </View>
-              {usesKb && kind === 'reps' && (
-                <Text style={styles.hint}>¿Quedó muy pesado? Marca «Ninguna» y no subiremos el peso.</Text>
+              {deloadWeek ? (
+                <>
+                  <Text style={styles.panelTitle}>¡Listo!</Text>
+                  <Text style={styles.hint}>
+                    Semana de descarga: no buscamos tu límite, así que no te preguntamos cuántas más podías.
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.panelTitle}>¡Listo! {EFFORT_QUESTION[kind === 'hold' ? 'hold' : 'reps']}</Text>
+                  <View style={styles.chips}>
+                    {EFFORT_OPTIONS[kind === 'hold' ? 'hold' : 'reps'].map((o) => (
+                      <Pressable
+                        accessibilityRole="button"
+                        aria-selected={!!(rpe === o.rpe)}
+                        key={o.rpe}
+                        onPress={() => setRpe(rpe === o.rpe ? null : o.rpe)}
+                        style={[styles.chip, rpe === o.rpe && styles.chipOn]}
+                      >
+                        <Text style={[styles.chipText, rpe === o.rpe && { color: colors.onAccent }]}>{o.label}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                  {usesKb && kind === 'reps' && (
+                    <Text style={styles.hint}>¿Quedó muy pesado? Marca «Ninguna» y no subiremos el peso.</Text>
+                  )}
+                </>
               )}
               {item.slot.role === 'A' && (
                 <CheckRow

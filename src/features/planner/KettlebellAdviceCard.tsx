@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui';
 import { EXERCISES } from '@/data/exercises.seed';
-import { cycleInfo } from '@/domain/cycle';
+import { cycleInfo, markDeload } from '@/domain/cycle';
 import { heavierKettlebellAdvice } from '@/domain/kettlebellAdvice';
 import { useHistory } from '@/state/history';
 import { usePlan } from '@/state/plan';
@@ -32,7 +32,7 @@ export function KettlebellAdviceCard() {
   }, []);
 
   if (!profile || dismissed === undefined) return null;
-  const advice = heavierKettlebellAdvice({ history: sessions, profile, exercises: EXERCISES });
+  const advice = heavierKettlebellAdvice({ history: markDeload(sessions, week.days), profile, exercises: EXERCISES });
   if (!advice) return null;
   const mark = `${advice.nextKg}@${cycleInfo(sessions, profile, week.days).blockStart}`;
   if (dismissed === mark) return null;

@@ -384,5 +384,7 @@ export const WorkoutSession = z.object({
   // Día armado con las zonas que eligió la persona: cuenta como sesión y kilos movidos, pero no para
   // la progresión (cargas, etapa técnica, «mejoraste»). El dolor que marque sí cuenta siempre.
   chosenByUser: z.boolean().optional(),
+  // Hecha en semana de descarga. No se guarda: la pone `markDeload` (domain/cycle) a partir del historial.
+  deload: z.boolean().optional(),
 });
 export type WorkoutSession = z.infer<typeof WorkoutSession>;

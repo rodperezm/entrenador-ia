@@ -2,7 +2,7 @@ import { equipmentAt, MEDICAL_CONDITIONS, RESTRICTION_FLAGS } from '@/domain/cat
 import { kettlebellLevel, usesKettlebell } from '@/domain/experience';
 import { trainingStamp } from '@/domain/profileStamp';
 import { zoneLabel } from '@/domain/checkIn';
-import { cycleGuide, cycleInfo, previousBlockExercises } from '@/domain/cycle';
+import { cycleGuide, cycleInfo, markDeload, previousBlockExercises } from '@/domain/cycle';
 import { effortKind, effortNote } from '@/domain/effort';
 import { filterExercisesForUser } from '@/domain/filter';
 import {
@@ -46,12 +46,14 @@ export function buildAiRequest(
   week: WeekConfig,
   profile: LocalProfile,
   exercises: Exercise[],
-  history: WorkoutSession[],
+  allHistory: WorkoutSession[],
   body: BodySnapshot | null,
   plan: StoredWeekPlan | null = null,
   // Fecha de referencia: la de hoy; los casos fijos de la IA usan la suya.
   now = Date.now(),
 ) {
+  // Las sesiones de descarga se marcan: su esfuerzo no es referencia para la carga (ver markDeload).
+  const history = markDeload(allHistory, week.days, new Date(now));
   const forConditions = new Set(
     profile.conditions.flatMap((c) => MEDICAL_CONDITIONS.find((m) => m.id === c.conditionId)?.prehabExerciseIds ?? []),
   );
@@ -127,8 +129,9 @@ export function buildAiRequest(
   // Historial: la última vez que hizo cada ejercicio (de las sesiones recientes).
   const seen = new Set<string>();
   const lastByExercise = history.slice(0, HISTORY_SESSIONS).flatMap((s) => {
-    // Un día elegido por la persona no cuenta para su progresión: de él solo va lo que dolió.
-    const counted = s.chosenByUser ? s.sets.filter((l) => painOf(l) > 0) : s.sets;
+    // Un día elegido por la persona o una semana de descarga no cuentan para su progresión: de ellos
+    // solo va lo que dolió.
+    const counted = s.chosenByUser || s.deload ? s.sets.filter((l) => painOf(l) > 0) : s.sets;
     const ids = [...new Set(counted.map((l) => l.exerciseId))].filter((id) => !seen.has(id));
     ids.forEach((id) => seen.add(id));
     return ids.map((id) => ({

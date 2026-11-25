@@ -58,14 +58,10 @@ export const setPlannedHistory = (byWeek: Record<string, number>) => {
 export const weekKey = (date = new Date()) => toIso(mondayOf(date));
 export const plannedThisWeek = (days: DayConfig[]) => strengthDayCount(days);
 
-// `who`: el perfil (condición y experiencia con kettlebell) o, por compatibilidad, solo el nivel.
-export function cycleInfo(
-  history: WorkoutSession[],
-  who: LocalProfile['level'] | Pick<LocalProfile, 'level' | 'kettlebellExperience'>,
-  days: DayConfig[],
-  today = new Date(),
-): CycleInfo {
-  const person = typeof who === 'string' ? { level: who } : who;
+// Recorre las semanas desde el inicio del ciclo. Se avanza por semanas cumplidas, no por calendario;
+// cada bloque guarda el lunes en que empezó. También anota qué semanas fueron de descarga (la 4.ª
+// del bloque), incluida la actual: la descarga se repite si esa semana no se cumplió.
+function walkCycle(history: WorkoutSession[], days: DayConfig[], today: Date) {
   const dates = history.map((s) => Date.parse(s.finishedAt)).sort((a, b) => a - b);
   let start = dates[0] ?? today.getTime();
   dates.forEach((d, i) => {
@@ -81,12 +77,13 @@ export function cycleInfo(
   const elapsedWeeks = Math.round((mondayOf(today) - startMonday) / WEEK_MS);
   const preparation = elapsedWeeks < 0;
 
-  // Se avanza por semanas cumplidas, no por calendario. Cada bloque guarda el lunes en que empezó.
   const needed = sessionsToCount(days);
   const blockStarts = [startMonday];
+  const deloadWeeks: { from: number; to: number }[] = [];
   let position = 0;
   for (let w = 0; w < elapsedWeeks; w++) {
     const from = startMonday + w * WEEK_MS;
+    if (position % 4 === 3) deloadWeeks.push({ from, to: from + WEEK_MS });
     const trained = dates.filter((d) => d >= from && d < from + WEEK_MS).length;
     // Lo planificado esa semana, si quedó anotado; si no, lo de hoy.
     const planned = plannedByWeek[toIso(from)];
@@ -94,6 +91,31 @@ export function cycleInfo(
     position++;
     if (position % 4 === 0) blockStarts.push(startMonday + (w + 1) * WEEK_MS);
   }
+  if (!preparation && position % 4 === 3) deloadWeeks.push({ from: mondayOf(today), to: Infinity });
+  return { startMonday, preparation, blockStarts, position, deloadWeeks };
+}
+
+// Marca las sesiones hechas en semana de descarga. Con menos series y sin subir carga, su esfuerzo
+// no dice cuánto puede la persona: la progresión no las toma como referencia (su dolor sí cuenta).
+// La marca se deduce del historial; no se guarda.
+export function markDeload(history: WorkoutSession[], days: DayConfig[], today = new Date()): WorkoutSession[] {
+  const { deloadWeeks } = walkCycle(history, days, today);
+  if (!deloadWeeks.length) return history;
+  return history.map((s) => {
+    const d = Date.parse(s.finishedAt);
+    return deloadWeeks.some((w) => d >= w.from && d < w.to) ? { ...s, deload: true } : s;
+  });
+}
+
+// `who`: el perfil (condición y experiencia con kettlebell) o, por compatibilidad, solo el nivel.
+export function cycleInfo(
+  history: WorkoutSession[],
+  who: LocalProfile['level'] | Pick<LocalProfile, 'level' | 'kettlebellExperience'>,
+  days: DayConfig[],
+  today = new Date(),
+): CycleInfo {
+  const person = typeof who === 'string' ? { level: who } : who;
+  const { preparation, blockStarts, position } = walkCycle(history, days, today);
   const blockIndex = Math.floor(position / 4);
   const weekIndex = position % 4;
   const blockStartMs = blockStarts.at(-1)!;
