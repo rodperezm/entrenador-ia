@@ -52,6 +52,26 @@ Plan de ambientes: la dirección de GitHub pasará a ser pruebas, con su propia 
 
 ## Historial
 
+### 1.14.2 · 24 de noviembre de 2026
+
+«Retomar» un entrenamiento sin terminar vuelve a funcionar desde Hoy.
+
+**Qué cambia para la persona**
+
+- Si sales del entrenamiento a mitad de camino, la tarjeta de Hoy «Tienes un entrenamiento sin terminar» vuelve a ofrecer «Retomar». Antes decía, sin razón, «Ya no se puede retomar (cambió la rutina o pasó mucho tiempo)», aunque hubieran pasado segundos, y obligaba a hacer el día en dos sesiones.
+
+**Qué cambia por dentro**
+
+- App: `src/features/workout/draft.tsx` (`UnfinishedWorkoutCard`). La tarjeta comparaba con la hora en que se abrió la pestaña Hoy, que queda abierta mientras se entrena; esa hora era anterior al inicio del entrenamiento y `canResume` lo rechazaba (`now >= startedAt`). Ahora usa como mínimo la hora del último registro (`savedAt`).
+- `src/features/planner/aiRequest.ts`: `cycleInfo` recibe la fecha de referencia. Una prueba de los casos fijos de la IA fallaba según el día. Sin efecto en la app. Pruebas: 156, todas pasan.
+- Sin cambios en la base de datos ni en la función de la IA.
+
+**Notas para quien siga el trabajo**
+
+- No usar `Date.now()` directo en el render: el lint (`react-hooks/purity`) lo rechaza. Por eso la hora sale de `max(apertura, savedAt)`.
+- La pantalla del entrenamiento ya usaba la hora actual; el error estaba solo en la tarjeta de Hoy.
+- Vuelta atrás: publicar desde `v1.14.1`. No deja nada a medias en los teléfonos.
+
 ### 1.14.1 · 23 de noviembre de 2026
 
 Semáforo en el entrenamiento y «Día fuerte» explicado con claridad.
