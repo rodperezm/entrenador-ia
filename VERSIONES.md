@@ -52,6 +52,25 @@ Plan de ambientes: la dirección de GitHub pasará a ser pruebas, con su propia 
 
 ## Historial
 
+### 1.16.1 · 24 de noviembre de 2026
+
+Video en los 3 ejercicios nuevos de las rutinas rápidas.
+
+**Qué cambia para la persona**
+
+- «Ángeles en la pared», «Extensión torácica sobre toalla» y «Desplazamientos laterales con salto de preparación» ahora muestran un video de YouTube en su ficha, como el resto de los ejercicios.
+
+**Qué cambia por dentro**
+
+- App: solo `src/data/youtubeVideos.ts`, con 3 entradas nuevas (`wall_angel`, `stretch_thoracic_towel` y `lateral_shuffle`). Con esto, los 182 ejercicios del catálogo tienen video. Pruebas: 156, todas pasan.
+- Sin cambios en la base de datos ni en la función de la IA.
+
+**Notas para quien siga el trabajo**
+
+- Los videos se eligieron por búsqueda y Rodrigo los aprobó el 24-11-2026. Se comprobó que existen y que se pueden ver dentro de la app (`playableInEmbed`). Si un video se borra en YouTube, la ficha queda sin video: basta con cambiar el código en ese archivo.
+- Solo el de «Ángeles en la pared» tiene el título en español. Para los otros dos no se encontró uno bueno en español.
+- Vuelta atrás: publicar desde `v1.16.0`. No deja nada a medias en los teléfonos.
+
 ### 1.16.0 · 24 de noviembre de 2026
 
 «Activación para el fútbol» más corta: 5 ejercicios en unos 5 minutos.
