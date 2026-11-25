@@ -12,7 +12,8 @@ export type Intensity = 'intense' | 'moderate' | 'light';
 // Etapas del bloque A: el balístico se gana con técnica y sin dolor.
 export const A_STAGES = [
   ['kb_deadlift', 'kb_sumo_deadlift'],
-  ['kb_dead_stop_swing'],
+  // El hike pass (el péndulo sin golpe de cadera) se aprende junto al swing con pausa.
+  ['kb_hike_pass', 'kb_dead_stop_swing'],
   ['kb_swing_2h'],
   // Desde aquí los balísticos libres se ganan de a uno: primero el swing a una mano, después el
   // clean y sus parientes, al final el snatch y el jerk. Cada etapa pide confirmar su propia técnica.

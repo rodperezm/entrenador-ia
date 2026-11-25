@@ -196,4 +196,5 @@ export const YOUTUBE_VIDEO_IDS: Record<string, string> = {
   kb_dead_clean: '72_6md1Dcx0', // 1:59, una kettlebell desde el suelo hasta el hombro
   good_morning_bodyweight: 'Xhs5Gd5GTBA', // 1:05, en español, manos detrás de la cabeza
   single_leg_rdl_bodyweight: 'DPFnfAUCvTA', // 0:54, sin peso, con subtítulos en inglés
+  kb_hike_pass: 'kJzXdUt-PW8', // 2:16, Geoff Neupert, hike pass con una kettlebell
 };
