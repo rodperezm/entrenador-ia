@@ -210,3 +210,17 @@ test('el paso actual entra en la semana aunque no sea del bloque A (press milita
   assert.ok(main.some((id) => LADDER[7].ids.includes(id)), `sin press: ${main.join(', ')}`);
   assert.ok(main.includes('kb_swing_2h'), 'lo ganado sigue: swing a dos manos en A');
 });
+
+test('el material didáctico tiene una ficha por paso y las 4 etapas en orden', async () => {
+  const { LADDER_CARDS, LADDER_STAGES, ladderEarnText } = await import('@/content/ladderGuide');
+  assert.equal(LADDER_CARDS.length, LADDER.length);
+  for (const c of LADDER_CARDS) assert.ok(c.purpose && c.cue);
+  assert.deepEqual(
+    LADDER_STAGES.map((s) => s.from),
+    [1, 5, 8, 12],
+  );
+  assert.match(ladderEarnText(1), /peso muerto/);
+  assert.match(ladderEarnText(5), /1 semana/);
+  assert.match(ladderEarnText(12), /4 semanas/);
+  assert.match(ladderEarnText(15), /variantes/);
+});

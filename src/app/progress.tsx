@@ -147,6 +147,9 @@ export default function ProgressScreen() {
             Paso {cycle.stage} de {LADDER.length} · {stageName(cycle.stage)}
           </Text>
           <Text style={styles.note}>{ladderNextNote(cycle.stage)}</Text>
+          <Link href="/camino" style={styles.link}>
+            Ver tu camino: los 15 pasos ›
+          </Link>
         </Card>
       ) : null}
 
