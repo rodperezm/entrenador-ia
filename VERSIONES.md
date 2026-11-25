@@ -52,6 +52,27 @@ Plan de ambientes: la dirección de GitHub pasará a ser pruebas, con su propia 
 
 ## Historial
 
+### 1.16.0 · 24 de noviembre de 2026
+
+«Activación para el fútbol» más corta: 5 ejercicios en unos 5 minutos.
+
+**Qué cambia para la persona**
+
+- La rutina rápida «Activación para el fútbol» pasa de 6 ejercicios y 7 minutos a 5 ejercicios y unos 5 minutos: jumping jacks, balanceo lateral de pierna, «el mejor estiramiento del mundo», sentadilla sin peso y desplazamientos laterales con salto de preparación.
+- Salen el balanceo de pierna adelante-atrás y el equilibrio a una pierna. Entran los desplazamientos laterales, que preparan para los cambios de dirección.
+- La tarjeta ahora dice «Cadera, piernas y cambios de dirección».
+
+**Qué cambia por dentro**
+
+- App: solo `src/domain/quickRoutines.ts` (lista de ejercicios y zona de la rutina `football`). No hay ejercicios nuevos: `lateral_shuffle` entró en la 1.15.0. Pruebas: 156, todas pasan.
+- Sin cambios en la base de datos ni en la función de la IA.
+
+**Notas para quien siga el trabajo**
+
+- Rodrigo pidió que las activaciones duren unos 5 minutos. Con 5 ejercicios, el mínimo de las rutinas rápidas, cada ejercicio a un lado cuesta el doble de tiempo; por eso quedó un solo balanceo. Se eligió el lateral por los aductores, la zona de las molestias de ingle típicas del fútbol.
+- La rutina sigue la línea del FIFA 11+, pero no es el programa completo: le faltan los nórdicos y los saltos, que necesitan compañero o más tiempo.
+- Vuelta atrás: publicar desde `v1.15.0`. No deja nada a medias en los teléfonos.
+
 ### 1.15.0 · 24 de noviembre de 2026
 
 Rutina rápida nueva: «Activación para el pádel».

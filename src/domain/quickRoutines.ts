@@ -143,21 +143,16 @@ export const QUICK_ROUTINES: QuickRoutine[] = [
   },
   {
     // Activación antes de jugar, en la línea del FIFA 11+: mover, abrir cadera y aductores, fuerza de
-    // piernas y equilibrio. El programa completo (con nórdicos y saltos) reduce lesiones; esta es su
-    // versión corta para la cancha, sin compañero.
+    // piernas y cambios de dirección. El programa completo (con nórdicos y saltos) reduce lesiones;
+    // esta es su versión corta para la cancha, sin compañero. Rodrigo pidió activaciones de unos 5 min:
+    // se dejaron 5 ejercicios, con un solo balanceo (el lateral, por los aductores) y los
+    // desplazamientos laterales en vez del equilibrio a una pierna.
     id: 'football',
     title: 'Activación para el fútbol',
-    zone: 'Cadera, piernas y equilibrio',
+    zone: 'Cadera, piernas y cambios de dirección',
     when: 'Antes del partido, en la cancha',
     tone: 'orange',
-    exerciseIds: [
-      'jumping_jacks',
-      'leg_swings_front',
-      'leg_swings_side',
-      'worlds_greatest_stretch',
-      'air_squat',
-      'single_leg_balance',
-    ],
+    exerciseIds: ['jumping_jacks', 'leg_swings_side', 'worlds_greatest_stretch', 'air_squat', 'lateral_shuffle'],
     intro:
       'Te guiamos ejercicio por ejercicio, con cuenta regresiva y sonido. Empieza suave y sube el ritmo de a poco: al terminar deberías sentirte caliente, no cansado.',
   },
