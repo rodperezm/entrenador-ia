@@ -5,7 +5,8 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { EXERCISES, EXERCISES_BY_ID } from '@/data/exercises.seed';
 import { cycleInfo } from '@/domain/cycle';
 import { type ExerciseProgress, progressSummary } from '@/domain/progress';
-import { A_STAGES, anchorIds } from '@/domain/strength';
+import { LADDER, ladderNextNote } from '@/domain/ladder';
+import { anchorIds } from '@/domain/strength';
 import { fmtDayDate } from '@/domain/week';
 import { useHistory } from '@/state/history';
 import { usePlan } from '@/state/plan';
@@ -63,7 +64,7 @@ export default function ProgressScreen() {
   const improved = p.exercises.filter((e) => e.improved).length;
 
   const cycle = profile ? cycleInfo(sessions, profile, week.days) : null;
-  const stageName = (n: number) => EXERCISES_BY_ID.get(A_STAGES[n - 1]?.[0] ?? '')?.name.es ?? null;
+  const stageName = (n: number) => LADDER[n - 1]?.name ?? null;
   const strongPain = p.pains.some((n) => n.level === 3);
 
   // Una sola frase arriba: lo más importante, antes que cualquier número.
@@ -138,18 +139,17 @@ export default function ProgressScreen() {
       {cycle && stageName(cycle.stage) ? (
         <Card icon="trending-up" title="Tu camino con la kettlebell">
           <View style={styles.steps}>
-            {A_STAGES.map((_, i) => (
-              <View key={i} style={[styles.step, i < cycle.stage && styles.stepDone]} />
+            {LADDER.map((s, i) => (
+              <View key={s.name} style={[styles.step, i < cycle.stage && styles.stepDone]} />
             ))}
           </View>
           <Text style={styles.rowTitle}>
-            Etapa {cycle.stage} de {A_STAGES.length} · {stageName(cycle.stage)}
+            Paso {cycle.stage} de {LADDER.length} · {stageName(cycle.stage)}
           </Text>
-          <Text style={styles.note}>
-            {cycle.stage < A_STAGES.length
-              ? `Siguiente: ${stageName(cycle.stage + 1)}. Se abre cuando confirmas buena técnica y sin dolor.`
-              : 'Llegaste a la última etapa: ya tienes disponibles todos los movimientos.'}
-          </Text>
+          <Text style={styles.note}>{ladderNextNote(cycle.stage)}</Text>
+          <Link href="/camino" style={styles.link}>
+            Ver tu camino: los 15 pasos ›
+          </Link>
         </Card>
       ) : null}
 

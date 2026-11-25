@@ -1,9 +1,10 @@
 import { equipmentAt } from './catalog';
-import { usesKettlebell } from './experience';
+import { kettlebellLevel, usesKettlebell } from './experience';
+import { ladderOpen, SWING_1H_STEP } from './ladder';
 import { trainingStamp } from '@/domain/profileStamp';
 import type { CycleInfo } from './cycle';
 import { filterExercisesForUser, weightsFor } from './filter';
-import { cantDoIds, hadPain, pickWeight, strongPainIds } from './generator';
+import { cantDoIds, hadPain, MAX_COMPLEXITY as KB_MAX_COMPLEXITY, pickWeight, strongPainIds } from './generator';
 import {
   type DayPlan,
   type Exercise,
@@ -14,7 +15,7 @@ import {
 } from './schema';
 import type { TabataConfig } from './session';
 import { isPerSide, workLabel } from './sides';
-import { isZoneAccessory, A_STAGES, FREE_BALLISTIC_STAGE, strengthRole, unlockedA } from './strength';
+import { isZoneAccessory, strengthRole } from './strength';
 import { slotSeconds } from './timeBudget';
 import { dayDate } from './week';
 
@@ -144,10 +145,9 @@ export function finisherOffer(input: OfferInput): FinisherOffer | null {
       fits(e) &&
       !isPerSide(e.id) &&
       !dayExerciseIds.includes(e.id) &&
-      // Los balísticos en circuito, solo con el swing ya dominado.
-      (!e.restrictionFlags.includes('ballistic') ||
-        (cycle.stage >= FREE_BALLISTIC_STAGE &&
-          (!A_STAGES.flat().includes(e.id) || unlockedA(cycle.stage).includes(e.id)))),
+      // Con kettlebell, solo lo abierto en la fila técnica; los balísticos, con el swing a una mano ganado.
+      (!usesKettlebell(e) || ladderOpen(e, cycle.stage, KB_MAX_COMPLEXITY[kettlebellLevel(profile)], byId)) &&
+      (!e.restrictionFlags.includes('ballistic') || cycle.stage >= SWING_1H_STEP),
   );
   const circuit = planned.map(({ key, slot, e }) => ({
     ...finisherExercise(key, e!, lighterWeight(e!, profile, slot.weightKg)),

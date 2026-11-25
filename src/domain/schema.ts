@@ -321,7 +321,7 @@ export const SetLog = z.object({
   painSide: PainSide.nullable().optional(), // en ejercicios a un lado: dónde dolió
   // En ejercicios a un lado, si la persona lo marca: qué lado le costó más, o que estuvieron iguales.
   weakSide: z.enum(['left', 'right', 'even']).optional(),
-  techniqueOk: z.boolean().optional(), // bloque A: la persona confirmó que mantuvo la técnica
+  techniqueOk: z.boolean().optional(), // bloque A y fila técnica: la persona confirmó que mantuvo la técnica
   format: z.enum(['hiit', 'amrap']).optional(), // bloque C en circuito: no cuenta para subir cargas
 });
 export type SetLog = z.infer<typeof SetLog>;

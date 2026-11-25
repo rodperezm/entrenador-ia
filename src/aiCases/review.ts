@@ -1,9 +1,11 @@
 import { EXERCISES, EXERCISES_BY_ID } from '@/data/exercises.seed';
 import { guardAiPlan } from '@/domain/aiGuard';
 import { filterExercisesForUser, isUnsafeWeight } from '@/domain/filter';
-import { generateWeekByRules, isGentle, weekLocks } from '@/domain/generator';
+import { generateWeekByRules, isGentle, MAX_COMPLEXITY, weekLocks } from '@/domain/generator';
 import type { BlockType, GeneratedWeekPlan, WorkoutSession } from '@/domain/schema';
-import { A_STAGES, offZone, slotRole, unlockedA, weekFocus } from '@/domain/strength';
+import { kettlebellLevel, usesKettlebell } from '@/domain/experience';
+import { ladderOpen } from '@/domain/ladder';
+import { offZone, slotRole, weekFocus } from '@/domain/strength';
 import { dayMinutes, MAIN_MAX_SETS } from '@/domain/timeBudget';
 import { DAY_LONG, GENTLE_MAX } from '@/domain/week';
 import { buildAiRequest } from '@/features/planner/aiRequest';
@@ -76,8 +78,15 @@ function planFindings(c: AiCase, request: AiRequest, raw: RawPlan, mode: 'raw' |
   };
   const name = (id: string) => EXERCISES_BY_ID.get(id)?.name.es ?? id;
   const zones = weekFocus(c.week.days);
-  const allowedA = new Set(unlockedA(request.cycle.stage));
-  const ballistics = new Set(A_STAGES.slice(1).flat()); // la etapa 1 es peso muerto: no es balístico
+  // Con kettlebell, solo lo abierto en su fila técnica (paso ganado, familia, prerrequisitos y dificultad).
+  // Las respuestas grabadas antes de la fila (25-11-2026) se pidieron con las 6 etapas antiguas: su
+  // "stage" no es un paso de la fila, así que esa regla no se les aplica (hay que volver a grabarlas).
+  const kbCap = MAX_COMPLEXITY[kettlebellLevel(c.profile)];
+  const ladderRules = 'ladderSteps' in request.cycle;
+  const notEarned = (id: string) => {
+    const e = EXERCISES_BY_ID.get(id);
+    return ladderRules && !!e && usesKettlebell(e) && !ladderOpen(e, request.cycle.stage, kbCap, EXERCISES_BY_ID);
+  };
 
   for (const asked of request.week) {
     const label = DAY_LONG[asked.day];
@@ -108,8 +117,8 @@ function planFindings(c: AiCase, request: AiRequest, raw: RawPlan, mode: 'raw' |
             (type === 'warmup' && allowedFor('prehab', asked.availableEquipment).has(e.id));
           if (!fits) add('grave', label, `«${e.name.es}» no respeta sus lesiones, su equipamiento o su peso`);
           if (c.forbidden?.includes(e.id)) add('grave', label, `usó «${e.name.es}», prohibido en este caso`);
-          if (ballistics.has(e.id) && !allowedA.has(e.id)) {
-            add('grave', label, `«${e.name.es}» es un balístico que la persona aún no se ha ganado`);
+          if (type === 'main_strength' && notEarned(e.id)) {
+            add('grave', label, `«${e.name.es}» es un movimiento que la persona aún no se ha ganado en su fila técnica`);
           }
           if (s.weightKg != null && isUnsafeWeight(e, c.profile, s.weightKg)) {
             add('grave', label, `«${e.name.es}» con ${s.weightKg} kg, un peso que no le corresponde`);
@@ -126,8 +135,8 @@ function planFindings(c: AiCase, request: AiRequest, raw: RawPlan, mode: 'raw' |
           add('grave', label, `«${cand.name}» pide equipamiento que ese día no hay`);
         }
         if (c.forbidden?.includes(s.exerciseId)) add('grave', label, `usó «${cand.name}», prohibido en este caso`);
-        if (ballistics.has(s.exerciseId) && !allowedA.has(s.exerciseId)) {
-          add('grave', label, `«${cand.name}» es un balístico que la persona aún no se ha ganado`);
+        if (type === 'main_strength' && notEarned(s.exerciseId)) {
+          add('grave', label, `«${cand.name}» es un movimiento que la persona aún no se ha ganado en su fila técnica`);
         }
         if (cand.kettlebell && type === 'main_strength' && s.weightKg == null) {
           add('aviso', label, `«${cand.name}» va sin peso indicado`);

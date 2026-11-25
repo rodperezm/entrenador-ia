@@ -5,8 +5,9 @@ import { test } from 'node:test';
 import { AI_CASES } from '@/aiCases/cases';
 import { type AiRequest, caseRequest, type RawPlan, reviewAiPlan } from '@/aiCases/review';
 import { EXERCISES, EXERCISES_BY_ID } from '@/data/exercises.seed';
-import { generateWeekByRules } from '@/domain/generator';
-import { A_STAGES, unlockedA } from '@/domain/strength';
+import { kettlebellLevel, usesKettlebell } from '@/domain/experience';
+import { generateWeekByRules, MAX_COMPLEXITY } from '@/domain/generator';
+import { ladderOpen } from '@/domain/ladder';
 
 // Casos fijos de la IA. Aquí se prueba, sin gastar IA:
 //  1. que a la IA solo se le ofrece lo que cada persona puede hacer,
@@ -46,10 +47,11 @@ for (const c of AI_CASES) {
       assert.ok(!e.restrictionFlags.some((f) => flags.has(f)), `${id} tiene una restricción activa`);
     }
     for (const id of c.forbidden ?? []) assert.ok(!ids.has(id), `${id} no debía ofrecerse`);
-    // En Fuerza, ningún balístico más allá de la etapa ganada.
-    const allowed = unlockedA(request.cycle.stage);
+    // En Fuerza, nada con kettlebell más allá de lo ganado en la fila técnica.
+    const cap = MAX_COMPLEXITY[kettlebellLevel(c.profile)];
     for (const x of request.candidates.filter((k) => k.blocks.includes('main_strength'))) {
-      if (A_STAGES.slice(1).flat().includes(x.id)) assert.ok(allowed.includes(x.id), `${x.id} aún no está ganado`);
+      const e = EXERCISES_BY_ID.get(x.id)!;
+      if (usesKettlebell(e)) assert.ok(ladderOpen(e, request.cycle.stage, cap, EXERCISES_BY_ID), `${x.id} aún no está ganado`);
     }
   });
 

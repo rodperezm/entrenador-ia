@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AppState, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui';
 import { cycleInfo } from '@/domain/cycle';
+import { LADDER } from '@/domain/ladder';
 import { EXERCISES, EXERCISES_BY_ID } from '@/data/exercises.seed';
 import { finisherOffer } from '@/domain/finisher';
 import { strongPainIds } from '@/domain/generator';
@@ -30,6 +31,8 @@ import { useSync } from '@/state/sync';
 import { colors, display, radius, spacing } from '@/theme';
 
 const SEEN_BLOCK_KEY = 'seen-block.v1';
+const SEEN_LADDER_KEY = 'seen-ladder-intro.v1';
+const LADDER_INTRO_AFTER_MS = 7 * 24 * 3600 * 1000;
 
 export default function TodayScreen() {
   const { profile } = useProfile();
@@ -41,7 +44,9 @@ export default function TodayScreen() {
   const { generate: generateOnOpen } = useLocalSearchParams<{ generate?: string }>();
   const generatedOnOpen = useRef(false);
   const [seenBlock, setSeenBlock] = useState<string | null>(null);
-  const [, setResumedAt] = useState(0);
+  const [seenLadder, setSeenLadder] = useState<boolean | null>(null);
+  // Momento de la última vez que se abrió o volvió a la app: sirve de «ahora» para los avisos.
+  const [resumedAt, setResumedAt] = useState(() => Date.now());
 
   // Al volver a la app se recalcula: pudo empezar un nuevo día o una nueva semana.
   useEffect(() => {
@@ -64,6 +69,9 @@ export default function TodayScreen() {
     AsyncStorage.getItem(SEEN_BLOCK_KEY)
       .then((seen) => setSeenBlock(seen ?? ''))
       .catch(() => {});
+    AsyncStorage.getItem(SEEN_LADDER_KEY)
+      .then((seen) => setSeenLadder(seen === '1'))
+      .catch(() => {});
   }, []);
 
   if (!profile) return null;
@@ -76,6 +84,17 @@ export default function TodayScreen() {
   const dismissNewBlock = () => {
     setSeenBlock(cycle.blockStart);
     AsyncStorage.setItem(SEEN_BLOCK_KEY, cycle.blockStart).catch(() => {});
+  };
+  // Una sola vez, al cumplir la primera semana de entrenamiento: cómo es su camino con la kettlebell.
+  const firstSession = sessions.reduce<number | null>((min, s) => {
+    const t = Date.parse(s.finishedAt);
+    return min == null || t < min ? t : min;
+  }, null);
+  const ladderIntro =
+    seenLadder === false && firstSession != null && resumedAt - firstSession >= LADDER_INTRO_AFTER_MS && !newBlock;
+  const dismissLadderIntro = () => {
+    setSeenLadder(true);
+    AsyncStorage.setItem(SEEN_LADDER_KEY, '1').catch(() => {});
   };
 
   return (
@@ -94,6 +113,23 @@ export default function TodayScreen() {
             Mantuvimos tus patrones y cambiamos algunos ejercicios para que tu cuerpo siga progresando.
           </Text>
           <Button label="Entendido" variant="ghost" onPress={dismissNewBlock} />
+        </View>
+      )}
+
+      {ladderIntro && (
+        <View style={styles.notice}>
+          <Text style={styles.noticeTitle}>Así vas a avanzar con la kettlebell</Text>
+          <Text style={styles.noticeText}>
+            Tu camino tiene 15 pasos, de la bisagra al snatch. Vas en el paso {cycle.stage}: {LADDER[cycle.stage - 1].name}.
+          </Text>
+          <Button
+            label="Ver el camino"
+            onPress={() => {
+              dismissLadderIntro();
+              router.push('/camino');
+            }}
+          />
+          <Button label="Entendido" variant="ghost" onPress={dismissLadderIntro} />
         </View>
       )}
 

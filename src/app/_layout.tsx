@@ -76,6 +76,7 @@ export default function RootLayout() {
                   <Stack.Screen name="terms" options={{ title: 'Términos y condiciones' }} />
                   <Stack.Screen name="plan-info" options={{ title: 'Cómo funciona tu plan' }} />
                   <Stack.Screen name="progress" options={{ title: 'Tu progreso' }} />
+                  <Stack.Screen name="camino" options={{ title: 'Tu camino con la kettlebell' }} />
                 </Stack>
                 <ConfirmHost />
               </WebSafeArea>

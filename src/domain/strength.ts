@@ -1,33 +1,19 @@
-import type { DayConfig, Exercise, ExerciseSlot, StrengthRole, WorkoutSession } from './schema';
-import { painOf } from './schema';
+import { BASE_STEPS, LADDER } from './ladder';
+import type { DayConfig, Exercise, ExerciseSlot, StrengthRole } from './schema';
 
 // Método de Fuerza: mandan los patrones de movimiento, en sesiones de cuerpo completo
 // ordenadas en A potencia, B fuerza y C remate. Los músculos solo informan y equilibran.
+// Qué movimientos técnicos con kettlebell tiene abiertos cada persona lo decide la fila técnica
+// (domain/ladder): `stage` es el paso de esa fila, de 1 a 15.
 
 type Level = 'beginner' | 'intermediate' | 'advanced';
 type Pattern = Exercise['movementPattern'];
 
 export type Intensity = 'intense' | 'moderate' | 'light';
 
-// Etapas del bloque A: el balístico se gana con técnica y sin dolor.
-export const A_STAGES = [
-  ['kb_deadlift', 'kb_sumo_deadlift'],
-  ['kb_dead_stop_swing'],
-  ['kb_swing_2h'],
-  // Desde aquí los balísticos libres se ganan de a uno: primero el swing a una mano, después el
-  // clean y sus parientes, al final el snatch y el jerk. Cada etapa pide confirmar su propia técnica.
-  ['kb_swing_1h'],
-  ['kb_clean', 'kb_high_pull', 'kb_push_press', 'kb_clean_press', 'kb_double_swing'],
-  ['kb_snatch', 'kb_jerk', 'kb_long_cycle'],
-];
-export const FREE_BALLISTIC_STAGE = 4;
-// Lo que la persona ya puede usar en el bloque A: su etapa y, en los balísticos libres, también
-// las etapas que ya superó.
-export const unlockedA = (stage: number): string[] =>
-  stage < FREE_BALLISTIC_STAGE ? (A_STAGES[stage - 1] ?? []) : A_STAGES.slice(FREE_BALLISTIC_STAGE - 1, stage).flat();
-// El nivel es declarado: nadie parte en el swing libre sin haber confirmado antes la técnica en la app.
-const START_STAGE: Record<Level, number> = { beginner: 1, intermediate: 2, advanced: 2 };
-const SESSIONS_TO_ADVANCE = 2;
+// Mientras la persona está en los pasos base (sin balísticos todavía), el peso muerto ocupa el bloque A.
+const BASE_POWER_IDS = LADDER[1].ids;
+export const isBasePower = (id: string, stage: number) => stage <= BASE_STEPS && BASE_POWER_IDS.includes(id);
 
 const FINISHER_IDS = ['kb_swing_finisher', 'kb_complex'];
 const B_PATTERNS: Pattern[] = [
@@ -74,7 +60,7 @@ export function strengthRole(e: Exercise): StrengthRole | null {
 }
 
 export function slotRole(e: Exercise, stage: number): StrengthRole | null {
-  return stage === 1 && A_STAGES[0].includes(e.id) ? 'A' : strengthRole(e);
+  return isBasePower(e.id, stage) ? 'A' : strengthRole(e);
 }
 
 // Descanso mínimo entre series: los compuestos pesados necesitan recuperar para mantener la técnica.
@@ -271,51 +257,6 @@ export function sessionNeeds(power: boolean, dayIndex: number, focus: DayFocus =
     { role: 'B', patterns: [...push].reverse() },
     { role: 'B', patterns: [...pull].reverse() },
   ];
-}
-
-// Etapa del bloque A según el nivel y lo logrado en las sesiones anteriores. Se avanza solo al
-// cambiar de bloque, una etapa cada vez, para mantener los ejercicios fijos; el dolor retrocede al tiro.
-// `blockStarts` son los lunes en que empezó cada bloque, del primero al actual.
-// `start`: la etapa de partida (ver `startStage` en domain/experience) o, por compatibilidad, un nivel.
-export function techniqueStage(history: WorkoutSession[], start: Level | number, blockStarts: number[]) {
-  let stage = typeof start === 'number' ? start : START_STAGE[start];
-  const oldestFirst = [...history].sort((a, b) => a.finishedAt.localeCompare(b.finishedAt));
-  const current = blockStarts.length - 1;
-  // -1 = antes del primer bloque (preparación), que también cuenta como bloque cerrado.
-  const blockOf = (t: number) => blockStarts.filter((s) => s <= t).length - 1;
-  let good = 0;
-  let hurt = false;
-  let block: number | null = null;
-  const closeBlock = () => {
-    if (block != null && block !== current && !hurt && good >= SESSIONS_TO_ADVANCE) {
-      stage = Math.min(A_STAGES.length, stage + 1);
-    }
-    good = 0;
-    hurt = false;
-  };
-  for (const session of oldestFirst) {
-    const sessionBlock = blockOf(Date.parse(session.finishedAt));
-    if (sessionBlock !== block) {
-      closeBlock();
-      block = sessionBlock;
-    }
-    // El dolor en cualquier balístico ya ganado retrocede; para avanzar cuenta solo la etapa actual.
-    const open = session.sets.filter((l) => unlockedA(stage).includes(l.exerciseId));
-    const logs = open.filter((l) => A_STAGES[stage - 1].includes(l.exerciseId));
-    const pain = open.some((l) => painOf(l) > 0);
-    if (!logs.length && !pain) continue;
-    // Día elegido por la persona: no suma para avanzar de etapa, pero su dolor sí cuenta.
-    if (session.chosenByUser && !pain) continue;
-    if (pain || logs.some((l) => l.techniqueOk === false)) {
-      stage = Math.max(1, stage - (pain ? 1 : 0));
-      good = 0;
-      hurt = hurt || pain;
-    } else if (logs.some((l) => l.techniqueOk === true)) {
-      good++;
-    }
-  }
-  closeBlock();
-  return stage;
 }
 
 // Exigencia de cada sesión de Fuerza: con 4 días o más se alternan para recuperar.

@@ -7,6 +7,7 @@ import { YouTubeVideo } from '@/components/YouTubeVideo';
 import { EXERCISES_BY_ID } from '@/data/exercises.seed';
 import { EQUIPMENT, MUSCLES, RESTRICTION_FLAGS } from '@/domain/catalog';
 import { BLOCK_LABELS, GRIP_LABELS } from '@/domain/labels';
+import { LADDER_LENGTH, ladderStepOf } from '@/domain/ladder';
 import type { Exercise } from '@/domain/schema';
 import { sideLabel } from '@/domain/sides';
 import { colors, display, radius, spacing } from '@/theme';
@@ -24,6 +25,8 @@ export default function ExerciseDetail() {
   }
 
   const kb = e.kettlebellGuide;
+  // Ejercicios de la fila técnica: dicen en qué paso del camino están.
+  const ladderStep = ladderStepOf(e.id);
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
@@ -47,6 +50,11 @@ export default function ExerciseDetail() {
           ...e.equipment.optional.map((q) => `${EQUIPMENT[q]} (opcional)`),
         ].join(', ') || 'Sin equipamiento'}
       </Text>
+      {ladderStep != null && (
+        <Link href="/camino" style={styles.ladder}>
+          Paso {ladderStep} de {LADDER_LENGTH} de tu camino con la kettlebell · Ver el camino ›
+        </Link>
+      )}
 
       <View style={styles.statsRow}>
         <Stat label="Series" value={String(e.prescription.sets)} />
@@ -288,4 +296,13 @@ const styles = StyleSheet.create({
   },
   warnTitle: { color: colors.warning, fontWeight: '700' },
   link: { color: colors.link, fontSize: 15, fontWeight: '600', paddingVertical: 4 },
+  ladder: {
+    color: colors.text,
+    backgroundColor: colors.accentSoft,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
 });

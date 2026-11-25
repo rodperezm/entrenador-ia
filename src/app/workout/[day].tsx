@@ -48,6 +48,7 @@ import { HiitBlock, type HiitResult } from '@/features/workout/HiitBlock';
 import { PainPicker, SidePicker, type WeakSideMark, WeakSidePicker } from '@/features/workout/PainControls';
 import { type Choice, ChoiceTiles } from '@/features/workout/ChoiceTiles';
 import { WEAK_SIDE_LABEL, weakSideCue, weakSideOf } from '@/domain/balance';
+import { LADDER_IDS } from '@/domain/ladder';
 import { useCues } from '@/features/workout/useCues';
 import { useBody } from '@/state/body';
 import { useHistory } from '@/state/history';
@@ -484,6 +485,10 @@ export default function WorkoutScreen() {
   const askSide = isPerSide(item.slot.exerciseId);
   // Desbalance entre lados: solo en la Fuerza a un lado, y solo si la persona lo marca.
   const askWeak = askSide && item.block === 'main_strength';
+  // «Pude mantener la técnica»: en la potencia (A) y en todo movimiento de la fila técnica, así cada
+  // paso se puede confirmar (la goblet, el remo, el press o la levantada turca no son del bloque A).
+  const asksTechnique =
+    item.block === 'main_strength' && (item.slot.role === 'A' || LADDER_IDS.has(item.slot.exerciseId));
   const weakNow = askWeak ? weakSideOf(item.slot.exerciseId, sessions) : null;
   const painSide = painSides[item.key] ?? null;
   const setPainSide = (side: PainSide) => setPainSides((s) => ({ ...s, [item.key]: side }));
@@ -581,7 +586,7 @@ export default function WorkoutScreen() {
             rpe,
             painLevel: level || pain,
             painFlag: level >= 2,
-            ...(item.slot.role === 'A' ? { techniqueOk } : {}),
+            ...(asksTechnique ? { techniqueOk } : {}),
             ...(askWeak && weakMark ? { weakSide: weakMark } : {}),
           }
         : l,
@@ -996,7 +1001,7 @@ export default function WorkoutScreen() {
                   )}
                 </>
               )}
-              {item.slot.role === 'A' && (
+              {asksTechnique && (
                 <CheckRow
                   label="Pude mantener la técnica"
                   checked={techniqueOk}

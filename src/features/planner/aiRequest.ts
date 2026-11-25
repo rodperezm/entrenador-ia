@@ -13,7 +13,8 @@ import {
   weekLocks,
 } from '@/domain/generator';
 import { wasTooHard } from '@/domain/progression';
-import { dayIntensity, unlockedA, focusGuide, strengthRole, weekFocus } from '@/domain/strength';
+import { LADDER_LENGTH, ladderGuide, ladderOpen } from '@/domain/ladder';
+import { dayIntensity, focusGuide, strengthRole, weekFocus } from '@/domain/strength';
 import { leadPart, partBudgets, partCount } from '@/domain/timeBudget';
 import { DAY_PARTS } from '@/domain/week';
 import {
@@ -73,21 +74,19 @@ export function buildAiRequest(
       allowed.get(e.id)!.add(block);
     }
   }
-  // En Fuerza solo entran patrones principales y los balísticos de la etapa alcanzada.
+  // En Fuerza solo entran patrones principales, y con kettlebell solo lo abierto en la fila técnica
+  // (paso ganado, familia, prerrequisitos y dificultad), igual que en las reglas. Los remates
+  // balísticos no se le ofrecen.
   const cycle = cycleInfo(history, profile, week.days, new Date(now));
-  const allowedA = unlockedA(cycle.stage);
+  const byId = new Map(exercises.map((e) => [e.id, e]));
   const fitsStrength = (e: Exercise) =>
-    allowedA.includes(e.id) ||
+    strengthRole(e) === 'A' ||
     strengthRole(e) === 'B' ||
     (strengthRole(e) === 'C' && !e.restrictionFlags.includes('ballistic'));
   const resting = legsRestIds(exercises, history);
-  // Con la experiencia declarada, los ejercicios de kettlebell más difíciles que su manejo de la pesa
-  // ni siquiera se le ofrecen a la IA (las reglas aplican el mismo tope).
   const tooTechnical = (e: Exercise) =>
-    !!profile.kettlebellExperience &&
     usesKettlebell(e) &&
-    !allowedA.includes(e.id) &&
-    e.complexityLevel > KETTLEBELL_MAX_COMPLEXITY[kettlebellLevel(profile)];
+    !ladderOpen(e, cycle.stage, KETTLEBELL_MAX_COMPLEXITY[kettlebellLevel(profile)], byId);
   for (const e of exercises) {
     if (!fitsStrength(e) || resting.includes(e.id) || tooTechnical(e)) allowed.get(e.id)?.delete('main_strength');
   }
@@ -120,7 +119,6 @@ export function buildAiRequest(
       forConditions: forConditions.has(e.id),
     }));
 
-  const byId = new Map(exercises.map((e) => [e.id, e]));
   const kindOf = (id: string) => {
     const e = byId.get(id);
     return e ? effortKind(e) : 'reps';
@@ -162,7 +160,11 @@ export function buildAiRequest(
   return {
     cycle: {
       ...cycle,
-      guide: cycleGuide(cycle, profile),
+      // La fila técnica va en la guía: la función de la IA ya la lee y así no hay que cambiarla.
+      guide: `${cycleGuide(cycle, profile)} ${ladderGuide(cycle.stage)}`,
+      // Marca de que "stage" es el paso de la fila de 15 (los pedidos anteriores al 25-11-2026 usaban
+      // las 6 etapas antiguas; el revisor de casos lo distingue por esta marca).
+      ladderSteps: LADDER_LENGTH,
       previousBlockExercises: [...previousBlockExercises(history, cycle)],
       fixedByDay,
       // true: fixedByDay son solo las anclas del día; el resto de main_strength rota respecto de la semana pasada.

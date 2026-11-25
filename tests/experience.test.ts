@@ -45,7 +45,8 @@ test('sin experiencia declarada, todo sigue saliendo del nivel como antes', () =
   for (const level of ['beginner', 'intermediate', 'advanced'] as const) {
     const p = profile(level);
     assert.equal(kettlebellLevel(p), level);
-    assert.equal(startStage(p), level === 'beginner' ? 1 : 2);
+    // Paso de la fila técnica: el principiante en la bisagra, los demás en el swing con pausa.
+    assert.equal(startStage(p), level === 'beginner' ? 1 : 6);
     assert.equal(learningKettlebell(p), level === 'beginner');
     assert.equal(techniqueFirst(p), level === 'beginner');
   }
@@ -80,15 +81,16 @@ test('el atleta sin kettlebell: mucho trabajo, pero ejercicios de kettlebell sim
 });
 
 test('quien domina la pesa pero está partiendo: pocas series, sin volver al peso muerto', () => {
-  assert.equal(startStage(returning), 3);
+  // «La domino» parte con el clean ya abierto (paso 12).
+  assert.equal(startStage(returning), 12);
   assert.equal(learningKettlebell(returning), false);
   assert.equal(techniqueFirst(returning), true); // por condición, la semana 3 no sube de pesa
-  assert.equal(cycleInfo([], returning, week(3).days).stage, 3);
+  assert.equal(cycleInfo([], returning, week(3).days).stage, 12);
 });
 
-test('quien conoce lo básico queda como el intermedio de siempre', () => {
+test('quien conoce lo básico parte en el swing a dos manos', () => {
   const basic = profile('intermediate', 'basic');
-  assert.equal(startStage(basic), 2);
+  assert.equal(startStage(basic), 7);
   assert.equal(kettlebellLevel(basic), 'intermediate');
 });
 

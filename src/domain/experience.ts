@@ -23,10 +23,14 @@ export const usesKettlebell = (e: Pick<Exercise, 'equipment'>) => e.equipment.re
 export const levelFor = (e: Pick<Exercise, 'equipment'>, p: Who): Level =>
   usesKettlebell(e) ? kettlebellLevel(p) : p.level;
 
-// Etapa del bloque A en que parte (1 peso muerto, 2 swing con pausa, 3 swing a dos manos).
-// Nadie parte en los balísticos libres: se ganan confirmando la técnica en la app.
-const START_BY_EXPERIENCE: Record<KettlebellExperience, number> = { none: 1, basic: 2, skilled: 3 };
-const START_BY_LEVEL: Record<Level, number> = { beginner: 1, intermediate: 2, advanced: 2 };
+// Paso de la fila técnica (domain/ladder) en que parte. Cada uno parte donde dice estar:
+//   - «Nunca la he usado»: paso 1, la bisagra.
+//   - «Conozco lo básico» (swing a dos manos y goblet con buena técnica): paso 7, el swing a dos manos.
+//   - «La domino» (swing a una mano, clean y press): paso 12, con el clean ya abierto.
+// Sin la pregunta respondida (perfiles antiguos), según la condición: el principiante en la bisagra
+// y los demás en el swing con pausa, como antes.
+const START_BY_EXPERIENCE: Record<KettlebellExperience, number> = { none: 1, basic: 7, skilled: 12 };
+const START_BY_LEVEL: Record<Level, number> = { beginner: 1, intermediate: 6, advanced: 6 };
 export const startStage = (p: Who) =>
   p.kettlebellExperience ? START_BY_EXPERIENCE[p.kettlebellExperience] : START_BY_LEVEL[p.level];
 
