@@ -182,4 +182,8 @@ export const YOUTUBE_VIDEO_IDS: Record<string, string> = {
   kb_wall_sit: 'VipQgYnFrUk',
   plank_kb_drag: 'uWn2uvYl-lY',
   bear_crawl: 'CqKgj_2uDoo',
+  // Ejercicios nuevos de las rutinas rápidas: elegidos por búsqueda y aprobados por Rodrigo el 24-11-2026.
+  wall_angel: 'FkLRSzR-0C4',
+  stretch_thoracic_towel: 'Jx6z6OWbD9Y',
+  lateral_shuffle: '3HduILMVE7w',
 };
