@@ -52,6 +52,29 @@ Plan de ambientes: la dirección de GitHub pasará a ser pruebas, con su propia 
 
 ## Historial
 
+### 1.15.0 · 24 de noviembre de 2026
+
+Rutina rápida nueva: «Activación para el pádel».
+
+**Qué cambia para la persona**
+
+- En Ejercicios, bajo «¿Qué necesitas hoy?», hay una tarjeta nueva: «Activación para el pádel». Son 5 ejercicios en unos 4 minutos, para hacer en la cancha antes de jugar: jumping jacks, movilidad de muñecas, círculos de brazos, «el mejor estiramiento del mundo» y desplazamientos laterales con salto de preparación.
+- «Desplazamientos laterales con salto de preparación» es un ejercicio nuevo del catálogo. Si alguien no debe saltar, la app le dice que solo se desplace de lado.
+- «Prevenir el codo de tenista» subió una fila, para que «Activación para el pádel» y «Después de jugar pádel» queden lado a lado.
+
+**Qué cambia por dentro**
+
+- App: `src/domain/quickRoutines.ts` (rutina `padel_warmup` y orden de las tarjetas), `src/features/routines/tones.ts` (tono `gold` e ícono `flash-outline`) y `src/data/exercises.extra.warmup-prehab.ts` (ejercicio `lateral_shuffle`, bloque de calentamiento, con la bandera `jumping`). El catálogo pasa de 181 a 182 ejercicios. Pruebas: 156, todas pasan.
+- Sin cambios en la base de datos ni en la función de la IA.
+
+**Notas para quien siga el trabajo**
+
+- Rodrigo pidió que las activaciones sean cortas, de unos 5 minutos. Por eso son 5 ejercicios, que es el mínimo de las rutinas rápidas (`tests/quickRoutines.test.ts`).
+- No hay un estudio de calentamiento hecho para el pádel. La rutina sigue la evidencia general (moverse, movilidad dinámica y el gesto del deporte) y apunta a lo que más se lesiona en pádel: codo, hombro y piernas al moverse de lado.
+- `lateral_shuffle` entra al catálogo general, así que el plan semanal también lo puede elegir para el calentamiento. No tiene video todavía.
+- La rotación externa de hombro con banda quedó fuera, porque las rutinas rápidas no piden más equipo que una colchoneta.
+- Vuelta atrás: publicar desde `v1.14.2`. No deja nada a medias en los teléfonos.
+
 ### 1.14.2 · 24 de noviembre de 2026
 
 «Retomar» un entrenamiento sin terminar vuelve a funcionar desde Hoy.
