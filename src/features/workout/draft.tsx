@@ -95,9 +95,12 @@ export function UnfinishedWorkoutCard() {
   const draft = useWorkoutDraft();
   const { plan } = usePlan();
   const { addSession } = useHistory();
-  const [now] = useState(() => Date.now());
+  const [openedAt] = useState(() => Date.now());
   if (!draft || !draft.logs.length) return null;
 
+  // Hoy queda abierta mientras se entrena: su hora de apertura es anterior al entrenamiento, que
+  // parecía empezado «en el futuro» y no se dejaba retomar. Ahora es, como mínimo, el último registro.
+  const now = Math.max(openedAt, draft.savedAt);
   const resumable = canResume(draft, { day: draft.day, planGeneratedAt: plan?.generatedAt ?? null, now });
   const keep = () => {
     addSession(sessionFromDraft(draft));

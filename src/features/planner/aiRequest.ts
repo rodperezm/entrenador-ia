@@ -72,7 +72,7 @@ export function buildAiRequest(
     }
   }
   // En Fuerza solo entran patrones principales y los balísticos de la etapa alcanzada.
-  const cycle = cycleInfo(history, profile, week.days);
+  const cycle = cycleInfo(history, profile, week.days, new Date(now));
   const allowedA = unlockedA(cycle.stage);
   const fitsStrength = (e: Exercise) =>
     allowedA.includes(e.id) ||
