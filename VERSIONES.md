@@ -52,6 +52,33 @@ Plan de ambientes: la dirección de GitHub pasará a ser pruebas, con su propia 
 
 ## Historial
 
+### 1.17.0 · 25 de noviembre de 2026
+
+La semana de descarga ya no cuenta para decidir la carga siguiente, y no pregunta cuántas repeticiones más podías. Además, 5 videos más cortos.
+
+**Qué cambia para la persona**
+
+- Entrenamiento en semana de descarga: después de cada ejercicio de fuerza ya no aparece «¿Cuántas repeticiones más podías hacer?». Se muestra «¡Listo!» con la explicación «Semana de descarga: no buscamos tu límite, así que no te preguntamos cuántas más podías». La pregunta de dolor sigue igual.
+- Al empezar el ciclo siguiente, el peso y las repeticiones parten de la última semana normal (la 3), no de la descarga. El dolor marcado en la descarga sí cuenta.
+- Videos más cortos (ninguno pasa de 4 minutos): peso muerto con kettlebell (14:44 → 3:09), sentadilla pistol (13:33 → 1:00), flexión esfinge (5:06 → 0:43), swing con dos kettlebells (4:55 → 2:21) y salto a banco (4:44 → 0:17).
+
+**Qué cambia por dentro**
+
+- `src/domain/cycle.ts`: el recorrido de semanas pasa a `walkCycle`, que además anota las semanas de descarga; `markDeload` marca con `deload: true` las sesiones hechas en ellas (incluida la semana en curso). La marca se deduce del historial y no se guarda (`schema.ts`: campo opcional `deload`).
+- `progression.ts` (`lastSessionOf`, `topStreak`) trata la descarga como un día elegido: solo cuenta su dolor. `lastWeightOf` (generator) prefiere el peso de una semana normal.
+- Marcan el historial al entrar: `generateDayByRules`, `generateWeekByRules`, `guardAiPlan`, `buildAiRequest` (a la IA solo va el dolor de la descarga) y el aviso de pesa más pesada (`kettlebellAdvice`).
+- `src/app/workout/[day].tsx`: en descarga no se muestra la pregunta de esfuerzo (`rpe` queda vacío).
+- `src/data/youtubeVideos.ts`: 5 videos cambiados. Prueba nueva: `tests/deload.test.ts`. Pruebas: 160, todas pasan.
+- Sin cambios en la base de datos ni en la función de la IA.
+
+**Notas para quien siga el trabajo**
+
+- La descarga se detecta igual que la semana del ciclo: depende de `plannedByWeek` y de la configuración de la semana. Una descarga no cumplida se repite y sus sesiones también se marcan.
+- Si la descarga baja el peso, `lastWeightOf` solo lo usa si no hay otra referencia.
+- El gráfico de Progreso (`progress.ts`) todavía muestra las sesiones de descarga; no se tocó.
+- Regla de videos: 4 minutos o menos (anotada en `youtubeVideos.ts`).
+- Vuelta atrás: publicar desde `v1.16.1`. No deja nada a medias en los teléfonos.
+
 ### 1.16.1 · 24 de noviembre de 2026
 
 Video en los 3 ejercicios nuevos de las rutinas rápidas.
