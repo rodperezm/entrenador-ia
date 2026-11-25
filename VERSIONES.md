@@ -52,6 +52,45 @@ Plan de ambientes: la dirección de GitHub pasará a ser pruebas, con su propia 
 
 ## Historial
 
+### 1.18.0 · 25 de noviembre de 2026
+
+Tu camino con la kettlebell: una fila de 15 pasos, de la bisagra al snatch, que la app sigue por dentro y que la persona ve como un mapa. Además, 8 ejercicios nuevos con su video.
+
+**Qué cambia para la persona**
+
+- La técnica con kettlebell avanza por 15 pasos: bisagra de cadera, peso muerto, sentadilla goblet, remo a una mano, hike pass, swing con pausa, swing a dos manos, press militar, peso muerto a una mano, swing a una mano, levantada turca, clean, clean y press, tirón alto y snatch. Antes eran 6 etapas que solo ordenaban los balísticos.
+- Cada paso se gana con 2 entrenamientos marcando «Pude mantener la técnica», sin dolor, y un tiempo mínimo según el riesgo: los 4 primeros en la misma semana; hike pass y swing con pausa, 1 semana; del swing a dos manos a la levantada turca, 2 semanas; del clean al snatch, 4 semanas. Con dolor se baja un paso; en la semana de descarga no se sube. Lo ganado no se pierde.
+- Cada persona parte donde dice estar: «Nunca la he usado» en el paso 1, «Conozco lo básico» en el swing a dos manos (paso 7) y «La domino» con el clean abierto (paso 12).
+- El ejercicio del paso que toca entra siempre en la semana, aunque no sea del bloque de potencia (por ejemplo, el press o la levantada turca).
+- «Pude mantener la técnica» se pregunta también en la goblet, el remo, el press y la levantada turca.
+- Todo día con trabajo de cadera parte con un ejercicio de bisagra en el calentamiento, para todos los niveles. Hay versiones sin implemento: a la pared, con manos en los muslos y buenos días sin peso.
+- Pantalla nueva «Tu camino con la kettlebell»: los 15 pasos en 4 tramos, el tuyo destacado, y en cada uno para qué sirve, la clave técnica, cómo se gana el siguiente y el video. Se abre desde Progreso, desde la ficha de cada ejercicio de la fila («Paso N de 15») y desde un aviso que aparece una sola vez en Hoy al cumplir la primera semana.
+- Progreso muestra «Paso X de 15» y qué falta para el siguiente.
+- Los demás ejercicios con kettlebell se abren con su familia: la bisagra con el peso muerto, la sentadilla con la goblet, el tirón con el remo y lo que va al hombro o sobre la cabeza con el press. Las variantes explosivas fuera de la fila (push press, jerk, swing con dos pesas) se abren al completarla.
+- Ejercicios nuevos, cada uno con su video: peso muerto a una mano, peso muerto a una pierna con las dos manos, clean desde el suelo, hike pass, bisagra de cadera a la pared, bisagra con manos en los muslos, buenos días sin peso y peso muerto a una pierna sin peso.
+- Se corrigió que quien partía sin experiencia perdiera el swing al llegar al swing a una mano.
+
+**Qué cambia por dentro**
+
+- `src/domain/ladder.ts` (nuevo): la fila (`LADDER`), `ladderStep` (el paso según la partida y el historial), `ladderOpen` (qué ejercicio con kettlebell está abierto: paso, familia, prerrequisitos del catálogo y una dificultad que sube con lo ganado) y los textos para la IA y Progreso. Reemplaza `A_STAGES`, `unlockedA` y `techniqueStage` de `strength.ts`.
+- `cycle.ts`: `stage` es ahora el paso de la fila (1 a 15) y la descarga frena la subida. `experience.ts`: nuevas partidas.
+- `generator.ts`: lo abierto sale de `ladderOpen`; el paso actual va primero y se asegura en el día (`ensureCurrent`); un fijo de la fila que quedó atrás da lugar al del paso nuevo; la bisagra se fuerza en el calentamiento para todos.
+- IA: `aiRequest.ts` filtra con la fila y agrega la fila a la guía del ciclo (`ladderGuide`) y la marca `ladderSteps`; `aiGuard.ts` agrega el paso actual y la bisagra si la IA no los puso. La función de la IA no cambia.
+- `finisher.ts`: el circuito usa la fila. `workout/[day].tsx`: la casilla de técnica en los pasos de la fila.
+- Pantallas: `src/app/camino.tsx` (nueva), `src/content/ladderGuide.ts` (textos aprobados), enlaces en `progress.tsx`, `exercise/[id].tsx` y `(tabs)/index.tsx`.
+- Catálogo: 8 ejercicios nuevos (190 en total) y sus videos en `youtubeVideos.ts`.
+- Pruebas: `tests/ladder.test.ts` (nueva) y ajustes en `aiCases`, `evaluation4` y `experience`. Pruebas: 170, todas pasan.
+- Sin cambios en la base de datos ni en la función de la IA.
+
+**Notas para quien siga el trabajo**
+
+- Las respuestas grabadas de la IA (`tests/ia-grabadas`, 13-11) son de antes de la fila: su `stage` es de las 6 etapas antiguas, y el revisor de casos les salta la regla de la fila (se distingue por `ladderSteps`). Conviene volver a grabarlas con llamadas reales, con el OK de Rodrigo.
+- Los amigos que ya entrenaban: quien respondió «Nunca la he usado» vuelve a la base hasta confirmar bisagra, goblet y remo con la casilla nueva (unos días); quien respondió «Conozco lo básico» sube al swing a dos manos.
+- Sin marcar la casilla, la sesión no cuenta para subir, pero tampoco borra lo confirmado.
+- El aviso de Hoy se marca como visto en cada teléfono (`seen-ladder-intro.v1`); no viaja con el respaldo.
+- La infografía de los 15 pasos está en el Canva de KETTAI («KETTAI · Tu camino con la kettlebell (15 pasos)»), con los mismos textos de `ladderGuide.ts`.
+- Vuelta atrás: publicar desde `v1.17.0`. El paso se deduce del historial; no queda nada guardado que estorbe a la versión anterior.
+
 ### 1.17.0 · 25 de noviembre de 2026
 
 La semana de descarga ya no cuenta para decidir la carga siguiente, y no pregunta cuántas repeticiones más podías. Además, 5 videos más cortos.
