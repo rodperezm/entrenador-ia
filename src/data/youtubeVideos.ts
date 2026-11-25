@@ -188,4 +188,9 @@ export const YOUTUBE_VIDEO_IDS: Record<string, string> = {
   wall_angel: 'FkLRSzR-0C4',
   stretch_thoracic_towel: 'Jx6z6OWbD9Y',
   lateral_shuffle: '3HduILMVE7w',
+  // Progresión técnica (25-11-2026): elegidos por búsqueda y revisados uno a uno (todos de 2 min o menos).
+  kb_suitcase_deadlift: 'bVwh5Kgh4WM', // 0:26, una kettlebell a una mano
+  kb_single_leg_rdl_2h: 'ZY1PZ5grDrg', // 0:53, una kettlebell tomada con las dos manos
+  hinge_wall_touch: 'CXEKOSj7n04', // 2:02, bisagra tocando la pared
+  hinge_hands_thighs: '36OJ50bs6qM', // 0:59, en español, sin implemento, manos por los muslos
 };
