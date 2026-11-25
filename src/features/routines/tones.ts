@@ -16,6 +16,7 @@ export const ROUTINE_TONES: Record<RoutineTone, { bg: string; text: string; sub:
   lime: { bg: '#2C3410', text: '#EAF3C8', sub: '#C5D68A', vivid: '#B8D44A' },
   rose: { bg: '#3A1A27', text: '#F6D9E4', sub: '#E2A6BC', vivid: '#E57FA4' },
   orange: { bg: '#40200F', text: '#F9DEC8', sub: '#EDB083', vivid: '#F08A4B' },
+  gold: { bg: '#36300C', text: '#F7EEC4', sub: '#DECC7E', vivid: '#E6C83C' },
 };
 
 export const ROUTINE_ICONS: Record<string, ComponentProps<typeof Ionicons>['name']> = {
@@ -28,4 +29,5 @@ export const ROUTINE_ICONS: Record<string, ComponentProps<typeof Ionicons>['name
   padel: 'tennisball-outline',
   elbow: 'barbell-outline',
   football: 'football-outline',
+  padel_warmup: 'flash-outline',
 };

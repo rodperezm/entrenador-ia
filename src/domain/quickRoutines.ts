@@ -5,7 +5,7 @@ import type { Exercise } from './schema';
 // cargas. Cada lista está elegida a mano del catálogo y solo usa peso corporal (a lo más, una
 // colchoneta), para que sirvan en casa o en el parque.
 
-export type RoutineTone = 'accent' | 'blue' | 'green' | 'amber' | 'violet' | 'teal' | 'lime' | 'rose' | 'orange';
+export type RoutineTone = 'accent' | 'blue' | 'green' | 'amber' | 'violet' | 'teal' | 'lime' | 'rose' | 'orange' | 'gold';
 
 export type QuickRoutine = {
   id: string;
@@ -89,26 +89,6 @@ export const QUICK_ROUTINES: QuickRoutine[] = [
     exerciseIds: ['stretch_chest_wall', 'stretch_thoracic_towel', 'wall_angel', 'prone_ytw', 'chin_tuck'],
   },
   {
-    // Todo de pie, para hacerlo en la cancha apoyado en la reja. En pádel lo que más se lesiona es el
-    // codo, después la rodilla, el hombro y la zona lumbar (Dahmen y otros, BMJ Open SEM 2023).
-    id: 'padel',
-    title: 'Después de jugar pádel',
-    zone: 'Piernas, antebrazos y hombros',
-    when: 'Al salir de la cancha, todo de pie',
-    tone: 'lime',
-    exerciseIds: [
-      'stretch_calf_wall',
-      'stretch_quad_standing',
-      'stretch_hip_flexor_standing',
-      'stretch_hamstring_standing',
-      'stretch_wrist_extensors',
-      'stretch_wrist_flexors',
-      'stretch_cross_body_shoulder',
-    ],
-    caution:
-      'Estirar ayuda a soltar el cuerpo, pero no reemplaza la fuerza. Si te duele el codo o el hombro al jugar, consulta a un profesional de la salud.',
-  },
-  {
     // Fuerza, no estiramiento: lo que mejor respaldan los estudios para el codo de tenista es cargar
     // los extensores de muñeca (sobre todo al bajar lento), con el hombro y la escápula como apoyo.
     id: 'elbow',
@@ -127,6 +107,39 @@ export const QUICK_ROUTINES: QuickRoutine[] = [
       'Es para prevenir, no un tratamiento. Una molestia leve es aceptable; dolor fuerte, no. Si el codo duele hace semanas, consulta a un profesional de la salud.',
     intro:
       'Te guiamos ejercicio por ejercicio, con cuenta regresiva y sonido. Baja lento y con control; si no tienes una pesa liviana, usa una botella con agua.',
+  },
+  {
+    // Antes de jugar: pocas cosas y rápidas. No hay un estudio de calentamiento propio del pádel; se
+    // sigue lo general (mover, movilidad dinámica y el gesto del deporte) apuntando a lo que más se
+    // lesiona: codo, hombro y piernas al moverse de lado.
+    id: 'padel_warmup',
+    title: 'Activación para el pádel',
+    zone: 'Muñeca, hombro y piernas',
+    when: 'Antes de jugar, en la cancha',
+    tone: 'gold',
+    exerciseIds: ['jumping_jacks', 'wrist_mobility', 'arm_circles', 'worlds_greatest_stretch', 'lateral_shuffle'],
+    intro:
+      'Te guiamos ejercicio por ejercicio, con cuenta regresiva y sonido. Empieza suave y sube el ritmo de a poco: al terminar deberías sentirte caliente, no cansado.',
+  },
+  {
+    // Todo de pie, para hacerlo en la cancha apoyado en la reja. En pádel lo que más se lesiona es el
+    // codo, después la rodilla, el hombro y la zona lumbar (Dahmen y otros, BMJ Open SEM 2023).
+    id: 'padel',
+    title: 'Después de jugar pádel',
+    zone: 'Piernas, antebrazos y hombros',
+    when: 'Al salir de la cancha, todo de pie',
+    tone: 'lime',
+    exerciseIds: [
+      'stretch_calf_wall',
+      'stretch_quad_standing',
+      'stretch_hip_flexor_standing',
+      'stretch_hamstring_standing',
+      'stretch_wrist_extensors',
+      'stretch_wrist_flexors',
+      'stretch_cross_body_shoulder',
+    ],
+    caution:
+      'Estirar ayuda a soltar el cuerpo, pero no reemplaza la fuerza. Si te duele el codo o el hombro al jugar, consulta a un profesional de la salud.',
   },
   {
     // Activación antes de jugar, en la línea del FIFA 11+: mover, abrir cadera y aductores, fuerza de
