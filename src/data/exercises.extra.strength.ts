@@ -307,6 +307,53 @@ export const EXTRA_STRENGTH: ExerciseInput[] = [
     safety: { hip_hinge_loaded: 'Empieza con poco peso y prioriza la técnica.' },
     stretches: ['stretch_hamstring_supine', 'stretch_glute_figure4'],
   },
+  // El clean sin el balanceo: la pesa parte quieta en el suelo. Más fácil de controlar y golpea menos
+  // el antebrazo. Es balístico, así que se gana con el clean en la escala técnica (A_STAGES).
+  {
+    id: 'kb_dead_clean',
+    name: 'Clean desde el suelo',
+    description: 'La pesa parte quieta en el suelo y sube al hombro en un solo tirón, sin balanceo.',
+    blocks: ['main_strength'],
+    groups: ['legs', 'back', 'arms'],
+    pattern: 'hinge',
+    mechanics: 'compound',
+    laterality: 'unilateral',
+    level: 3,
+    flags: ['hip_hinge_loaded', 'ballistic'],
+    required: ['kettlebell'],
+    primary: [
+      ['gluteus_maximus', 0.9],
+      ['hamstrings', 0.8],
+    ],
+    secondary: [
+      ['trapezius', 0.5],
+      ['forearms', 0.6],
+      ['deltoid_anterior', 0.3],
+    ],
+    rx: { sets: 4, reps: [3, 6], rest: 75 },
+    previous: ['kb_suitcase_deadlift'],
+    next: ['kb_clean'],
+    steps: [
+      'Pesa en el suelo entre los pies, un poco adelante. Bisagra y tómala con una mano.',
+      'Empuja el suelo y extiende la cadera con fuerza: la pesa sube pegada al cuerpo, con el codo cerca de las costillas.',
+      'Abre la mano alrededor del asa y recibe la pesa en el hombro, apoyada en el antebrazo, sin que golpee.',
+      'Bájala de vuelta al suelo con una bisagra. Completa las repeticiones y cambia de lado.',
+    ],
+    cues: ['La fuerza sale de la cadera, no del brazo.', 'Mano relajada al recibir: la pesa rodea la mano.'],
+    mistakes: ['Tirar con el brazo como un curl.', 'Dejar que la pesa se aleje del cuerpo y golpee el antebrazo.'],
+    breathing: 'Exhala fuerte al extender la cadera.',
+    kb: {
+      grip: 'rack',
+      start: 'Pesa quieta en el suelo entre los pies; termina en rack: codo pegado a las costillas, muñeca recta.',
+      hinge: HINGE_CUES,
+      drill: 'kb_suitcase_deadlift',
+      lumbar: [BRACE, 'En el hombro, costillas abajo: no arquees la espalda.'],
+      weights: [8, 12, 16],
+      prereq: ['kb_swing_1h'],
+    },
+    safety: { ballistic: 'Empieza con poco peso: lo que importa es que la pesa no golpee.' },
+    stretches: ['stretch_hamstring_supine', 'stretch_cross_body_shoulder'],
+  },
   // La versión más estable del peso muerto a una pierna: la pesa al centro, con las dos manos.
   {
     id: 'kb_single_leg_rdl_2h',

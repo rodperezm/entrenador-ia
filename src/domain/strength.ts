@@ -17,7 +17,7 @@ export const A_STAGES = [
   // Desde aquí los balísticos libres se ganan de a uno: primero el swing a una mano, después el
   // clean y sus parientes, al final el snatch y el jerk. Cada etapa pide confirmar su propia técnica.
   ['kb_swing_1h'],
-  ['kb_clean', 'kb_high_pull', 'kb_push_press', 'kb_clean_press', 'kb_double_swing'],
+  ['kb_clean', 'kb_dead_clean', 'kb_high_pull', 'kb_push_press', 'kb_clean_press', 'kb_double_swing'],
   ['kb_snatch', 'kb_jerk', 'kb_long_cycle'],
 ];
 export const FREE_BALLISTIC_STAGE = 4;

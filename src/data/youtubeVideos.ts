@@ -193,4 +193,7 @@ export const YOUTUBE_VIDEO_IDS: Record<string, string> = {
   kb_single_leg_rdl_2h: 'ZY1PZ5grDrg', // 0:53, una kettlebell tomada con las dos manos
   hinge_wall_touch: 'CXEKOSj7n04', // 2:02, bisagra tocando la pared
   hinge_hands_thighs: '36OJ50bs6qM', // 0:59, en español, sin implemento, manos por los muslos
+  kb_dead_clean: '72_6md1Dcx0', // 1:59, una kettlebell desde el suelo hasta el hombro
+  good_morning_bodyweight: 'Xhs5Gd5GTBA', // 1:05, en español, manos detrás de la cabeza
+  single_leg_rdl_bodyweight: 'DPFnfAUCvTA', // 0:54, sin peso, con subtítulos en inglés
 };
