@@ -52,6 +52,26 @@ Plan de ambientes: la dirección de GitHub pasará a ser pruebas, con su propia 
 
 ## Historial
 
+### 1.19.0 · 25 de noviembre de 2026
+
+La pantalla «Con cinta» queda solo para la cinta.
+
+**Qué cambia para la persona**
+
+- En Cuerpo → «Con cinta» ya no se pide el peso ni aparece el «IMC calculado». Quedan tórax, abdomen, cintura y cadera.
+- El peso se registra en «Solo el peso», que sigue mostrando el IMC mientras escribes. En la pantalla principal de Cuerpo, el IMC se calcula con el último peso registrado.
+- La nota de abajo va en dos párrafos: «Todo es opcional: registra solo lo que mediste.» y «Cintura: bajo el ombligo, donde va el cinturón.».
+
+**Qué cambia por dentro**
+
+- App: `src/app/body/new.tsx`. Con `type=tape` se muestran solo los perímetros, y la vista previa del IMC queda solo con `type=weight`.
+- Sin cambios en la base de datos ni en la función de la IA.
+
+**Notas para quien siga el trabajo**
+
+- Al guardar medidas de cinta, el peso va en `null` y `mergeIntoDay` lo ignora, así que no borra el peso registrado ese mismo día.
+- Vuelta atrás: publicar desde `v1.18.0`. No deja nada a medias en los teléfonos.
+
 ### 1.18.0 · 25 de noviembre de 2026
 
 Tu camino con la kettlebell: una fila de 15 pasos, de la bisagra al snatch, que la app sigue por dentro y que la persona ve como un mapa. Además, 8 ejercicios nuevos con su video.
