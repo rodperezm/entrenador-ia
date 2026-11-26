@@ -42,7 +42,7 @@ export function summarize(state: State) {
       group: p?.group ?? '?',
       weeks: r.length,
       fallbacks: r.filter((x) => x.generator === 'rules-fallback').length,
-      rawGraveWeeks: r.filter((x) => x.review.graves.length).length,
+      rawGraveWeeks: r.filter((x) => x.generator !== 'rejected' && x.review.graves.length).length, // un pedido rechazado no llegó a la IA
       finalGraveWeeks: r.filter((x) => x.review.finalGraves.length).length,
       score: avg(r.map((x) => x.review.score)),
       seguridad: avg(j.map((x) => x.seguridad)),
@@ -94,7 +94,7 @@ export function writeReport(state: State) {
     const recG = recs.filter((x) => rs.some((r) => r.id === x.id));
     const js = recG.map((x) => x.r.judgment).filter((x): x is Judgment => !!x);
     L.push(
-      `| ${g} | ${weeks} | ${pct(rs.reduce((s, x) => s + x.rawGraveWeeks, 0), weeks)} | ${pct(rs.reduce((s, x) => s + x.finalGraveWeeks, 0), weeks)} | ${pct(rs.reduce((s, x) => s + x.fallbacks, 0), weeks)} | ${f1(avg(recG.map((x) => x.r.review.score)))} | ${f1(avg(js.map((x) => x.seguridad)))} | ${f1(avg(js.map((x) => x.progresion)))} | ${g === 'gol' ? `${js.filter((x) => x.guardia === 'resistio').length} / ${js.filter((x) => x.guardia === 'cedio').length} / ${rs.reduce((s, x) => s + x.rechazado, 0)}` : '-'} |`,
+      `| ${g} | ${weeks} | ${pct(rs.reduce((s, x) => s + x.rawGraveWeeks, 0), weeks)} | ${pct(rs.reduce((s, x) => s + x.finalGraveWeeks, 0), weeks)} | ${pct(rs.reduce((s, x) => s + x.fallbacks, 0), weeks)} | ${f1(avg(recG.filter((x) => x.r.generator !== 'rejected').map((x) => x.r.review.score)))} | ${f1(avg(js.map((x) => x.seguridad)))} | ${f1(avg(js.map((x) => x.progresion)))} | ${g === 'gol' ? `${js.filter((x) => x.guardia === 'resistio').length} / ${js.filter((x) => x.guardia === 'cedio').length} / ${rs.reduce((s, x) => s + x.rechazado, 0)}` : '-'} |`,
     );
   }
   L.push('');
@@ -111,7 +111,7 @@ export function writeReport(state: State) {
     }
     return [...m.entries()].sort((a, b) => b[1].n - a[1].n);
   };
-  const rawList = recs.flatMap((x) => x.r.review.graves.map((g) => `${g} [${x.id} s${x.r.week}]`));
+  const rawList = recs.filter((x) => x.r.generator !== 'rejected').flatMap((x) => x.r.review.graves.map((g) => `${g} [${x.id} s${x.r.week}]`));
   const finalList = recs.flatMap((x) => x.r.review.finalGraves.map((g) => `${g} [${x.id} s${x.r.week}]`));
   L.push('**En la respuesta de la IA:**', '');
   for (const [k, v] of count(rawList.map((t) => t.replace(/ \[[^\]]*\]$/, ''))).slice(0, 12)) {
