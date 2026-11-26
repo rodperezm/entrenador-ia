@@ -255,10 +255,12 @@ function pickMain(pool: Exercise[], groups: MuscleGroupId[], count: number, prof
   // barajada la lista.
   const byId = new Map(ctx.all.map((e) => [e.id, e]));
   const kbCap = MAX_COMPLEXITY[kettlebellLevel(profile)];
+  // Semana dividida: nada de otra zona entra al día, ni siquiera el paso actual de la fila técnica.
   const candidates = pool
     .filter(
       (e) =>
         strengthRole(e) !== null &&
+        !offZone(e, ctx.focus) &&
         (usesKettlebell(e) ? ladderOpen(e, cycle.stage, kbCap, byId, easier) : e.complexityLevel <= capFor(e)),
     )
     .sort((a, b) => a.id.localeCompare(b.id));
@@ -457,6 +459,7 @@ function pickMain(pool: Exercise[], groups: MuscleGroupId[], count: number, prof
               (e) =>
                 current.has(e.id) &&
                 slotRole(e, cycle.stage) === role &&
+                !offZone(e, ctx.focus) &&
                 (canUseBallistics || !e.restrictionFlags.includes('ballistic')),
             ),
         )

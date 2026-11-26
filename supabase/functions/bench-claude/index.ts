@@ -29,7 +29,7 @@ const BATCH_PRICE: Record<string, { in: number; out: number }> = {
   'claude-opus-5-5': { in: 2, out: 10 },
   'claude-haiku-5-5': { in: 0.05, out: 0.25 },
 };
-const MAX_TOKENS = 16000;
+const MAX_TOKENS = 32000; // igual que generate-plan (prompt.ts)
 const MAX_REQUESTS = 60;
 
 const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY') });

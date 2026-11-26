@@ -20,7 +20,7 @@
 import Anthropic from 'npm:@anthropic-ai/sdk';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { type ClaudeReply, settle, usageRecord } from './usage.ts';
-import { EFFORT, MAX_TOKENS, type Plan, type RequestBody, sanitize, SCHEMA, SYSTEM } from './prompt.ts';
+import { cleanRequest, EFFORT, MAX_TOKENS, type Plan, type RequestBody, sanitize, SCHEMA, SYSTEM } from './prompt.ts';
 
 const MODEL = Deno.env.get('CLAUDE_MODEL') ?? 'claude-opus-5-5';
 // Modelos más económicos que un pedido puede elegir para compararlos; nunca uno más caro.
@@ -163,6 +163,10 @@ Deno.serve(async (req) => {
   } catch {
     return json({ error: 'bad_request' }, 400);
   }
+  // Solo lo que manda la app; condiciones de salud fuera del catálogo = pedido adulterado.
+  const cleaned = cleanRequest(body);
+  if (!cleaned) return json({ error: 'bad_request' }, 400);
+  body = cleaned;
 
   // Reserva del cupo antes de llamar a Claude.
   const { data: reserved, error: reserveError } = await supabase.rpc('reserve_ai_generation').single<Reservation>();
@@ -195,7 +199,9 @@ async function generatePlan(body: RequestBody): Promise<Outcome> {
   let claude: ClaudeReply | null = null;
   try {
     const { model: requested, ...request } = body;
-    const response = await anthropic.beta.messages.create({
+    // Con un tope de 32.000 tokens la API pide streaming (una respuesta larga no puede quedar esperando
+    // sin datos); finalMessage() junta las partes y entrega lo mismo que antes.
+    const response = await anthropic.beta.messages.stream({
       model: requested && TEST_MODELS.includes(requested) ? requested : MODEL,
       max_tokens: MAX_TOKENS,
       betas: ['server-side-fallback-2026-07-01'],
@@ -203,13 +209,15 @@ async function generatePlan(body: RequestBody): Promise<Outcome> {
       system: SYSTEM,
       output_config: { effort: EFFORT, format: { type: 'json_schema', schema: SCHEMA } },
       messages: [{ role: 'user', content: JSON.stringify(request) }],
-    });
+    }).finalMessage();
     claude = { model: response.model, usage: response.usage };
 
     if (response.stop_reason === 'refusal') return { reply: { error: 'refusal' }, claude };
     if (response.stop_reason === 'max_tokens') return { reply: { error: 'truncated' }, claude };
 
-    const text = response.content.find((b) => b.type === 'text');
+    // Si el modelo se negó a mitad de camino y respondió el de respaldo, el streaming conserva el texto
+    // parcial del primero: vale el último texto.
+    const text = response.content.filter((b) => b.type === 'text').at(-1);
     if (!text || text.type !== 'text') return { reply: { error: 'empty_response' }, claude };
     const plan = sanitize(JSON.parse(text.text) as Plan, body);
 

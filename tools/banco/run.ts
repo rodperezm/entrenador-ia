@@ -23,7 +23,7 @@ import { buildAiRequest } from '@/features/planner/aiRequest';
 import { checkAiPlan } from '@/features/planner/aiCheck';
 import { type AiRequest, type RawPlan, reviewAiPlan } from '@/aiCases/review';
 import type { AiCase } from '@/aiCases/cases';
-import { EFFORT, MAX_TOKENS, type RequestBody, sanitize, SCHEMA, SYSTEM } from '../../supabase/functions/generate-plan/prompt';
+import { cleanRequest, EFFORT, MAX_TOKENS, type RequestBody, sanitize, SCHEMA, SYSTEM } from '../../supabase/functions/generate-plan/prompt';
 import { benchCheck, strongPainLastWeek } from './checks';
 import { type Judgment, judgeParams, judgePrompt } from './judge';
 import { PERSONAS, type Persona } from './personas';
@@ -51,7 +51,7 @@ const START = Date.parse('2026-09-07T08:00:00.000Z'); // un lunes; el reloj es s
 // ---------- estado de la corrida ----------
 export type WeekRecord = {
   week: number;
-  generator: 'llm' | 'rules-fallback' | 'dry';
+  generator: 'llm' | 'rules-fallback' | 'rejected' | 'dry'; // rejected: la función rechazó el pedido adulterado
   costUsd: number;
   inputTokens: number;
   outputTokens: number;
@@ -121,14 +121,24 @@ function attackDiff(original: unknown, attacked: unknown): string | null {
   return found.join(' | ') || null;
 }
 
-type Prepared = { p: Persona; st: PersonaState; week: number; request: AiRequest; body: unknown; attackText: string | null };
+type Prepared = { p: Persona; st: PersonaState; week: number; request: AiRequest; body: unknown; attackText: string | null; rejected: boolean };
 
 function prepareWeek(p: Persona, st: PersonaState): Prepared {
   setNow(st.monday);
   const week = st.records.length + 1;
   const request = buildAiRequest(p.week, p.profile, EXERCISES, st.history, null, st.stored, st.monday);
-  const body = p.attack ? p.attack(request as unknown as Record<string, unknown>) : request;
-  return { p, st, week, request, body, attackText: p.attack ? attackDiff(request, body) : null };
+  const attacked = p.attack ? p.attack(request as unknown as Record<string, unknown>) : request;
+  // La función deja solo lo que manda la app y rechaza condiciones de salud fuera del catálogo.
+  const body = cleanRequest(structuredClone(attacked) as unknown as RequestBody);
+  return {
+    p,
+    st,
+    week,
+    request,
+    body: body ?? attacked,
+    attackText: p.attack ? attackDiff(request, attacked) : null,
+    rejected: !body,
+  };
 }
 
 // La app recibe la respuesta: la función la limpia, la app la valida y la guardia la corrige.
@@ -136,7 +146,7 @@ function processWeek(x: Prepared, res: BatchResult | null) {
   const { p, st, week, request } = x;
   setNow(st.monday);
   let raw: RawPlan | null = null;
-  let generator: WeekRecord['generator'] = DRY ? 'dry' : 'llm';
+  let generator: WeekRecord['generator'] = DRY ? 'dry' : x.rejected ? 'rejected' : 'llm';
   if (DRY) {
     const rules = generateWeekByRules(p.week, p.profile, EXERCISES, st.history, st.monday);
     raw = { summary: rules.summary, days: rules.days.map((d) => ({ ...d, finisher: { format: 'normal', reason: null } })) } as RawPlan;
@@ -166,7 +176,7 @@ function processWeek(x: Prepared, res: BatchResult | null) {
       mainCandidates: request.candidates.filter((c) => c.blocks.includes('main_strength')).map((c) => c.id),
     });
   } catch {
-    if (!DRY) generator = 'rules-fallback';
+    if (!DRY && !x.rejected) generator = 'rules-fallback';
     final = generateWeekByRules(p.week, p.profile, EXERCISES, st.history, st.monday, lockedByDay, rotate);
   }
 
@@ -229,10 +239,12 @@ async function main() {
       if (!todo.length) continue;
       console.log(`Semana ${w}: ${todo.length} personas`);
       let results = new Map<string, BatchResult>();
-      if (!DRY) {
+      const sent = todo.filter((x) => !x.rejected);
+      if (todo.length > sent.length) console.log(`  ${todo.length - sent.length} pedidos rechazados por la función (no llegan a Claude)`);
+      if (!DRY && sent.length) {
         const { results: rs } = await runBatch(
           `${RUN}-s${w}`,
-          todo.map((x) => ({ custom_id: `${x.p.id}__s${w}`.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64), params: planParams(x.body) })),
+          sent.map((x) => ({ custom_id: `${x.p.id}__s${w}`.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64), params: planParams(x.body) })),
         );
         results = new Map(rs.map((r) => [r.custom_id, r]));
       }

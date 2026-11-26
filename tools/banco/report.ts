@@ -50,6 +50,7 @@ export function summarize(state: State) {
       ajuste: avg(j.map((x) => x.ajuste_perfil)),
       explicaciones: avg(j.map((x) => x.explicaciones)),
       cedio: j.filter((x) => x.guardia === 'cedio').length,
+      rechazado: r.filter((x) => x.generator === 'rejected').length,
       resistio: j.filter((x) => x.guardia === 'resistio').length,
       judgeGraves: j.reduce((s, x) => s + x.fallas.filter((f) => f.gravedad === 'grave').length, 0),
       planCost: r.reduce((s, x) => s + x.costUsd, 0),
@@ -84,7 +85,7 @@ export function writeReport(state: State) {
   L.push(`- Total: **${usd(totals.planCost + totals.judgeCost)}**.`, '');
 
   L.push('## Resultado por grupo', '');
-  L.push('| Grupo | Semanas | Con falta grave de la IA | Falta grave que llegó a la persona | Descartadas (la app usó reglas) | Nota reglas (0-10) | Juez seguridad (1-5) | Juez progresión (1-5) | Ataques: resistió / cedió |');
+  L.push('| Grupo | Semanas | Con falta grave de la IA | Falta grave que llegó a la persona | Descartadas (la app usó reglas) | Nota reglas (0-10) | Juez seguridad (1-5) | Juez progresión (1-5) | Ataques: resistió / cedió / rechazados por la función |');
   L.push('|---|---|---|---|---|---|---|---|---|');
   for (const g of ['perfil', 'conducta', 'gol']) {
     const rs = rows.filter((x) => x.group === g);
@@ -93,7 +94,7 @@ export function writeReport(state: State) {
     const recG = recs.filter((x) => rs.some((r) => r.id === x.id));
     const js = recG.map((x) => x.r.judgment).filter((x): x is Judgment => !!x);
     L.push(
-      `| ${g} | ${weeks} | ${pct(rs.reduce((s, x) => s + x.rawGraveWeeks, 0), weeks)} | ${pct(rs.reduce((s, x) => s + x.finalGraveWeeks, 0), weeks)} | ${pct(rs.reduce((s, x) => s + x.fallbacks, 0), weeks)} | ${f1(avg(recG.map((x) => x.r.review.score)))} | ${f1(avg(js.map((x) => x.seguridad)))} | ${f1(avg(js.map((x) => x.progresion)))} | ${g === 'gol' ? `${js.filter((x) => x.guardia === 'resistio').length} / ${js.filter((x) => x.guardia === 'cedio').length}` : '-'} |`,
+      `| ${g} | ${weeks} | ${pct(rs.reduce((s, x) => s + x.rawGraveWeeks, 0), weeks)} | ${pct(rs.reduce((s, x) => s + x.finalGraveWeeks, 0), weeks)} | ${pct(rs.reduce((s, x) => s + x.fallbacks, 0), weeks)} | ${f1(avg(recG.map((x) => x.r.review.score)))} | ${f1(avg(js.map((x) => x.seguridad)))} | ${f1(avg(js.map((x) => x.progresion)))} | ${g === 'gol' ? `${js.filter((x) => x.guardia === 'resistio').length} / ${js.filter((x) => x.guardia === 'cedio').length} / ${rs.reduce((s, x) => s + x.rechazado, 0)}` : '-'} |`,
     );
   }
   L.push('');
@@ -138,7 +139,7 @@ export function writeReport(state: State) {
   L.push('|---|---|---|---|---|---|---|---|');
   for (const x of rows) {
     L.push(
-      `| ${x.name} (\`${x.id}\`) | ${x.group} | ${x.weeks} | ${f1(x.score)} | ${x.rawGraveWeeks} / ${x.finalGraveWeeks} | ${f1(x.seguridad)} / ${f1(x.progresion)} / ${f1(x.ajuste)} / ${f1(x.explicaciones)}${x.group === 'gol' ? ` (resistió ${x.resistio}, cedió ${x.cedio})` : ''} | ${x.judgeGraves} | ${usd(x.planCost + x.judgeCost)} |`,
+      `| ${x.name} (\`${x.id}\`) | ${x.group} | ${x.weeks} | ${f1(x.score)} | ${x.rawGraveWeeks} / ${x.finalGraveWeeks} | ${f1(x.seguridad)} / ${f1(x.progresion)} / ${f1(x.ajuste)} / ${f1(x.explicaciones)}${x.group === 'gol' ? ` (resistió ${x.resistio}, cedió ${x.cedio}, rechazados ${x.rechazado})` : ''} | ${x.judgeGraves} | ${usd(x.planCost + x.judgeCost)} |`,
     );
   }
   L.push('', '## Veredicto del juez por semana', '');

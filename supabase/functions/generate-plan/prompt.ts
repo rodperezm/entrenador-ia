@@ -21,12 +21,13 @@ Reglas obligatorias:
 - HIIT y AMRAP: una serie del historial con "format" se hizo en circuito con menos peso. No la uses para subir carga, pero respeta su dolor.
 - Cierre de la sesión: cada día lleva "finisher" con "format" normal, hiit o amrap. La persona decide; tú solo sugieres para desafiar y romper la monotonía. Usa hiit o amrap solo en días con ejercicio C, "intensity" moderate o intense, sin dolor reciente, sin semana de descarga y nunca para principiantes. En semana de máxima intensidad usa normal. Sugiere hiit uno o dos días por semana y amrap máximo un día. Decide con su evolución en "recentFinishers": si un AMRAP mejoró su marca o quedó cerca, propón repetirlo; si el último cierre fue muy exigente (effortRpe 10) o tuvo dolor, prefiere normal o el formato más guiado (hiit); si aún no prueba un formato y llega bien, puedes proponerlo. Los demás días usa normal. Nunca inventes marcas que no estén en "recentFinishers". En "reason" escribe una frase corta en español de Chile, tuteando, que diga por qué ese cierre conviene ese día; con normal usa null.
 - Lados: con "laterality": "unilateral", reps o durationSec son por lado y cada serie incluye ambos, así que tarda el doble. Con "alternating", el número es el total de la serie.
-- weightKg: solo en ejercicios con kettlebell, y SOLO con pesos de "profile.kettlebellWeightsKg". En los demás, null. Si un candidato trae "kettlebells": 2, weightKg es el peso de cada una y debe estar en "profile.kettlebellPairsKg". Si un candidato trae "dumbbells" (1 o 2), weightKg es el peso de cada mancuerna: con 2 debe estar en "profile.dumbbellPairsKg" y con 1 en "profile.dumbbellWeightsKg". Si ese peso queda bajo "suggestedKgByLevel", sube las repeticiones al tope y pide bajar en 3 s con pausa abajo.
+- weightKg: solo en ejercicios con kettlebell, y SOLO con pesos de "profile.kettlebellWeightsKg", también en calentamiento y prehab (si la más liviana es pesada para calentar, usa un ejercicio sin peso). En los demás, null. Si un candidato trae "kettlebells": 2, weightKg es el peso de cada una y debe estar en "profile.kettlebellPairsKg". Si un candidato trae "dumbbells" (1 o 2), weightKg es el peso de cada mancuerna: con 2 debe estar en "profile.dumbbellPairsKg" y con 1 en "profile.dumbbellWeightsKg". Si ese peso queda bajo "suggestedKgByLevel", sube las repeticiones al tope y pide bajar en 3 s con pausa abajo.
 - Progresión con "history" (última vez que hizo cada ejercicio):
   * Calentamiento, movilidad, equilibrio y elongación no progresan en carga: mantén series, reps o tiempo.
   * Ejercicios por tiempo (planchas, acarreos, isometrías): con RPE ≤ 8 sube 5 s; con RPE ≥ 9 mantén.
   * Completó todas las series con las reps objetivo y esfuerzo (RPE) ≤ 8 → sube 1-2 reps; si ya estaba en el máximo del rango, sube a la siguiente kettlebell que tenga y vuelve al mínimo del rango. Si ese salto es mayor al 20 % (por ejemplo, de 12 a 16 kg) o no tiene una más pesada, antes sube peldaños: primero una serie más y la vez siguiente "baja en 4 s con pausa de 1 s abajo"; recién después sube el peso.
-  * RPE ≥ 9.5 o no completó → mantén la carga.
+  * RPE ≥ 9.5 o no completó → mantén la carga. Si además es principiante, mayor de 65 o ya le pasó la vez anterior, retrocede: menos reps o series, kettlebell más liviana o una variante más fácil de la misma cadena. Nunca subas el volumen ni agregues tempo lento o pausas a un ejercicio que no pudo completar.
+  * Vuelve tras una pausa (más de 14 días sin sesiones en "history" y "recentFeelings") → una serie menos y la carga de su última vez cómoda; dilo en "summary".
   * "tooHard": true → quedó muy pesado (sin reserva, no completó o bajó el peso): repite la última carga y no la subas, ni siquiera en semana de máxima intensidad.
   * "pain" leve → mantén la misma carga, no subas.
   * "pain" moderado → baja la exigencia (menos reps o kettlebell más liviana).
@@ -36,10 +37,11 @@ Reglas obligatorias:
   * tight → lo terminó al límite: mantén la misma carga en esos ejercicios, sin subir ni quitar series.
   * wanted_more → puedes subir aunque el RPE haya sido 9.
   * Si llega cansado seguido pero se activa al calentar, mantén la exigencia; si sigue cansado tras calentar varias veces, baja el volumen de la semana y explícalo.
-  * Dolor al llegar en una zona (painZone), o painNextDay worse → evita esa semana los ejercicios que carguen esa zona.
-- "rationale": una frase corta en español de Chile, tuteando (tú, no vos), explicando la elección o el cambio de carga (ej: "Subimos a 16 kg: completaste 20 reps con esfuerzo 7."). Habla simple: nunca digas que un ejercicio "no está disponible". Puede ser null en calentamiento y elongación.
+  * Dolor al llegar en una zona (painZone), o painNextDay worse → evita esa semana los ejercicios que carguen esa zona. Con dolor reciente de rodilla, nada de pausas abajo ni tempo lento en sentadillas y zancadas, y en elongación evita doblar la rodilla al máximo (talón al glúteo): prefiere las versiones acostado.
+- "rationale": una frase corta (máximo 15 palabras) en español de Chile, tuteando (tú, no vos), explicando la elección o el cambio de carga (ej: "Subimos a 16 kg: completaste 20 reps con esfuerzo 7."). Cita SOLO números que estén en "history" para ese mismo ejercicio (reps, peso, esfuerzo); si el ejercicio no está en "history", no menciones números de la vez anterior. Lo que dices debe coincidir con las series, reps y peso que entregas. Habla simple: nunca digas que un ejercicio "no está disponible". Puede ser null en calentamiento y elongación.
+- Salud: si "profile.healthAlerts" trae alertas (corazón, mareos, cirugía reciente, indicación médica), la semana va con "intensity" como máximo moderate en la práctica: cierres siempre normal, sin balísticos exigentes ni semana de máxima intensidad, y en "summary" recuérdale en una frase que tenga el visto bueno de su médico. Si en "profile.conditions" aparece algo grave fuera de lo muscular (corazón, cirugía, embarazo, enfermedad), arma una semana muy suave de técnica y movilidad y pide en "summary" el visto bueno médico antes de subir la exigencia.
 - Variedad entre semanas: "recentExercises" son los ejercicios que hizo en los últimos 8 días. En warmup, prehab y cooldown prefiere otros equivalentes que cumplan lo mismo, para que la semana no sea una copia de la anterior. En prehab incluye siempre al menos 2 marcados "forConditions" (esos sí pueden repetirse) y complementa con otros de la misma zona. En main_strength solo se mantienen las anclas de "cycle.fixedByDay". La variedad nunca descuida el objetivo: primero el warmup incluye al menos un ejercicio que prepare cada patrón de main_strength de ese día (empezando por el del bloque A: bisagra, sentadilla o zancada, empuje, tirón) y el cooldown al menos un estiramiento del músculo principal de cada ejercicio de main_strength; recién después elige por variedad. La app revisa esa cobertura y completa lo que falte.
-- "summary": 2 o 3 frases en español que expliquen el porqué de la semana: qué semana del ciclo es y para qué sirve, qué cambia en la carga y por qué los ejercicios de Fuerza se mantienen. No menciones cambios que no hiciste.
+- "summary": 2 o 3 frases en español que expliquen el porqué de la semana: qué semana del ciclo es y para qué sirve, qué cambia en la carga y por qué los ejercicios de Fuerza se mantienen. No menciones cambios que no hiciste ni datos que no estén en el pedido.
 - En "rationale" y "summary", llama "ciclo" a las 4 semanas; nunca digas "bloque".`;
 
 const nullableInt = { anyOf: [{ type: 'integer' }, { type: 'null' }] };
@@ -101,7 +103,9 @@ export const SCHEMA = {
 };
 
 // Parámetros de la llamada, compartidos con el banco de pruebas.
-export const MAX_TOKENS = 16000;
+// La respuesta incluye el razonamiento interno de Claude: con 16.000 se cortaba en semanas de 7 días con
+// lesión e historial (banco de pruebas, 26-11-2026). Con un tope así, la llamada va por streaming.
+export const MAX_TOKENS = 32000;
 export const EFFORT = 'medium' as const;
 
 export type Block = 'warmup' | 'prehab' | 'main_strength' | 'cooldown';
@@ -133,6 +137,14 @@ export type Plan = {
   }[];
 };
 
+// Peso que la persona tiene: el mismo si lo tiene; si no, el más pesado bajo ese; si no, el más liviano.
+function ownedWeight(list: number[], w: number): number | null {
+  if (list.includes(w)) return w;
+  const below = list.filter((x) => x < w);
+  if (below.length) return Math.max(...below);
+  return list.length ? Math.min(...list) : null;
+}
+
 // Descarta lo que no cumpla las reglas duras en vez de confiar en el modelo.
 export function sanitize(plan: Plan, body: RequestBody): Plan {
   const byId = new Map(body.candidates.map((c) => [c.id, c]));
@@ -158,12 +170,13 @@ export function sanitize(plan: Plan, body: RequestBody): Plan {
                 durationSec: s.durationSec != null ? Math.min(900, Math.max(5, s.durationSec)) : null,
                 restSec: Math.min(300, Math.max(0, s.restSec)),
                 weightKg:
-                  s.weightKg != null &&
-                  (byId.get(s.exerciseId)!.dumbbells
-                    ? ownedDumbbells.includes(s.weightKg)
-                    : byId.get(s.exerciseId)!.kettlebell && owned.includes(s.weightKg))
-                    ? s.weightKg
-                    : null,
+                  s.weightKg == null
+                    ? null
+                    : byId.get(s.exerciseId)!.dumbbells
+                      ? ownedWeight(ownedDumbbells, s.weightKg)
+                      : byId.get(s.exerciseId)!.kettlebell
+                        ? ownedWeight(owned, s.weightKg)
+                        : null,
               })),
           }))
           .filter((b) => b.slots.length > 0),
@@ -171,3 +184,77 @@ export function sanitize(plan: Plan, body: RequestBody): Plan {
   };
 }
 
+
+// Lo que la app manda (ver buildAiRequest en src/features/planner/aiRequest.ts). La función le pasa a
+// Claude solo estas claves: cualquier otra (una "nota" o "pregunta" agregada a mano) se descarta.
+const REQUEST_KEYS = [
+  'cycle',
+  'profile',
+  'week',
+  'candidates',
+  'history',
+  'recentExercises',
+  'recentFeelings',
+  'recentFinishers',
+  'body',
+] as const;
+
+// Catálogos cerrados de la app (src/domain/catalog.ts; un test revisa que coincidan). Una condición o
+// restricción que no esté aquí no viene de la app: alguien llamó a la función con el pedido adulterado.
+export const CONDITION_NAMES = [
+  'Condromalacia rotuliana / dolor patelofemoral',
+  'Dolor lumbar',
+  'Pinzamiento / dolor de hombro',
+  'Dolor de muñeca',
+  'Inestabilidad de tobillo / esguince recurrente',
+  'Tendinopatía rotuliana (rodilla del saltador)',
+  'Tendinopatía del manguito rotador',
+  'Epicondilitis (codo de tenista)',
+  'Tendinopatía de Aquiles',
+  'Fascitis plantar',
+  'Dolor cervical (cuello)',
+  'Pinzamiento de cadera (FAI)',
+];
+export const RESTRICTION_LABELS = [
+  'Saltos',
+  'Alto impacto',
+  'Flexión profunda de rodilla con carga',
+  'Apoyo sobre rodillas',
+  'Brazos por encima de la cabeza',
+  'Flexión de columna con carga',
+  'Rotación de columna con carga',
+  'Bisagra de cadera con carga',
+  'Movimientos balísticos / explosivos',
+  'Apoyo con muñecas en extensión',
+  'Agarre intenso (sostener peso con la mano)',
+  'Flexión profunda de cadera',
+  'Carga sobre cuello y trapecios',
+];
+export const HEALTH_ALERT_LABELS = [
+  'Dolor u opresión en el pecho al hacer esfuerzo',
+  'Mareos o desmayos sin explicación',
+  'Una enfermedad del corazón o presión alta sin controlar',
+  'Una cirugía o lesión importante en los últimos 3 meses',
+  'Un médico te indicó no hacer ejercicio, o hacerlo solo con supervisión',
+];
+
+// Deja solo lo que manda la app, o devuelve null si las condiciones de salud no son del catálogo.
+export function cleanRequest(body: RequestBody): RequestBody | null {
+  const profile = body.profile as { conditions?: unknown; healthAlerts?: unknown };
+  const conditions = profile.conditions ?? [];
+  const alerts = profile.healthAlerts ?? [];
+  if (!Array.isArray(conditions) || !Array.isArray(alerts)) return null;
+  const okCondition = (c: unknown) => {
+    const { name, avoid } = (c ?? {}) as { name?: unknown; avoid?: unknown };
+    return (
+      typeof name === 'string' &&
+      CONDITION_NAMES.includes(name) &&
+      Array.isArray(avoid) &&
+      avoid.every((a) => typeof a === 'string' && RESTRICTION_LABELS.includes(a))
+    );
+  };
+  if (!conditions.every(okCondition)) return null;
+  if (!alerts.every((a) => typeof a === 'string' && HEALTH_ALERT_LABELS.includes(a))) return null;
+  const kept = Object.fromEntries(REQUEST_KEYS.filter((k) => k in body).map((k) => [k, (body as never)[k]]));
+  return { ...kept, ...(body.model ? { model: body.model } : {}) } as RequestBody;
+}
