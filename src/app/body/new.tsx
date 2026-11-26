@@ -76,7 +76,8 @@ export default function NewBodyRecord() {
     TapeKey,
     number | null
   >;
-  const fields = onlyWeight ? TAPE_FIELDS.filter((f) => f.key === 'weightKg') : TAPE_FIELDS;
+  // El peso tiene su propio camino («Solo el peso»): con la cinta van solo los perímetros.
+  const fields = TAPE_FIELDS.filter((f) => (f.key === 'weightKg') === onlyWeight);
   const tapeValid = TAPE_FIELDS.every((f) => inRange(values[f.key], f.min, f.max));
   const anyTape = TAPE_FIELDS.some((f) => values[f.key] != null);
   const preview = calcIndices({ id: '', date: recordDate ?? todayISO(), ...values }, profile?.heightCm ?? null);
@@ -166,14 +167,17 @@ export default function NewBodyRecord() {
               <Text style={styles.hint}>
                 {onlyWeight
                   ? 'Pésate en ayunas y con poca ropa, siempre a la misma hora: así los cambios se comparan bien.'
-                  : 'Todo es opcional: registra solo lo que mediste. Cintura: bajo el ombligo, donde va el cinturón.'}
+                  : 'Todo es opcional: registra solo lo que mediste.\n\nCintura: bajo el ombligo, donde va el cinturón.'}
               </Text>
-              <View style={styles.preview}>
-                <Text style={styles.previewLabel}>IMC calculado</Text>
-                <Text style={styles.previewValue}>
-                  {fmtNum(preview.imc)} {preview.imc != null ? `· ${LIGHT_LABEL[clsIMC(preview.imc)]}` : ''}
-                </Text>
-              </View>
+              {/* El IMC sale del peso: sin campo de peso en «Con cinta», ahí no hay nada que calcular. */}
+              {onlyWeight && (
+                <View style={styles.preview}>
+                  <Text style={styles.previewLabel}>IMC calculado</Text>
+                  <Text style={styles.previewValue}>
+                    {fmtNum(preview.imc)} {preview.imc != null ? `· ${LIGHT_LABEL[clsIMC(preview.imc)]}` : ''}
+                  </Text>
+                </View>
+              )}
             </>
           ) : (
             <>
