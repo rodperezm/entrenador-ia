@@ -52,6 +52,37 @@ Plan de ambientes: la dirección de GitHub pasará a ser pruebas, con su propia 
 
 ## Historial
 
+### 1.20.0 · 25 de noviembre de 2026
+
+Cuerpo más fácil de leer: el semáforo va por escalones y el historial muestra todo lo de cada día.
+
+**Qué cambia para la persona**
+
+- **Camino al verde, por escalones:** en rojo, la meta es el amarillo; en amarillo, el verde. Cada índice es una barra desde donde partiste hasta la bandera de la meta, con lo recorrido pintado y el «% del escalón».
+  - Si subes de color, la tarjeta lo celebra («Subiste de rojo a amarillo»).
+  - Si vuelves a un color peor, lo dice en rojo.
+  - El título resume cuántos índices van mejorando.
+- **Historial:** un día por fila, con la fecha, el día de la semana, lo que mediste y tu peso. Al tocar un día se abre todo:
+  - Peso e índices.
+  - La cinta.
+  - Los pliegues en mm, el % de grasa y los kilos de grasa y de masa magra.
+  - Cada dato con su cambio desde la medición anterior.
+- **Borrar** quedó dentro del día y pide confirmación. Borra el peso, la cinta y los pliegues de esa fecha.
+- En «La cinta se cierra», la palabra «Abdomen» ya no se corta en el iPhone.
+
+**Qué cambia por dentro**
+
+- App: `src/domain/bodyProgress.ts` (escalón de cada índice: `stage` con `from`, `goal`, `progress`, `climbed` y `fell`), `src/features/body/BodyProgress.tsx`, `src/domain/bodyHistory.ts` (días con su cambio respecto de la medición anterior), `src/features/body/BodyHistory.tsx` y `src/app/(tabs)/body.tsx`.
+- Pruebas en `tests/bodyProgress.test.ts` y `tests/bodyHistory.test.ts` (176 en total).
+- Sin cambios en la base de datos ni en la función de la IA.
+
+**Notas para quien siga el trabajo**
+
+- Las metas por escalones las pidió Rodrigo para no desanimar: con la meta en el verde, el IMC y el % de grasa avanzaban muy poco.
+- Si un índice sube de rojo a amarillo, la barra nueva parte en el borde del amarillo y no en el valor inicial.
+- En el historial, cada dato se compara con su propia medición anterior, aunque sea de otro día: el peso con el peso anterior y los pliegues con los pliegues anteriores.
+- Vuelta atrás: publicar desde `v1.19.0`. No deja nada a medias en los teléfonos.
+
 ### 1.19.0 · 25 de noviembre de 2026
 
 La pantalla «Con cinta» queda solo para la cinta.
