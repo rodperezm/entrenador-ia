@@ -1,4 +1,4 @@
-import { equipmentAt, MEDICAL_CONDITIONS, RESTRICTION_FLAGS } from '@/domain/catalog';
+import { equipmentAt, HEALTH_ALERTS, MEDICAL_CONDITIONS, RESTRICTION_FLAGS } from '@/domain/catalog';
 import { kettlebellLevel, usesKettlebell } from '@/domain/experience';
 import { trainingStamp } from '@/domain/profileStamp';
 import { zoneLabel } from '@/domain/checkIn';
@@ -12,7 +12,7 @@ import {
   recentExerciseIds,
   weekLocks,
 } from '@/domain/generator';
-import { wasTooHard } from '@/domain/progression';
+import { hardLog, wasTooHard } from '@/domain/progression';
 import { LADDER_LENGTH, ladderGuide, ladderOpen } from '@/domain/ladder';
 import { dayIntensity, focusGuide, strengthRole, weekFocus } from '@/domain/strength';
 import { leadPart, partBudgets, partCount } from '@/domain/timeBudget';
@@ -129,7 +129,9 @@ export function buildAiRequest(
   const lastByExercise = history.slice(0, HISTORY_SESSIONS).flatMap((s) => {
     // Un día elegido por la persona o una semana de descarga no cuentan para su progresión: de ellos
     // solo va lo que dolió.
-    const counted = s.chosenByUser || s.deload ? s.sets.filter((l) => painOf(l) > 0) : s.sets;
+    // Tampoco si le costó demasiado: eso sí es una señal para no subir.
+    const counted =
+      s.chosenByUser || s.deload ? s.sets.filter((l) => painOf(l) > 0 || (!l.format && hardLog(l))) : s.sets;
     const ids = [...new Set(counted.map((l) => l.exerciseId))].filter((id) => !seen.has(id));
     ids.forEach((id) => seen.add(id));
     return ids.map((id) => ({
@@ -186,6 +188,8 @@ export function buildAiRequest(
         name: MEDICAL_CONDITIONS.find((m) => m.id === c.conditionId)?.name ?? c.conditionId,
         avoid: c.activeFlags.map((f) => RESTRICTION_FLAGS[f]),
       })),
+      // Alertas de salud que marcó al empezar (dijo que consultaría a un médico): la IA va con más cuidado.
+      healthAlerts: (profile.healthAlerts ?? []).map((a) => HEALTH_ALERTS[a]),
     },
     week: week.days
       .filter((d) => d.active)

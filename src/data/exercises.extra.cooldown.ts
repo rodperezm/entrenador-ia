@@ -95,7 +95,7 @@ export const EXTRA_COOLDOWN: ExerciseInput[] = [
     mechanics: 'stretch',
     level: 2,
     laterality: 'unilateral',
-    flags: ['deep_hip_flexion'],
+    flags: ['deep_hip_flexion', 'kneeling'], // la rodilla de atrás apoya en el suelo y la de adelante queda muy doblada
     required: ['mat'],
     primary: [['gluteus_maximus', 1]],
     secondary: [

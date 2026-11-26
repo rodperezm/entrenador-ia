@@ -67,3 +67,11 @@ test('si en la descarga hubo dolor, ese dolor sí cuenta', () => {
   const marked = markDeload(block(2), days, new Date('2026-11-04T12:00:00'));
   assert.equal(lastSessionOf('kb_deadlift', marked)?.session.id, 's-2026-10-26');
 });
+
+// Banco de pruebas, 26-11-2026: en la descarga el curl con 8 kg quedó en esfuerzo 9,5 y la IA lo
+// subió a 12 kg. Si la carga liviana ya costó demasiado, la de antes no puede subir.
+test('si en la descarga le costó demasiado, ese esfuerzo sí cuenta', () => {
+  const hard = [session('2026-10-26', 9.5), ...block().slice(1)];
+  const marked = markDeload(hard, days, new Date('2026-11-04T12:00:00'));
+  assert.equal(lastSessionOf('kb_deadlift', marked)?.session.id, 's-2026-10-26');
+});

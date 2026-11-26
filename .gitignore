@@ -44,3 +44,9 @@ yarn-error.*
 .env
 
 .env.pruebas
+
+# Banco de pruebas: contraseña y corridas completas (pesan mucho; el informe sí se guarda)
+tools/banco/.token
+tools/banco/corridas/*/raw/
+tools/banco/corridas/*/state.json
+tools/banco/corridas/seco/

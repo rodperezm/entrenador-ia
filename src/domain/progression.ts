@@ -23,12 +23,21 @@ const TOO_HARD_RPE = 9.5;
 const TIME_STEP_SEC = 5;
 export const BIG_JUMP = 1.2; // subir más de un 20 % de peso de una vez pide peldaños antes
 
+// Le costó demasiado: esfuerzo 9,5 o más, no completó las repeticiones o bajó el peso planificado.
+export const hardLog = (l: SetLog) =>
+  (l.rpe != null && l.rpe >= TOO_HARD_RPE) ||
+  (l.targetReps != null && l.repsDone != null && l.repsDone < l.targetReps) ||
+  (l.plannedWeightKg != null && l.weightKg != null && l.weightKg < l.plannedWeightKg);
+
 export function lastSessionOf(exerciseId: string, history: WorkoutSession[]) {
   for (const s of history) {
     // En HIIT y AMRAP cambian el peso y la fatiga; un día elegido por la persona y una semana de
-    // descarga no cuentan para su progresión: de esas sesiones solo importa si hubo dolor.
+    // descarga no cuentan para su progresión: de esas sesiones solo importa si hubo dolor o si le
+    // costó demasiado (si la carga liviana ya fue mucho, la de antes no puede subir).
     const counts = !s.chosenByUser && !s.deload;
-    const logs = s.sets.filter((l) => l.exerciseId === exerciseId && ((!l.format && counts) || painOf(l) > 0));
+    const logs = s.sets.filter(
+      (l) => l.exerciseId === exerciseId && ((!l.format && (counts || hardLog(l))) || painOf(l) > 0),
+    );
     if (logs.length) return { session: s, logs };
   }
   return null;
