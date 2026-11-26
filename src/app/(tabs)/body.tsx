@@ -20,6 +20,7 @@ import {
   weightNear,
   weightSeries,
 } from '@/domain/body';
+import { BodyHistory } from '@/features/body/BodyHistory';
 import { BodyProgress } from '@/features/body/BodyProgress';
 import { ROUTINE_TONES } from '@/features/routines/tones';
 import { useBody } from '@/state/body';
@@ -244,43 +245,14 @@ export default function BodyScreen() {
         </Pressable>
       </Link>
 
-      {/* Historial */}
-      {(records.length > 0 || folds.length > 0) && <Text style={styles.section}>Historial</Text>}
-      {records.map((r) => {
-        const c = calcIndices(r, profile.heightCm);
-        const tape = TAPE_ROWS.filter(([, key]) => r[key] != null).length;
-        return (
-          <HistoryRow
-            key={r.id}
-            date={r.date}
-            text={[
-              r.weightKg != null ? `${fmtNum(r.weightKg)} kg` : null,
-              c.imc != null ? `IMC ${fmtNum(c.imc)}` : null,
-              r.waistCm != null
-                ? `cintura ${fmtNum(r.waistCm)}`
-                : tape
-                  ? `${tape} ${tape === 1 ? 'medida' : 'medidas'}`
-                  : null,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-            light={clsIMC(c.imc)}
-            onDelete={() => remove('record', r.id)}
-          />
-        );
-      })}
-      {folds.map((f) => {
-        const b = bodyFat(f, profile.birthDate);
-        return (
-          <HistoryRow
-            key={f.id}
-            date={f.date}
-            text={`Pliegues · ${b.pct != null ? `${fmtNum(b.pct)} % grasa` : 'incompleto'}`}
-            light="na"
-            onDelete={() => remove('fold', f.id)}
-          />
-        );
-      })}
+      {/* Historial: un día por fila, con el detalle al tocarlo */}
+      <BodyHistory
+        records={records}
+        folds={folds}
+        birthDate={profile.birthDate}
+        heightCm={profile.heightCm}
+        onDelete={remove}
+      />
     </ScrollView>
   );
 }
@@ -356,33 +328,6 @@ function Tile({
   );
 }
 
-function HistoryRow({
-  date,
-  text,
-  light,
-  onDelete,
-}: {
-  date: string;
-  text: string;
-  light: Light;
-  onDelete: () => void;
-}) {
-  return (
-    <View style={styles.histRow}>
-      <View style={[styles.dot, { backgroundColor: LIGHT_COLOR[light] }]} />
-      <Text style={styles.histDate} numberOfLines={1}>
-        {fmtDate(date)}
-      </Text>
-      <Text style={styles.histText} numberOfLines={1}>
-        {text}
-      </Text>
-      <Pressable accessibilityRole="button" accessibilityLabel="Borrar esta medida" onPress={onDelete} hitSlop={10}>
-        <Ionicons name="trash-outline" size={18} color={colors.textMuted} />
-      </Pressable>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing.lg, gap: spacing.md, paddingBottom: 48 },
@@ -450,7 +395,6 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     gap: 4,
   },
-  dot: { width: 10, height: 10, borderRadius: 5 },
   tileTitle: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
   tileValue: { color: colors.text, ...display(30) },
   tileNote: { color: colors.textMuted, fontSize: 12, lineHeight: 16 },
@@ -470,14 +414,4 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   guideText: { flex: 1, color: colors.text, fontSize: 14, fontWeight: '600' },
-  histRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.md,
-  },
-  histDate: { color: colors.text, fontSize: 13, fontWeight: '700', width: 92 },
-  histText: { color: colors.textMuted, fontSize: 13, flex: 1 },
 });
