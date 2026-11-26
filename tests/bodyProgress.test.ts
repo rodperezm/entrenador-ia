@@ -78,6 +78,37 @@ test('semáforo: muestra lo que mejora y lo que retrocede', () => {
   assert.equal(ms.icc.light, 'bad');
 });
 
+test('semáforo por escalones: en rojo la meta es el amarillo; en amarillo, el verde', () => {
+  const ms = Object.fromEntries(meters(records, folds, profile).map((m) => [m.key, m]));
+  const pct = (p: number) => Math.round(p * 100);
+  // Partió en rojo (0,605) y ya está en amarillo: el escalón nuevo parte en el borde (0,60).
+  assert.deepEqual({ ...ms.ice.stage, progress: pct(ms.ice.stage!.progress) }, {
+    from: 0.6,
+    goal: 0.5,
+    goalLight: 'ok',
+    progress: 10,
+    climbed: true,
+    fell: false,
+  });
+  // Sigue en rojo: la meta es el amarillo, no el verde.
+  assert.equal(ms.fat.stage?.goalLight, 'warn');
+  assert.equal(pct(ms.fat.stage!.progress), 52);
+  assert.equal(ms.imc.stage?.goal, 30);
+  assert.equal(pct(ms.imc.stage!.progress), 17);
+  // Cintura-cadera partió en amarillo (0,947) y volvió a rojo: la barra queda vacía.
+  assert.equal(ms.icc.stage?.progress, 0);
+  assert.equal(ms.icc.stage?.climbed, false);
+  assert.equal(ms.icc.stage?.fell, true);
+  assert.equal(ms.ice.stage?.fell, false);
+});
+
+test('semáforo por escalones: en verde no hay escalón', () => {
+  const lean = [rec('a', '2026-11-01', { waistCm: 85 }), rec('b', '2026-11-08', { waistCm: 84 })];
+  const [ice] = meters(lean, [], profile);
+  assert.equal(ice.light, 'ok');
+  assert.equal(ice.stage, null);
+});
+
 test('semáforo: con un solo registro no hay punto de partida', () => {
   const [ice] = meters(records.slice(1, 2), [], profile);
   assert.equal(ice.start, null);

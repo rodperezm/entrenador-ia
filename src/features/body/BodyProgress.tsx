@@ -146,7 +146,9 @@ function Tape({ tape }: { tape: NonNullable<ReturnType<typeof tapeChange>> }) {
         const left = Math.min(r.from, r.to);
         return (
           <View key={r.label} style={styles.tapeRow} accessibilityLabel={`${r.label}: de ${fmtNum(r.from)} a ${fmtNum(r.to)} cm`}>
-            <Text style={styles.tapeLabel}>{r.label}</Text>
+            <Text style={styles.tapeLabel} numberOfLines={1} adjustsFontSizeToFit>
+              {r.label}
+            </Text>
             <View style={styles.track}>
               <View style={[styles.link, { left: pos(left), width: `${(Math.abs(d) / (hi - lo)) * 100}%` }]} />
               <View style={[styles.dot, { left: pos(r.from), backgroundColor: colors.textMuted }]} />
@@ -162,12 +164,18 @@ function Tape({ tape }: { tape: NonNullable<ReturnType<typeof tapeChange>> }) {
 
 // ---------- 3. Camino al verde ----------
 
+// Por escalones, para no desanimar: en rojo la meta es el amarillo; en amarillo, el verde.
+// Cada barra se lee en un solo sentido: de donde partiste (izquierda) a la meta (bandera).
+const LIGHT_COLOR = { ok: colors.good, warn: colors.warning, bad: colors.bad, na: colors.textMuted };
+
 function Meters({ list }: { list: Meter[] }) {
+  const compared = list.filter((m) => m.start != null);
+  const better = compared.filter((m) => m.trend === 'better').length;
   return (
     <Card
       eyebrow="CAMINO AL VERDE"
-      title="Dónde partiste y cuánto falta"
-      sub="Círculo vacío: tu inicio. Círculo lleno: hoy.">
+      title={compared.length ? `${better} de ${compared.length} van mejorando` : 'Dónde estás y cuánto falta'}
+      sub="De escalón en escalón: en rojo, la meta es el amarillo; en amarillo, el verde.">
       {list.map((m) => (
         <MeterRow key={m.key} m={m} />
       ))}
@@ -176,38 +184,52 @@ function Meters({ list }: { list: Meter[] }) {
 }
 
 function MeterRow({ m }: { m: Meter }) {
-  const [a, b] = m.cuts;
-  const vals = [a, b, m.now, ...(m.start != null ? [m.start] : [])];
-  const span = b - a;
-  const lo = Math.min(...vals) - span * 0.6;
-  const hi = Math.max(...vals) + span * 0.6;
-  const pct = (v: number) => ((v - lo) / (hi - lo)) * 100;
   const fmt = (v: number) => `${fmtNum(v, m.digits)}${m.unit}`;
-  const worse = m.trend === 'worse';
-  const icon: ComponentProps<typeof Ionicons>['name'] =
-    m.light === 'ok' ? 'checkmark-circle-outline' : worse ? 'alert-circle-outline' : 'flag-outline';
+  const s = m.stage;
+  // Volver a un color peor cuenta como retroceso aunque el cambio sea chico.
+  const worse = m.trend === 'worse' || !!s?.fell;
+  const now = LIGHT_COLOR[m.light];
+  const goalColor = s ? LIGHT_COLOR[s.goalLight] : colors.good;
+  const done = Math.round((s?.progress ?? 1) * 100);
+  const start = m.start != null ? fmt(m.start) : '';
+  const lead = !s
+    ? ''
+    : s.fell
+      ? `Volviste a ${m.light === 'bad' ? 'rojo' : 'amarillo'}: partiste en ${start}. `
+      : worse
+        ? `Retrocede desde ${start}. `
+        : `${s.climbed ? 'Subiste de rojo a amarillo. ' : ''}Llevas ${done} % del escalón. `;
+  const note = !s ? 'En verde. Ahora, a mantenerlo.' : `${lead}${m.next}`;
+  const icon: ComponentProps<typeof Ionicons>['name'] = !s ? 'checkmark-circle-outline' : worse ? 'alert-circle-outline' : s.climbed ? 'trophy-outline' : 'flag-outline';
   return (
-    <View style={styles.meter} accessibilityLabel={`${m.title}: ${m.start != null ? `de ${fmt(m.start)} a ` : ''}${fmt(m.now)}. ${m.next}`}>
+    <View style={styles.meter} accessibilityLabel={`${m.title}: hoy ${fmt(m.now)}. ${note}`}>
       <View style={styles.meterHead}>
         <Text style={styles.meterTitle}>{m.title}</Text>
         <Text style={styles.meterValues}>
-          {m.start != null ? `${fmt(m.start)} → ` : ''}
-          <Text style={{ color: colors.text, fontWeight: '800' }}>{fmt(m.now)}</Text>
+          hoy <Text style={[styles.meterNow, { color: now }]}>{fmt(m.now)}</Text>
         </Text>
       </View>
-      <View style={styles.meterTrack}>
-        <View style={[styles.zone, { left: 0, width: `${pct(a)}%`, backgroundColor: colors.good }]} />
-        <View style={[styles.zone, { left: `${pct(a)}%`, width: `${pct(b) - pct(a)}%`, backgroundColor: colors.warning }]} />
-        <View style={[styles.zone, { left: `${pct(b)}%`, right: 0, backgroundColor: colors.bad }]} />
-        {m.start != null && <View style={[styles.mark, styles.markStart, { left: `${pct(m.start)}%` }]} />}
-        <View style={[styles.mark, { left: `${pct(m.now)}%`, backgroundColor: colors.text }]} />
+      <View style={styles.meterRow}>
+        <View style={styles.meterTrack}>
+          <View style={[styles.meterBase, { backgroundColor: s ? now : colors.good }]} />
+          <View style={[styles.meterFill, { width: `${done}%`, backgroundColor: s ? now : colors.good }]} />
+          {s && done > 0 && <View style={[styles.meterDot, { left: `${done}%` }]} />}
+        </View>
+        <Ionicons name="flag" size={18} color={goalColor} />
       </View>
+      {s && (
+        <View style={styles.meterEnds}>
+          <Text style={styles.meterEnd}>
+            {s.fell ? 'hoy' : 'desde'} {fmt(s.from)}
+          </Text>
+          <Text style={[styles.meterEnd, { color: goalColor }]}>
+            {s.goalLight === 'warn' ? 'amarillo' : 'verde'} {fmt(s.goal)}
+          </Text>
+        </View>
+      )}
       <View style={styles.meterNote}>
-        <Ionicons name={icon} size={14} color={worse ? colors.bad : m.light === 'ok' ? colors.good : colors.textMuted} />
-        <Text style={[styles.note, worse && { color: colors.bad }]}>
-          {worse ? 'Subió desde tu inicio. ' : ''}
-          {m.next}
-        </Text>
+        <Ionicons name={icon} size={14} color={worse ? colors.bad : !s || s.climbed ? colors.good : colors.textMuted} />
+        <Text style={[styles.note, worse && { color: colors.bad }]}>{note}</Text>
       </View>
     </View>
   );
@@ -253,7 +275,7 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 18, fontWeight: '800', fontVariant: ['tabular-nums'] },
 
   tapeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 30 },
-  tapeLabel: { color: colors.text, fontSize: 14, fontWeight: '700', width: 70 },
+  tapeLabel: { color: colors.text, fontSize: 14, fontWeight: '700', width: 88 },
   track: { flex: 1, height: 14, justifyContent: 'center' },
   link: { position: 'absolute', height: 2, backgroundColor: colors.border, top: 6 },
   dot: { position: 'absolute', width: 14, height: 14, borderRadius: 7, marginLeft: -7, top: 0, borderWidth: 2, borderColor: colors.surface },
@@ -263,10 +285,24 @@ const styles = StyleSheet.create({
   meterHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: spacing.sm },
   meterTitle: { color: colors.text, fontSize: 14, fontWeight: '700' },
   meterValues: { color: colors.textMuted, fontSize: 13, fontVariant: ['tabular-nums'] },
-  meterTrack: { height: 16, justifyContent: 'center' },
-  zone: { position: 'absolute', height: 8, top: 4, opacity: 0.55, borderRadius: 2 },
-  mark: { position: 'absolute', width: 16, height: 16, borderRadius: 8, marginLeft: -8, top: 0, borderWidth: 2, borderColor: colors.surface },
-  markStart: { backgroundColor: colors.surface, borderColor: colors.textMuted },
+  meterNow: { fontSize: 17, fontWeight: '800' },
+  meterRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  meterTrack: { flex: 1, height: 16, justifyContent: 'center' },
+  meterBase: { position: 'absolute', left: 0, right: 0, height: 10, top: 3, borderRadius: 5, opacity: 0.2 },
+  meterFill: { position: 'absolute', left: 0, height: 10, top: 3, borderRadius: 5 },
+  meterDot: {
+    position: 'absolute',
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    marginLeft: -8,
+    top: 0,
+    backgroundColor: colors.text,
+    borderWidth: 2,
+    borderColor: colors.surface,
+  },
+  meterEnds: { flexDirection: 'row', justifyContent: 'space-between', marginRight: 26 },
+  meterEnd: { color: colors.textMuted, fontSize: 11, fontVariant: ['tabular-nums'] },
   meterNote: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
 
   medals: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xs },

@@ -92,18 +92,48 @@ export type Meter = {
   light: Light;
   trend: 'better' | 'worse' | 'same';
   next: string; // qué falta para el siguiente color, o que ya está en verde
+  stage: Stage | null; // el escalón en curso; null si ya está en verde
 };
+
+// La meta va por escalones para no desanimar: en rojo, la meta es el amarillo; en amarillo, el
+// verde. La barra parte donde partiste, o en el borde del color si ya subiste un escalón.
+export type Stage = {
+  from: number;
+  goal: number;
+  goalLight: 'ok' | 'warn';
+  progress: number; // 0 a 1: cuánto del escalón ya recorriste
+  climbed: boolean; // partiste en rojo y ya estás en amarillo
+  fell: boolean; // partiste en un color mejor y retrocediste de color
+};
+
+function stageOf(start: number | null, now: number, [a, b]: [number, number]): Stage | null {
+  if (now < a) return null;
+  const red = now >= b;
+  const goal = red ? b : a;
+  const from = Math.max(now, start == null ? now : red ? start : Math.min(start, b));
+  const progress = from > goal ? Math.min(1, Math.max(0, (from - now) / (from - goal))) : 0;
+  const fell = start != null && (red ? start < b : start < a);
+  return {
+    from,
+    goal,
+    goalLight: red ? 'warn' : 'ok',
+    progress: fell ? 0 : progress,
+    climbed: start != null && start >= b && !red,
+    fell,
+  };
+}
 
 const lightOf = (v: number, [a, b]: [number, number]): Light => (v < a ? 'ok' : v < b ? 'warn' : 'bad');
 const RANK: Record<Light, number> = { ok: 0, warn: 1, bad: 2, na: 3 };
 
-function meter(m: Omit<Meter, 'light' | 'trend'> & { step: number }): Meter {
+function meter(m: Omit<Meter, 'light' | 'trend' | 'stage'> & { step: number }): Meter {
   const { step, ...rest } = m;
   const d = rest.start == null ? 0 : rest.now - rest.start;
   return {
     ...rest,
     light: lightOf(rest.now, rest.cuts),
     trend: Math.abs(d) < step ? 'same' : d < 0 ? 'better' : 'worse',
+    stage: stageOf(rest.start, rest.now, rest.cuts),
   };
 }
 
