@@ -150,9 +150,11 @@ function processWeek(x: Prepared, res: BatchResult | null) {
   const cycle = cycleInfo(st.history, p.profile, p.week.days);
   const { lockedByDay, rotate } = weekLocks(st.stored, cycle.blockStart, EXERCISES, p.week.days);
   let final: GeneratedWeekPlan;
+  // Lo que deja la función generate-plan antes de responderle a la app.
+  let cleaned: RawPlan | null = null;
   try {
     if (!raw) throw new Error('sin respuesta');
-    const cleaned = sanitize(structuredClone(raw) as never, x.body as RequestBody);
+    cleaned = sanitize(structuredClone(raw) as never, x.body as RequestBody) as unknown as RawPlan;
     const checked = checkAiPlan({ plan: cleaned as never }, request, p.week);
     final = guardAiPlan(checked, {
       days: p.week.days,
@@ -180,7 +182,10 @@ function processWeek(x: Prepared, res: BatchResult | null) {
     forbidden: strongPainLastWeek(st.history, st.monday),
     check: benchCheck(p, st.history, st.monday, texts),
   };
+  // La nota de la IA se pone a su respuesta tal cual; lo que llega a la persona se mide después de la
+  // limpieza de la función (el revisor de la app solo simula la validación y la guardia de la app).
   const review = reviewAiPlan(kase, request, raw ?? { days: [] }, st.history);
+  if (cleaned) review.finalFindings = reviewAiPlan(kase, request, cleaned, st.history).finalFindings;
   const fmt = (f: { day: string | null; text: string }) => `${f.day ?? 'semana'}: ${f.text}`;
   const graves = review.findings.filter((f) => f.level === 'grave').map(fmt);
   const record: WeekRecord = {
