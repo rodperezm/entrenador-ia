@@ -52,6 +52,37 @@ Plan de ambientes: la dirección de GitHub pasará a ser pruebas, con su propia 
 
 ## Historial
 
+### 1.21.0 · 26 de noviembre de 2026
+
+La IA que arma la semana, probada con 39 personas simuladas durante 8 semanas, y corregida con lo que se encontró.
+
+**Qué cambia para la persona**
+
+- Las semanas de muchos días con lesión (por ejemplo 4 de fuerza, 2 de rodilla y 1 de elongación) ya no se caen a la rutina por reglas: antes la respuesta de la IA se cortaba en 3 de cada 8 semanas.
+- Si quedó muy pesado un ejercicio en la semana de descarga, la semana siguiente no sube su peso.
+- Si marcaste alertas de salud al empezar, la IA lo sabe: sin cierres HIIT ni AMRAP, sin semana de máxima intensidad, y te recuerda el visto bueno médico.
+- La IA retrocede cuando no completas un ejercicio con esfuerzo máximo (antes podía subirle volumen), y vuelve más suave después de una pausa.
+- Las explicaciones de cada ejercicio son más cortas y solo citan datos tuyos reales.
+- Si la IA propone un peso que no tienes, se usa el más cercano que sí tienes, en vez de dejarlo sin peso.
+- La postura de la paloma ya no aparece si evitas apoyar las rodillas.
+- Con 5 días de fuerza, la rutina por reglas ya no pone «Clean & press» en el día de piernas.
+
+**Qué cambia por dentro**
+
+- Función de la IA (`supabase/functions/generate-plan`): tope de salida 32.000 tokens con streaming (`messages.stream(...).finalMessage()`); vale el último texto si respondió el modelo de respaldo. `cleanRequest` deja solo las claves que manda la app y rechaza (400) condiciones, restricciones o alertas fuera del catálogo. Instrucciones nuevas en `prompt.ts`; `sanitize` elige el peso propio más cercano.
+- App: `aiRequest.ts` manda `profile.healthAlerts` y, de las sesiones de descarga, también lo que costó demasiado; `progression.ts` (`hardLog`, `lastSessionOf`); `generator.ts` (en la semana dividida no entra nada de otra zona); `stretch_pigeon` con la bandera `kneeling`.
+- Banco de pruebas en `tools/banco` y función `bench-claude` solo en el proyecto de pruebas. Resultados en `docs/banco-resultados.md`.
+- Pruebas nuevas en `tests/aiServerCheck.test.ts` y `tests/deload.test.ts` (182 en total).
+- Sin cambios en la base de datos.
+
+**Notas para quien siga el trabajo**
+
+- Los tokens de salida incluyen el razonamiento interno de Claude: la semana escrita ocupa ~5.500 y el resto es razonamiento, que crece con lesión, dolor e historial.
+- La función lleva una copia de los nombres del catálogo de condiciones, restricciones y alertas. Si se agrega una a `src/domain/catalog.ts`, hay que agregarla en `prompt.ts` y publicar la función ANTES que la app (si no, la función rechaza los pedidos de quien la marque). `tests/aiServerCheck.test.ts` avisa si no coinciden.
+- La función se puede publicar antes que la app: acepta pedidos sin `healthAlerts`.
+- Pendiente: las explicaciones todavía inventan cosas a veces, y el principiante de 70 años recibe balísticos.
+- Vuelta atrás: publicar la función y la app desde `v1.20.0`. No deja nada a medias en los teléfonos.
+
 ### 1.20.0 · 25 de noviembre de 2026
 
 Cuerpo más fácil de leer: el semáforo va por escalones y el historial muestra todo lo de cada día.
